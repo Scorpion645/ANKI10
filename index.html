@@ -677,12 +677,22 @@ body.light-mode .text-slate-100,
 }
 
 /* 2. Study View / Rendered Cards: Force Front content to be bold, let Back content follow its original text formatting */
-#frontContent, #frontContent * {
-  font-weight: bold !important;
+/* Keep the front bold by default, but honor intentional text formatting. */
+#frontContent {
+  font-weight: bold;
 }
 
-#frontContent, #frontContent * {
-  font-weight: bold !important;
+/* A cleared selection must remain visually unformatted even inside
+   a bold/colored parent pasted from PowerPoint or Word. */
+#editCardFront .anki-cleared-format,
+#frontContent .anki-cleared-format {
+  font-weight: normal !important;
+  font-style: normal !important;
+  text-decoration: none !important;
+  text-decoration-line: none !important;
+  text-shadow: none !important;
+  background-color: transparent !important;
+  letter-spacing: normal !important;
 }
 
 #backContent {
@@ -743,19 +753,19 @@ body.light-mode .text-slate-100,
 
 
 
-    /* 50% larger study workspace, capped to available viewport width. */
+    /* Keep the expanded study width; reduce study-card height by 50%. */
     body:has(#view-study:not(.hidden)) #mainContainer {
       max-width: min(1728px, 100vw) !important;
     }
-    #view-study .deck-viewer-container { min-height: 825px; height: max(825px, calc(100vh - 180px)); }
-    #view-study #studyCard, #view-study .perspective-1000 { min-height: 450px !important; }
+    #view-study .deck-viewer-container { min-height: 525px; height: max(525px, calc(100vh - 180px)); }
+    #view-study #studyCard, #view-study .perspective-1000 { min-height: 337.5px !important; }
     #view-study #frontContent, #view-study #backContent {
       max-width: none !important;
-      max-height: 390px !important;
+      max-height: 292.5px !important;
     }
     @media (max-width: 700px) {
-      #view-study .deck-viewer-container { min-height: 650px; height: auto; }
-      #view-study #studyCard, #view-study .perspective-1000 { min-height: 450px !important; }
+      #view-study .deck-viewer-container { min-height: 437.5px; height: auto; }
+      #view-study #studyCard, #view-study .perspective-1000 { min-height: 337.5px !important; }
     }
     </style>
 </head>
@@ -1036,7 +1046,7 @@ body.light-mode .text-slate-100,
                   <button type="button" onclick="execCmd('justifyRight', 'editCardFront')" class="toolbar-btn" title="Align Right"><i class="fa-solid fa-align-right"></i></button>
                   <button type="button" onmousedown="event.preventDefault()" onclick="execCmd('insertUnorderedList', 'editCardFront')" class="toolbar-btn" title="Bullet List"><i class="fa-solid fa-list-ul"></i></button>
                   <button type="button" onmousedown="event.preventDefault()" onclick="execCmd('insertOrderedList', 'editCardFront')" class="toolbar-btn" title="Numbered List"><i class="fa-solid fa-list-ol"></i></button>
-                  <button type="button" onclick="execCmd('removeFormat', 'editCardFront')" class="toolbar-btn" title="Clear Formatting"><i class="fa-solid fa-eraser"></i></button>
+                  <button type="button" onmousedown="event.preventDefault()" onclick="clearSelectedEditFrontFormatting()" class="toolbar-btn" title="Clear Formatting (selected front text only)"><i class="fa-solid fa-eraser"></i></button>
                 </div>
                 <div id="editCardFront" contenteditable="true" class="editor-canvas !min-h-[80px]"></div>
               </div>
@@ -1731,6 +1741,49 @@ document.addEventListener('keydown', function(e) {
 });
 
 
+// In Edit Card > Front, clear formatting only from the user's highlighted text.
+// Never flatten the whole editor when there is no selection.
+function clearSelectedEditFrontFormatting() {
+  const editor = document.getElementById('editCardFront');
+  if (!editor) return;
+  const selection = window.getSelection();
+  const belongs = range => range && editor.contains(range.commonAncestorContainer);
+  let range = selection.rangeCount ? selection.getRangeAt(0).cloneRange() : null;
+  if ((!belongs(range) || range.collapsed) && belongs(savedRange) && !savedRange.collapsed) {
+    range = savedRange.cloneRange();
+  }
+  if (!belongs(range) || range.collapsed) return;
+
+  // Extract only the highlighted contents; never rewrite the rest of the card.
+  // This is more reliable than execCommand('removeFormat') for selections
+  // sitting inside inherited <b>, <font>, or PowerPoint-generated wrappers.
+  const selected = range.toString();
+  if (!selected) return;
+
+  // Preserve explicit newlines when a highlighted span crosses line breaks.
+  const extracted = range.extractContents();
+  const baseColor = getComputedStyle(editor).color;
+  const baseSize = getComputedStyle(editor).fontSize;
+  const span = document.createElement('span');
+  span.className = 'anki-cleared-format';
+  span.style.setProperty('font-weight', 'normal', 'important');
+  span.style.setProperty('font-style', 'normal', 'important');
+  span.style.setProperty('text-decoration', 'none', 'important');
+  span.style.setProperty('color', baseColor, 'important');
+  span.style.setProperty('font-size', baseSize, 'important');
+  // Keep line breaks while removing inline formatting in the selection.
+  span.textContent = extracted.textContent || selected;
+  range.insertNode(span);
+
+  const restored = document.createRange();
+  restored.selectNodeContents(span);
+  editor.focus();
+  selection.removeAllRanges();
+  selection.addRange(restored);
+  savedRange = restored.cloneRange();
+  activeEditorId = editor.id;
+}
+
 function execCmd(command, editorId = null, value = null) {
   const targetId = editorId || activeEditorId;
   if (!targetId) return;
@@ -1820,6 +1873,7 @@ function promptCreateDeck() {
     };
 
     let selectedSidebarCardIds = new Set();
+    let sidebarSelectionAnchorIndex = null;
     let fullDeckPracticeMode = false;
     let idbDB = null;
     let dbInstance = null;
@@ -2704,6 +2758,7 @@ function startStudy(deckId, practiceAll = false) {
       }
       appState.studyIndex = resumeIdx;
       selectedSidebarCardIds.clear();
+      sidebarSelectionAnchorIndex = null;
 
       document.getElementById('studyDeckTitle').innerText = deck.name + (fullDeckPracticeMode ? ' · Full Deck Practice' : '');
       checkPasteVisibility();
@@ -2755,8 +2810,8 @@ function startStudy(deckId, practiceAll = false) {
 
         li.innerHTML = `
           <div class="flex items-center space-x-2 truncate flex-1">
-            <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleSidebarCardSelection('${card.id}', this.checked)" onclick="event.stopPropagation()" class="w-3.5 h-3.5 rounded bg-slate-900 border-slate-700 text-indigo-600 focus:ring-0 cursor-pointer" />
-            <div class="flex items-center space-x-2 truncate cursor-pointer flex-1" onclick="selectCardFromSidebar(${index})">
+            <input type="checkbox" ${isChecked ? 'checked' : ''} onclick="event.stopPropagation(); toggleSidebarCardSelection('${card.id}', this.checked, event.shiftKey, ${index})" class="w-3.5 h-3.5 rounded bg-slate-900 border-slate-700 text-indigo-600 focus:ring-0 cursor-pointer" />
+            <div class="flex items-center space-x-2 truncate cursor-pointer flex-1" onclick="selectCardFromSidebar(${index}, event.shiftKey)">
               <span class="text-[10px] text-slate-500 font-bold">${index + 1}.</span>
               <span class="line-clamp-1 truncate font-medium">${displayLabel}</span>
             </div>
@@ -2772,14 +2827,31 @@ function startStudy(deckId, practiceAll = false) {
       updateSidebarBatchUI();
     }
 
-    function toggleSidebarCardSelection(cardId, isChecked) {
+    function selectSidebarCardRange(index) {
+      const cards = appState.studyQueue;
+      if (!cards.length || index < 0 || index >= cards.length) return;
+      const anchor = sidebarSelectionAnchorIndex === null
+        ? appState.studyIndex : sidebarSelectionAnchorIndex;
+      const start = Math.max(0, Math.min(anchor, index));
+      const end = Math.min(cards.length - 1, Math.max(anchor, index));
+      for (let i = start; i <= end; i++) selectedSidebarCardIds.add(cards[i].id);
+      renderSidebarList();
+    }
+
+    function toggleSidebarCardSelection(cardId, isChecked, shiftKey = false, index = -1) {
+      if (shiftKey && index >= 0) {
+        selectSidebarCardRange(index);
+        return;
+      }
       if (isChecked) selectedSidebarCardIds.add(cardId);
       else selectedSidebarCardIds.delete(cardId);
+      if (index >= 0) sidebarSelectionAnchorIndex = index;
       updateSidebarBatchUI();
     }
 
     function toggleSelectAllSidebarCards(isChecked) {
       selectedSidebarCardIds.clear();
+      sidebarSelectionAnchorIndex = null;
       if (isChecked) {
         appState.studyQueue.forEach(c => selectedSidebarCardIds.add(c.id));
       }
@@ -2972,7 +3044,9 @@ function startStudy(deckId, practiceAll = false) {
       showStudyCard();
     }
 
-function selectCardFromSidebar(index) {
+function selectCardFromSidebar(index, shiftKey = false) {
+      if (shiftKey) { selectSidebarCardRange(index); return; }
+      sidebarSelectionAnchorIndex = index;
       appState.studyIndex = index;
       document.getElementById('studyViewMode').classList.remove('hidden');
       document.getElementById('studyEditMode').classList.add('hidden');
@@ -3078,6 +3152,7 @@ function openAddCardModal() {
     }
 
     function saveModalCard() {
+  renumberClozeEditors('modalCardFront', 'modalCardBack');
   const title = document.getElementById('modalCardTitle').value.trim();
   // Sanitize to clean external PPT/Word styles
   const front = sanitizeHtmlContent(document.getElementById('modalCardFront').innerHTML.trim());
@@ -3218,20 +3293,26 @@ function openAddCardModal() {
       return true;
     }
 
+    // Standard Anki cloze {{c1::answer}} and advanced
+    // {{c1::answer::hint}} both work on the FRONT as well as the BACK.
+    // Rich formatting within the answer is preserved by renderInlineBackCloze.
     function updateClozeFront() {
       const card = appState.studyQueue[appState.studyIndex];
       if (!card) return;
-      const clozeContainer = document.getElementById('frontClozeContent');
-      if (clozeContainer) clozeContainer.innerHTML = renderClozeText(card.clozeText || '', clozeRevealCount);
-      const total = getClozeNumbers(card.clozeText || '').length;
-      const hint = document.getElementById('clozeRevealHint');
-      if (hint) hint.textContent = total ? (clozeRevealCount < total ? `Press Space to reveal answer ${clozeRevealCount + 1} of ${total}` : 'All cloze answers revealed — click the card to see the back') : '';
+      const front = document.getElementById('frontContent');
+      if (!front) return;
+      front.innerHTML = wrapImagesWithControls(
+        renderInlineBackCloze(card.front || '', clozeRevealCount), 'front'
+      );
     }
 
     function revealNextCloze() {
       const card = appState.studyQueue[appState.studyIndex];
-      if (!card || !card.clozeText || document.getElementById('studyCard').classList.contains('card-flipped')) return false;
-      const total = getClozeNumbers(card.clozeText).length;
+      const studyCard = document.getElementById('studyCard');
+      if (!card || !studyCard || studyCard.classList.contains('card-flipped')) return false;
+      const parsed = document.createElement('div');
+      parsed.innerHTML = card.front || '';
+      const total = getClozeNumbers(parsed.textContent).length;
       if (clozeRevealCount >= total) return false;
       clozeRevealCount++;
       updateClozeFront();
@@ -3247,10 +3328,8 @@ function openAddCardModal() {
       document.getElementById('studyProgressText').innerText = `Card ${appState.studyIndex + 1} of ${appState.studyQueue.length}`;
       const badge = document.getElementById('cardTitleBadge');
       badge.innerText = card.title ? card.title.toUpperCase() : 'QUESTION';
-      document.getElementById('frontContent').innerHTML = wrapImagesWithControls(card.front || '', 'front');
-      const backContent = document.getElementById('backContent');
-      updateClozeBack();
       updateClozeFront();
+      updateClozeBack();
     }
 
     // Space reveals one numbered cloze group at a time while the study card is showing its front.
@@ -3263,7 +3342,7 @@ function openAddCardModal() {
       const cardEl = document.getElementById('studyCard');
       const editing = document.getElementById('studyEditMode');
       if (editing && !editing.classList.contains('hidden')) return;
-      const revealed = cardEl && cardEl.classList.contains('card-flipped') ? revealNextBackCloze() : (flipCard(), true);
+      const revealed = cardEl && cardEl.classList.contains('card-flipped') ? revealNextBackCloze() : (revealNextCloze() || (flipCard(), true));
       if (revealed) e.preventDefault();
     });
 
@@ -3536,6 +3615,169 @@ document.addEventListener('paste', function (e) {
     }
 });
 
+// Undo/redo history for card rich-text editors.  Browser-native undo does not
+// reliably cover DOM edits made by cloze insertion, pasted media and formatting.
+// Keep this scoped to editors; leave deck navigation and card scheduling alone.
+const ankiEditorUndo = (() => {
+  const editorIds = new Set([
+    'createCardFront', 'createCardBack',
+    'modalCardFront', 'modalCardBack',
+    'editCardFront', 'editCardBack'
+  ]);
+  const histories = new WeakMap();
+  const MAX_ENTRIES = 100;
+  let restoring = false;
+
+  function editorFor(node) {
+    const element = node?.nodeType === Node.ELEMENT_NODE ? node : node?.parentElement;
+    const editor = element?.closest?.('[contenteditable="true"]');
+    return editor && editorIds.has(editor.id) ? editor : null;
+  }
+
+  function nodePath(root, node) {
+    const result = [];
+    while (node && node !== root) {
+      const parent = node.parentNode;
+      if (!parent) return null;
+      result.unshift(Array.prototype.indexOf.call(parent.childNodes, node));
+      node = parent;
+    }
+    return node === root ? result : null;
+  }
+
+  function resolvePath(root, path) {
+    let node = root;
+    for (const index of path || []) {
+      if (!node.childNodes[index]) return root;
+      node = node.childNodes[index];
+    }
+    return node;
+  }
+
+  function snapshot(editor) {
+    const selected = window.getSelection();
+    let caret = null;
+    if (selected?.rangeCount) {
+      const range = selected.getRangeAt(0);
+      if (editor.contains(range.startContainer) && editor.contains(range.endContainer)) {
+        caret = {
+          start: nodePath(editor, range.startContainer),
+          startOffset: range.startOffset,
+          end: nodePath(editor, range.endContainer),
+          endOffset: range.endOffset
+        };
+      }
+    }
+    return { html: editor.innerHTML, caret };
+  }
+
+  function remember(editor) {
+    let history = histories.get(editor);
+    if (!history) {
+      history = { entries: [snapshot(editor)], index: 0, observer: null };
+      const observer = new MutationObserver(() => {
+        if (!restoring) record(editor);
+      });
+      observer.observe(editor, {
+        subtree: true, childList: true, characterData: true, attributes: true
+      });
+      history.observer = observer;
+      histories.set(editor, history);
+    }
+    return history;
+  }
+
+  function record(editor) {
+    if (restoring) return;
+    const history = remember(editor);
+    const next = snapshot(editor);
+    const current = history.entries[history.index];
+    if (current.html === next.html) {
+      // Refresh the caret without creating an extra undo step.
+      current.caret = next.caret || current.caret;
+      return;
+    }
+    history.entries.splice(history.index + 1);
+    history.entries.push(next);
+    if (history.entries.length > MAX_ENTRIES) history.entries.shift();
+    history.index = history.entries.length - 1;
+  }
+
+  function restore(editor, nextIndex) {
+    const history = remember(editor);
+    if (nextIndex < 0 || nextIndex >= history.entries.length) return false;
+    restoring = true;
+    try {
+      const state = history.entries[nextIndex];
+      editor.innerHTML = state.html;
+      history.index = nextIndex;
+      editor.focus();
+      const selection = window.getSelection();
+      if (selection) {
+        const range = document.createRange();
+        if (state.caret && state.caret.start && state.caret.end) {
+          const start = resolvePath(editor, state.caret.start);
+          const end = resolvePath(editor, state.caret.end);
+          const maxStart = start.nodeType === Node.TEXT_NODE ? start.length : start.childNodes.length;
+          const maxEnd = end.nodeType === Node.TEXT_NODE ? end.length : end.childNodes.length;
+          range.setStart(start, Math.min(state.caret.startOffset, maxStart));
+          range.setEnd(end, Math.min(state.caret.endOffset, maxEnd));
+        } else {
+          range.selectNodeContents(editor);
+          range.collapse(false);
+        }
+        selection.removeAllRanges();
+        selection.addRange(range);
+        savedRange = range.cloneRange();
+      }
+      activeEditorId = editor.id;
+      // Don't let restoration itself become a new entry.
+      history.observer.takeRecords();
+    } finally {
+      restoring = false;
+    }
+    return true;
+  }
+
+  document.addEventListener('focusin', event => {
+    const editor = editorFor(event.target);
+    if (editor) remember(editor);
+  }, true);
+
+  // Record the pre-edit version, including when the browser modifies the DOM
+  // without calling our rich-text toolbar functions.
+  document.addEventListener('beforeinput', event => {
+    const editor = editorFor(event.target);
+    if (editor) remember(editor);
+  }, true);
+
+  document.addEventListener('input', event => {
+    const editor = editorFor(event.target);
+    if (editor) record(editor);
+  }, true);
+
+  document.addEventListener('keydown', event => {
+    if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
+    const editor = editorFor(event.target);
+    if (!editor) return;
+    const key = event.key.toLowerCase();
+    const undo = key === 'z' && !event.shiftKey;
+    const redo = (key === 'z' && event.shiftKey) || key === 'y';
+    if (!undo && !redo) return;
+
+    const history = remember(editor);
+    // Flush any pending mutations before navigating history.
+    if (history.observer.takeRecords().length) record(editor);
+    const target = history.index + (undo ? -1 : 1);
+    if (target < 0 || target >= history.entries.length) return;
+    event.preventDefault();
+    event.stopPropagation();
+    restore(editor, target);
+  }, true);
+
+  return { record };
+})();
+
 // Track and save the cursor/selection range whenever it changes inside an editor
 document.addEventListener('selectionchange', () => {
   const sel = window.getSelection();
@@ -3572,13 +3814,41 @@ function applyColor(color) {
 
 
 
-// Insert plain cloze syntax at the caret without modifying surrounding rich text.
-function insertBackClozeField(editorId) {
+// Renumber complete standard and advanced cloze expressions in reading order.
+// Edit ONLY the c-number portion, preserving colored/bold answer HTML and hints.
+// This runs when a card is saved, not during editing.
+function renumberClozeEditors(frontEditorId, backEditorId) {
+  let nextNumber = 1;
+  for (const editorId of [frontEditorId, backEditorId]) {
+    const editor = document.getElementById(editorId);
+    if (!editor) continue;
+    const source = editor.textContent || '';
+    const matches = [...source.matchAll(/\{\{c(\d+)::[\s\S]*?(?:::[\s\S]*?)?\}\}/g)];
+    // Process in reverse order so replacing digits never shifts earlier positions.
+    // Numbering for the second editor continues after the first editor.
+    const startNumber = nextNumber;
+    nextNumber += matches.length;
+    for (let i = matches.length - 1; i >= 0; i--) {
+      const match = matches[i];
+      const range = clozeTextRange(editor, match.index + 3,
+                                   match.index + 3 + match[1].length);
+      if (!range) continue;
+      range.deleteContents();
+      range.insertNode(document.createTextNode(String(startNumber + i)));
+    }
+  }
+}
+
+// Replace selected back-face text with an advanced cloze whose answer is
+// the exact selected content (including its existing rich-text formatting).
+// With no selection, preserve the existing clipboard-to-answer behavior.
+async function insertBackClozeField(editorId) {
   const editor = document.getElementById(editorId);
   if (!editor) return;
   const selection = window.getSelection();
   let range;
-  if (selection.rangeCount && editor.contains(selection.getRangeAt(0).commonAncestorContainer)) {
+  if (selection.rangeCount &&
+      editor.contains(selection.getRangeAt(0).commonAncestorContainer)) {
     range = selection.getRangeAt(0).cloneRange();
   } else if (savedRange && editor.contains(savedRange.commonAncestorContainer)) {
     range = savedRange.cloneRange();
@@ -3587,22 +3857,56 @@ function insertBackClozeField(editorId) {
     range.selectNodeContents(editor);
     range.collapse(false);
   }
-  const used = [...editor.textContent.matchAll(/\{\{c(\d+)::/g)].map(m => Number(m[1]));
+
+  const selectedAnswer = !range.collapsed && range.toString().length > 0;
+  let answer = 'answer';
+
+  // Do NOT request the clipboard when text in the back editor is selected.
+  // Clipboard access is asynchronous and might otherwise lose the selection.
+  if (!selectedAnswer) {
+    try {
+      if (navigator.clipboard?.readText) {
+        const pasted = await navigator.clipboard.readText();
+        if (pasted && pasted.trim()) {
+          answer = pasted.replace(/^[\s\u00a0\u200b\ufeff]+|[\s\u00a0\u200b\ufeff]+$/g, '');
+        }
+      }
+    } catch (error) {
+      // Keep the editable placeholder if clipboard permission is denied.
+    }
+  }
+
+  const used = [...editor.textContent.matchAll(/\{\{c(\d+)::/g)]
+    .map(match => Number(match[1]));
   let number = 1;
   while (used.includes(number)) number++;
+
   const token = document.createElement('span');
   token.className = 'anki-inline-cloze-token';
-  token.textContent = `{{c${number}::answer::hint}}`;
-  range.deleteContents();
+  token.appendChild(document.createTextNode(`{{c${number}::`));
+  const answerStart = token.textContent.length;
+
+  if (selectedAnswer) {
+    // extractContents preserves the selected answer's bold, colors, etc.,
+    // while replacing that original text in its current location.
+    token.appendChild(range.extractContents());
+  } else {
+    token.appendChild(document.createTextNode(answer));
+  }
+
+  const answerEnd = token.textContent.length;
+  token.appendChild(document.createTextNode('::hint}}'));
   range.insertNode(token);
   editor.focus();
-  const selected = document.createRange();
-  selected.setStart(token.firstChild, 3);
-  selected.setEnd(token.firstChild, 3 + String(number).length);
-  selection.removeAllRanges();
-  selection.addRange(selected);
+
+  // Keep the answer selected so the next Tab advances to the hint.
+  const selected = clozeTextRange(token, answerStart, answerEnd);
+  if (selected) {
+    selection.removeAllRanges();
+    selection.addRange(selected);
+    savedRange = selected.cloneRange();
+  }
   activeEditorId = editorId;
-  savedRange = selected.cloneRange();
 }
 
 // Double-click inside a cloze field to select its answer for editing.
@@ -3635,47 +3939,75 @@ document.addEventListener('dblclick', function(event) {
   savedRange = range.cloneRange();
 });
 
-// Tab stays within a cloze field: number -> answer -> hint. Double-click changes fields.
+// Tab navigates number -> answer -> hint -> next cloze answer.
+// Uses offsets across the entire editor, so colored or bold answers work too.
 document.addEventListener('keydown', function(event) {
   if (event.key !== 'Tab' || event.shiftKey) return;
-  const editor = event.target?.closest?.('#createCardBack, #modalCardBack, #editCardBack');
+  const editor = event.target?.closest?.(
+    '#createCardBack, #modalCardBack, #editCardBack'
+  );
   if (!editor) return;
   const selection = window.getSelection();
   if (!selection || !selection.rangeCount) return;
   const current = selection.getRangeAt(0);
-  let el = current.startContainer.nodeType === Node.TEXT_NODE
-    ? current.startContainer.parentElement : current.startContainer;
-  let token = el?.closest?.('.anki-inline-cloze-token');
-  // A selection can begin on a wrapper, rather than within its formatted text.
-  if (!token && el?.nodeType === Node.ELEMENT_NODE) {
-    const child = el.childNodes[current.startOffset];
-    const inside = child?.nodeType === Node.TEXT_NODE ? child.parentElement : child;
-    token = inside?.closest?.('.anki-inline-cloze-token') ||
-      inside?.querySelector?.('.anki-inline-cloze-token');
-  }
-  if (!token || !editor.contains(token)) return;
-  const match = /^\{\{c(\d+)::([\s\S]*?)::([\s\S]*?)\}\}$/.exec(token.textContent);
-  if (!match) return;
-  const prefix = document.createRange();
-  prefix.selectNodeContents(token);
-  try { prefix.setEnd(current.startContainer, current.startOffset); }
+  if (!editor.contains(current.commonAncestorContainer)) return;
+
+  const preceding = document.createRange();
+  preceding.selectNodeContents(editor);
+  try { preceding.setEnd(current.startContainer, current.startOffset); }
   catch (error) { return; }
-  const cursor = prefix.toString().length;
-  const numberEnd = 3 + match[1].length;
-  const answerStart = numberEnd + 2;
-  const answerEnd = answerStart + match[2].length;
-  const hintStart = answerEnd + 2;
-  const hintEnd = hintStart + match[3].length;
-  // A complete answer selection begins at answerStart, and should go to hint.
-  const next = cursor <= numberEnd
-    ? clozeTextRange(token, answerStart, answerEnd)
-    : cursor <= hintEnd ? clozeTextRange(token, hintStart, hintEnd) : null;
+  const cursorStart = preceding.toString().length;
+  try { preceding.setEnd(current.endContainer, current.endOffset); }
+  catch (error) { return; }
+  const cursorEnd = preceding.toString().length;
+
+  const source = editor.textContent || '';
+  const fields = [...source.matchAll(/\{\{c(\d+)::([\s\S]*?)(?:::(.*?))?\}\}/g)]
+    .map(match => {
+      const beginning = match.index;
+      const numberEnd = beginning + 3 + match[1].length;
+      const answerStart = numberEnd + 2;
+      const answerEnd = answerStart + match[2].length;
+      const hintStart = match[3] === undefined ? null : answerEnd + 2;
+      return {
+        beginning,
+        end: beginning + match[0].length,
+        numberEnd, answerStart, answerEnd,
+        hintStart,
+        hintEnd: hintStart === null ? null : hintStart + match[3].length
+      };
+    });
+  const index = fields.findIndex(field =>
+    cursorStart >= field.beginning && cursorEnd <= field.end
+  );
+  if (index < 0) return;
+  const field = fields[index];
+  let targetStart, targetEnd;
+
+  if (cursorStart < field.answerStart) {
+    targetStart = field.answerStart;
+    targetEnd = field.answerEnd;
+  } else if (cursorStart <= field.answerEnd && field.hintStart !== null &&
+             cursorEnd <= field.answerEnd) {
+    targetStart = field.hintStart;
+    targetEnd = field.hintEnd;
+  } else if (fields[index + 1]) {
+    // After the final part of this cloze, continue at the next one's answer.
+    targetStart = fields[index + 1].answerStart;
+    targetEnd = fields[index + 1].answerEnd;
+  } else {
+    // At the last cloze, allow the browser's normal Tab behavior.
+    return;
+  }
+
+  const next = clozeTextRange(editor, targetStart, targetEnd);
   if (!next) return;
   event.preventDefault();
   event.stopPropagation();
   editor.focus();
   selection.removeAllRanges();
   selection.addRange(next);
+  activeEditorId = editor.id;
   savedRange = next.cloneRange();
 }, true);
 
@@ -3814,6 +4146,7 @@ function toggleEditCurrentCard() {
 
     
 function saveCardEdits() {
+  renumberClozeEditors('editCardFront', 'editCardBack');
   const newTitle = document.getElementById('editCardTitleInput').value.trim();
   // Sanitize raw HTML to strip overlapping PPT line-heights/positioning
   const newFront = sanitizeHtmlContent(document.getElementById('editCardFront').innerHTML);
@@ -3853,7 +4186,7 @@ function saveCardEdits() {
       const card = document.getElementById('studyCard');
       if (!card) return;
       if (!card.classList.contains('card-flipped')) {
-        flipCard();
+        if (!revealNextCloze()) flipCard();
       } else {
         revealNextBackCloze();
       }
@@ -3867,8 +4200,20 @@ function saveCardEdits() {
       const card = appState.studyQueue[appState.studyIndex];
       if (!card) return;
 
-      // Require the answer side to be visible before accepting a rating.
-      if (!document.getElementById('studyCard').classList.contains('card-flipped')) {
+      // Pure front-side cloze cards have no back answer to flip to.
+      // Keep the flip requirement for Basic and hybrid cards with back content.
+      const frontProbe = document.createElement('div');
+      frontProbe.innerHTML = card.front || '';
+      const backProbe = document.createElement('div');
+      backProbe.innerHTML = card.back || '';
+      const isPureFrontCloze =
+        /\{\{c\d+::/.test(frontProbe.textContent || '') &&
+        !(backProbe.textContent || '').trim() &&
+        !backProbe.querySelector('img, audio, video, iframe, object, embed') &&
+        !(card.clozeText || '').trim();
+
+      if (!isPureFrontCloze &&
+          !document.getElementById('studyCard').classList.contains('card-flipped')) {
         showToast('Flip the card to see the answer before rating it.');
         return;
       }
@@ -4035,6 +4380,7 @@ function saveCardEdits() {
     }
 
     function saveNewCard() {
+  renumberClozeEditors('createCardFront', 'createCardBack');
       const deckId = document.getElementById('createCardDeck').value;
       const title = document.getElementById('createCardTitle').value.trim();
       const front = sanitizeHtmlContent(document.getElementById('createCardFront').innerHTML.trim());
