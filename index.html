@@ -767,6 +767,85 @@ body.light-mode .text-slate-100,
       #view-study .deck-viewer-container { min-height: 437.5px; height: auto; }
       #view-study #studyCard, #view-study .perspective-1000 { min-height: 337.5px !important; }
     }
+
+    /* iPhone only: compact the non-focus study sidebar to numbered navigation. */
+    #iphoneSidebarToggle { display: none; }
+    @media (max-width: 700px) {
+      body.anki-iphone #view-study .deck-viewer-container:not(.focus-study-active) {
+        min-width: 0;
+        width: 100%;
+      }
+      body.anki-iphone #view-study .deck-viewer-container:not(.focus-study-active) .sidebar {
+        width: 56px;
+        min-width: 56px;
+        max-width: 56px;
+      }
+      body.anki-iphone #view-study .deck-viewer-container:not(.focus-study-active) .sidebar-header {
+        display: none;
+      }
+      body.anki-iphone #view-study .deck-viewer-container:not(.focus-study-active) #iphoneSidebarToggle {
+        display: flex;
+        width: 100%;
+        min-height: 38px;
+        align-items: center;
+        justify-content: center;
+        border-bottom: 1px solid var(--border-color);
+        color: #818cf8;
+        background: #1e293b;
+        font-size: 17px;
+        cursor: pointer;
+        flex-shrink: 0;
+      }
+      body.anki-iphone #view-study .deck-viewer-container:not(.focus-study-active) .slide-item {
+        padding: 12px 3px;
+        justify-content: center;
+        min-width: 0;
+      }
+      body.anki-iphone #view-study .deck-viewer-container:not(.focus-study-active) .slide-item > div:first-child {
+        justify-content: center;
+        min-width: 0;
+      }
+      body.anki-iphone #view-study .deck-viewer-container:not(.focus-study-active) .slide-item input[type="checkbox"],
+      body.anki-iphone #view-study .deck-viewer-container:not(.focus-study-active) .slide-item > div:last-child,
+      body.anki-iphone #view-study .deck-viewer-container:not(.focus-study-active) .slide-item .sidebar-card-label {
+        display: none !important;
+      }
+      body.anki-iphone #view-study .deck-viewer-container:not(.focus-study-active) .slide-item .sidebar-card-number {
+        font-size: 12px;
+        min-width: 26px;
+        text-align: center;
+      }
+      body.anki-iphone #view-study .deck-viewer-container:not(.focus-study-active) .deck-main-content {
+        min-width: 0;
+        padding: 10px;
+      }
+      /* Tap the compact sidebar toggle to temporarily restore its original controls. */
+      body.anki-iphone #view-study .deck-viewer-container.iphone-sidebar-expanded:not(.focus-study-active) .sidebar {
+        width: min(270px, 68vw);
+        min-width: min(270px, 68vw);
+        max-width: min(270px, 68vw);
+      }
+      body.anki-iphone #view-study .deck-viewer-container.iphone-sidebar-expanded:not(.focus-study-active) .sidebar-header {
+        display: flex;
+        padding: 10px 8px;
+      }
+      body.anki-iphone #view-study .deck-viewer-container.iphone-sidebar-expanded:not(.focus-study-active) .slide-item {
+        padding: 10px 6px;
+        justify-content: space-between;
+      }
+      body.anki-iphone #view-study .deck-viewer-container.iphone-sidebar-expanded:not(.focus-study-active) .slide-item > div:first-child {
+        justify-content: flex-start;
+      }
+      body.anki-iphone #view-study .deck-viewer-container.iphone-sidebar-expanded:not(.focus-study-active) .slide-item input[type="checkbox"] {
+        display: inline-block !important;
+      }
+      body.anki-iphone #view-study .deck-viewer-container.iphone-sidebar-expanded:not(.focus-study-active) .slide-item > div:last-child {
+        display: flex !important;
+      }
+      body.anki-iphone #view-study .deck-viewer-container.iphone-sidebar-expanded:not(.focus-study-active) .slide-item .sidebar-card-label {
+        display: inline !important;
+      }
+    }
     </style>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col font-sans antialiased selection:bg-indigo-500 selection:text-white">
@@ -909,6 +988,7 @@ body.light-mode .text-slate-100,
         
         <!-- Permanent Side List of Cards with Multi-Select & Bulk Position Controls -->
         <div class="sidebar">
+          <button type="button" id="iphoneSidebarToggle" onclick="toggleIphoneSidebar()" aria-label="Expand card list" title="Show or hide full card list"><i class="fa-solid fa-angles-right"></i></button>
           <div class="sidebar-header flex flex-col space-y-2 !items-stretch">
             <div class="flex items-center justify-between">
               <div class="flex items-center space-x-2">
@@ -2786,6 +2866,22 @@ function startStudy(deckId, practiceAll = false) {
 
 
 
+    // Only iPhones get the compact sidebar; desktop and iPad layouts are untouched.
+    if (/iPhone|iPod/i.test(navigator.userAgent)) {
+      document.body.classList.add('anki-iphone');
+    }
+
+    function toggleIphoneSidebar() {
+      const viewer = document.querySelector('#view-study .deck-viewer-container');
+      const toggle = document.getElementById('iphoneSidebarToggle');
+      if (!viewer || !toggle) return;
+      const expanded = viewer.classList.toggle('iphone-sidebar-expanded');
+      toggle.setAttribute('aria-label', expanded ? 'Collapse card list' : 'Expand card list');
+      toggle.innerHTML = expanded
+        ? '<i class="fa-solid fa-angles-left"></i>'
+        : '<i class="fa-solid fa-angles-right"></i>';
+    }
+
     // --- SIDEBAR & MULTI-SELECT POSITION REORDERING ---
     function renderSidebarList() {
       const listEl = document.getElementById('slide-list');
@@ -2812,8 +2908,8 @@ function startStudy(deckId, practiceAll = false) {
           <div class="flex items-center space-x-2 truncate flex-1">
             <input type="checkbox" ${isChecked ? 'checked' : ''} onclick="event.stopPropagation(); toggleSidebarCardSelection('${card.id}', this.checked, event.shiftKey, ${index})" class="w-3.5 h-3.5 rounded bg-slate-900 border-slate-700 text-indigo-600 focus:ring-0 cursor-pointer" />
             <div class="flex items-center space-x-2 truncate cursor-pointer flex-1" onclick="selectCardFromSidebar(${index}, event.shiftKey)">
-              <span class="text-[10px] text-slate-500 font-bold">${index + 1}.</span>
-              <span class="line-clamp-1 truncate font-medium">${displayLabel}</span>
+              <span class="sidebar-card-number text-[10px] text-slate-500 font-bold">${index + 1}.</span>
+              <span class="sidebar-card-label line-clamp-1 truncate font-medium">${displayLabel}</span>
             </div>
           </div>
           <div class="flex items-center space-x-1" onclick="event.stopPropagation()">
