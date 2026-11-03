@@ -846,6 +846,75 @@ body.light-mode .text-slate-100,
         display: inline !important;
       }
     }
+    
+    /* iPhone normal view: move numbered card navigation below the card. */
+    @media (max-width: 700px) {
+      body.anki-iphone #view-study .deck-viewer-container:not(.focus-study-active) {
+        display: flex;
+        flex-direction: column;
+        height: auto;
+        min-height: 0;
+        overflow: hidden;
+      }
+      body.anki-iphone #view-study .deck-viewer-container:not(.focus-study-active) .deck-main-content {
+        order: 1;
+        width: 100%;
+        flex: 0 0 auto;
+      }
+      body.anki-iphone #view-study .deck-viewer-container:not(.focus-study-active) .sidebar {
+        order: 2;
+        width: 100%;
+        min-width: 0;
+        max-width: none;
+        height: auto;
+        flex: 0 0 auto;
+        border-right: 0;
+        border-top: 1px solid var(--border-color);
+      }
+      body.anki-iphone #view-study .deck-viewer-container:not(.focus-study-active) #iphoneSidebarToggle {
+        min-height: 30px;
+      }
+      body.anki-iphone #view-study .deck-viewer-container:not(.focus-study-active) #slide-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(42px, 1fr));
+        gap: 6px;
+        padding: 9px;
+        max-height: 175px;
+        overflow-y: auto;
+        align-content: start;
+        flex-grow: 0;
+      }
+      body.anki-iphone #view-study .deck-viewer-container:not(.focus-study-active) .slide-item {
+        min-height: 38px;
+        padding: 6px 2px;
+        border: 1px solid var(--border-color);
+        border-radius: 9px;
+        justify-content: center;
+        text-align: center;
+      }
+      body.anki-iphone #view-study .deck-viewer-container:not(.focus-study-active) .slide-item.active {
+        border: 2px solid #818cf8;
+      }
+      body.anki-iphone #view-study .deck-viewer-container:not(.focus-study-active) .slide-item .sidebar-card-number {
+        font-size: 13px;
+      }
+      /* Expanded controls remain available without taking space beside the card. */
+      body.anki-iphone #view-study .deck-viewer-container.iphone-sidebar-expanded:not(.focus-study-active) .sidebar {
+        width: 100%;
+        min-width: 0;
+        max-width: none;
+      }
+      body.anki-iphone #view-study .deck-viewer-container.iphone-sidebar-expanded:not(.focus-study-active) #slide-list {
+        display: block;
+        max-height: 260px;
+        padding: 0;
+      }
+      body.anki-iphone #view-study .deck-viewer-container.iphone-sidebar-expanded:not(.focus-study-active) .slide-item {
+        border: 0;
+        border-bottom: 1px solid var(--border-color);
+        border-radius: 0;
+      }
+    }
     </style>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col font-sans antialiased selection:bg-indigo-500 selection:text-white">
