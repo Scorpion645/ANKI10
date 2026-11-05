@@ -704,14 +704,14 @@ body.light-mode .text-slate-100,
 /* Keep editor cloze syntax inline, even when inserted into formatted text. */
 #createCardBack .anki-inline-cloze-token,
 #modalCardBack .anki-inline-cloze-token,
-#editCardBack .anki-inline-cloze-token {
+#editCardBack .anki-inline-cloze-token,
+#createCardFront .anki-inline-cloze-token,
+#modalCardFront .anki-inline-cloze-token,
+#editCardFront .anki-inline-cloze-token {
   display: inline !important;
   position: static !important;
   float: none !important;
-  font-weight: normal !important;
-  font-style: normal !important;
-  text-decoration: none !important;
-  font-size: inherit !important;
+  /* Do not suppress formatting inherited by cloze answers. */
   font-family: inherit !important;
   line-height: inherit !important;
   vertical-align: baseline !important;
@@ -746,10 +746,36 @@ body.light-mode .text-slate-100,
   list-style-position: outside !important;
 }
 .editor-canvas li::marker, .anki-content li::marker {
-  color: #000000 !important;
+  color: #f8fafc !important;
   font-weight: 900 !important;
   text-decoration: none !important;
 }
+body.light-mode .editor-canvas li::marker,
+body.light-mode .anki-content li::marker {
+  color: #000000 !important;
+}
+
+/* Respect saved colors except pure black on dark and pure white on light. */
+body:not(.light-mode) .editor-canvas :is([style*="color: black"], [style*="color:black"], [style*="color: rgb(0, 0, 0)"], [style*="color:rgb(0, 0, 0)"], [style*="color: #000000"], [style*="color:#000000"], [style*="color: #000;"], [style*="color:#000;"], [color="#000000"], [color="#000"], [color="black"]),
+body:not(.light-mode) .anki-content :is([style*="color: black"], [style*="color:black"], [style*="color: rgb(0, 0, 0)"], [style*="color:rgb(0, 0, 0)"], [style*="color: #000000"], [style*="color:#000000"], [style*="color: #000;"], [style*="color:#000;"], [color="#000000"], [color="#000"], [color="black"]) {
+  color: #f8fafc !important;
+}
+body.light-mode .editor-canvas :is([style*="color: white"], [style*="color:white"], [style*="color: rgb(255, 255, 255)"], [style*="color:rgb(255, 255, 255)"], [style*="color: #ffffff"], [style*="color:#ffffff"], [style*="color: #fff;"], [style*="color:#fff;"], [color="#ffffff"], [color="#fff"], [color="white"]),
+body.light-mode .anki-content :is([style*="color: white"], [style*="color:white"], [style*="color: rgb(255, 255, 255)"], [style*="color:rgb(255, 255, 255)"], [style*="color: #ffffff"], [style*="color:#ffffff"], [style*="color: #fff;"], [style*="color:#fff;"], [color="#ffffff"], [color="#fff"], [color="white"]) {
+  color: #0f172a !important;
+}
+/* Underlines inherit the actual displayed text color, including cloze content. */
+.editor-canvas *, .anki-content * { text-decoration-color: currentColor !important; }
+
+.anki-search-result {
+  display: block; width: 100%; text-align: left; padding: .55rem .7rem;
+  border-radius: .65rem; border: 1px solid var(--border-color);
+  background: var(--card-bg); color: var(--text-main);
+}
+.anki-search-result:hover { border-color: #818cf8; }
+body.light-mode .anki-search-result { background: #fff; color: #0f172a; }
+.anki-search-result small { display: block; opacity: .7; margin-top: .15rem; }
+
 
 
 
@@ -758,14 +784,14 @@ body.light-mode .text-slate-100,
       max-width: min(1728px, 100vw) !important;
     }
     #view-study .deck-viewer-container { min-height: 525px; height: max(525px, calc(100vh - 180px)); }
-    #view-study #studyCard, #view-study .perspective-1000 { min-height: 337.5px !important; }
+    #view-study #studyCard, #view-study .perspective-1000 { min-height: 506.25px !important; }
     #view-study #frontContent, #view-study #backContent {
       max-width: none !important;
-      max-height: 292.5px !important;
+      max-height: 438.75px !important;
     }
     @media (max-width: 700px) {
       #view-study .deck-viewer-container { min-height: 437.5px; height: auto; }
-      #view-study #studyCard, #view-study .perspective-1000 { min-height: 337.5px !important; }
+      #view-study #studyCard, #view-study .perspective-1000 { min-height: 506.25px !important; }
     }
 
     /* iPhone only: compact the non-focus study sidebar to numbered navigation. */
@@ -915,7 +941,37 @@ body.light-mode .text-slate-100,
         border-radius: 0;
       }
     }
-    </style>
+    
+/* Compact rich-text presets (create/add/edit front and back). */
+.anki-preset-group { display: inline-flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.anki-preset-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 34px; height: 27px; padding: 0 5px; border-radius: 6px;
+  border: 1px solid #64748b; background: #0f172a;
+  font-size: 12px; font-weight: 700; line-height: 1; cursor: pointer;
+}
+.anki-preset-btn:hover { outline: 1px solid #818cf8; }
+.anki-preset-btn[data-color="#000000"],
+.anki-preset-btn[data-color="#eab308"] { background: #ffffff; }
+.anki-preset-btn[data-underline="true"] { text-decoration-line: underline; text-decoration-color: currentColor; }
+body.light-mode .anki-preset-btn { border-color: #94a3b8; }
+
+
+/* Normal viewing mode: card begins just beneath the current-deck search. */
+body:not(.focus-study-active) #view-study #studyViewMode {
+  justify-content: flex-start;
+}
+body:not(.focus-study-active) #view-study #studyViewMode > .perspective-1000 {
+  margin-top: 8px !important;
+  margin-bottom: 0 !important;
+}
+/* Drag-and-drop feedback uses the existing sidebar colors. */
+#slide-list .slide-item[draggable="true"] { cursor: grab; }
+#slide-list .slide-item.anki-drag-source { opacity: .45; }
+#slide-list .slide-item.anki-drop-before { box-shadow: inset 0 3px 0 #818cf8; }
+#slide-list .slide-item.anki-drop-after { box-shadow: inset 0 -3px 0 #818cf8; }
+
+</style>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col font-sans antialiased selection:bg-indigo-500 selection:text-white">
 
@@ -995,6 +1051,17 @@ body.light-mode .text-slate-100,
       </div>
 
 
+      <!-- Search cards in all decks; results are temporary and never modify progress. -->
+      <div class="bg-slate-800/40 p-3 rounded-2xl border border-slate-700/60 space-y-2">
+        <label for="allDeckCardSearch" class="block text-xs font-semibold text-slate-400">Search all decks</label>
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-magnifying-glass text-slate-400"></i>
+          <input id="allDeckCardSearch" type="search" placeholder="Search card titles, questions, answers, or cloze text…"
+            oninput="searchAnkiCards('all')" class="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100" />
+        </div>
+        <div id="allDeckCardSearchResults" class="hidden space-y-1 max-h-72 overflow-y-auto"></div>
+      </div>
+
       <div id="decksGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       </div>
       
@@ -1052,6 +1119,17 @@ body.light-mode .text-slate-100,
         </div>
       </div>
 
+      <!-- Current-deck search (all cards, including those not currently due). -->
+      <div id="currentDeckSearchPanel" class="bg-slate-800/40 p-3 rounded-2xl border border-slate-700/60 space-y-2">
+        <label for="currentDeckCardSearch" class="block text-xs font-semibold text-slate-400">Search current deck</label>
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-magnifying-glass text-slate-400"></i>
+          <input id="currentDeckCardSearch" type="search" placeholder="Find a card in this deck…"
+            oninput="searchAnkiCards('current')" class="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100" />
+        </div>
+        <div id="currentDeckCardSearchResults" class="hidden space-y-1 max-h-60 overflow-y-auto"></div>
+      </div>
+
       <!-- Permanent Sidebar Slide List & Main Card Viewer Layout -->
       <div class="deck-viewer-container">
         
@@ -1074,10 +1152,7 @@ body.light-mode .text-slate-100,
             <div id="sidebarBatchToolbar" class="hidden flex items-center justify-between bg-slate-900 px-2 py-1.5 rounded-lg border border-slate-700 text-xs">
               <span id="sidebarSelectedCount" class="text-indigo-400 font-bold">0 selected</span>
               <div class="flex items-center space-x-1">
-                <button onclick="moveSelectedSidebarCards('top')" class="p-1 px-1.5 bg-slate-800 hover:bg-slate-700 rounded text-slate-300" title="Move to Top"><i class="fa-solid fa-angles-up"></i></button>
-                <button onclick="moveSelectedSidebarCards(-1)" class="p-1 px-1.5 bg-slate-800 hover:bg-slate-700 rounded text-slate-300" title="Move Up"><i class="fa-solid fa-chevron-up"></i></button>
-                <button onclick="moveSelectedSidebarCards(1)" class="p-1 px-1.5 bg-slate-800 hover:bg-slate-700 rounded text-slate-300" title="Move Down"><i class="fa-solid fa-chevron-down"></i></button>
-                <button onclick="moveSelectedSidebarCards('bottom')" class="p-1 px-1.5 bg-slate-800 hover:bg-slate-700 rounded text-slate-300" title="Move to Bottom"><i class="fa-solid fa-angles-down"></i></button>
+                <button type="button" onclick="deleteSelectedSidebarCards()" class="p-1 px-1.5 bg-rose-600 hover:bg-rose-500 rounded text-white" title="Delete selected cards"><i class="fa-solid fa-trash"></i><span class="ml-1">Delete</span></button>
               </div>
             </div>
           </div>
@@ -1190,13 +1265,24 @@ body.light-mode .text-slate-100,
                     <button type="button" onmousedown="event.preventDefault()" onclick="applyColor('#22c55e')" class="w-4 h-4 rounded-full bg-green-500 border border-slate-600 hover:scale-110 transition" title="Green"></button><button type="button" onmousedown="event.preventDefault()" onclick="applyColor('#ffffff')" class="w-4 h-4 rounded-full bg-white border border-slate-400 hover:scale-110 transition" title="White"></button>
                   </div>
                   <span class="w-[1px] bg-slate-700 my-1 mx-0.5"></span>
+                  
+                  <div class="anki-preset-group" aria-label="Formatting presets">
+                    <button type="button" class="anki-preset-btn" style="color:#ef4444" data-color="#ef4444" data-underline="true" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('editCardFront','#ef4444',true)" title="Bold red underline">Abc</button>
+                    <button type="button" class="anki-preset-btn" style="color:#ef4444" data-color="#ef4444" data-underline="false" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('editCardFront','#ef4444',false)" title="Bold red">Abc</button>
+                    <button type="button" class="anki-preset-btn" style="color:#3b82f6" data-color="#3b82f6" data-underline="false" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('editCardFront','#3b82f6',false)" title="Bold blue">Abc</button>
+                    <button type="button" class="anki-preset-btn" style="color:#22c55e" data-color="#22c55e" data-underline="false" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('editCardFront','#22c55e',false)" title="Bold green">Abc</button>
+                    <button type="button" class="anki-preset-btn" style="color:#eab308" data-color="#eab308" data-underline="false" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('editCardFront','#eab308',false)" title="Bold yellow">Abc</button>
+                    <button type="button" class="anki-preset-btn" style="color:#000000" data-color="#000000" data-underline="false" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('editCardFront','#000000',false)" title="Bold black">Abc</button>
+                    <button type="button" class="anki-preset-btn" style="color:#000000" data-color="#000000" data-underline="true" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('editCardFront','#000000',true)" title="Bold black underline">Abc</button>
+                  </div>
                   <button type="button" onclick="execCmd('justifyLeft', 'editCardFront')" class="toolbar-btn" title="Align Left"><i class="fa-solid fa-align-left"></i></button>
                   <button type="button" onclick="execCmd('justifyCenter', 'editCardFront')" class="toolbar-btn" title="Align Center"><i class="fa-solid fa-align-center"></i></button>
                   <button type="button" onclick="execCmd('justifyRight', 'editCardFront')" class="toolbar-btn" title="Align Right"><i class="fa-solid fa-align-right"></i></button>
                   <button type="button" onmousedown="event.preventDefault()" onclick="execCmd('insertUnorderedList', 'editCardFront')" class="toolbar-btn" title="Bullet List"><i class="fa-solid fa-list-ul"></i></button>
                   <button type="button" onmousedown="event.preventDefault()" onclick="execCmd('insertOrderedList', 'editCardFront')" class="toolbar-btn" title="Numbered List"><i class="fa-solid fa-list-ol"></i></button>
-                  <button type="button" onmousedown="event.preventDefault()" onclick="clearSelectedEditFrontFormatting()" class="toolbar-btn" title="Clear Formatting (selected front text only)"><i class="fa-solid fa-eraser"></i></button>
+                  <button type="button" onmousedown="event.preventDefault()" onclick="clearSelectedEditorFormatting('editCardFront')" class="toolbar-btn" title="Clear Formatting (selected front text only)"><i class="fa-solid fa-eraser"></i></button>
                 </div>
+                <button type="button" onmousedown="event.preventDefault()" onclick="insertBackClozeField('editCardFront')" class="toolbar-btn mb-1" title="Convert selected front text to a cloze, or insert a new cloze field"><i class="fa-solid fa-square-plus"></i> Add Cloze Field</button>
                 <div id="editCardFront" contenteditable="true" class="editor-canvas !min-h-[80px]"></div>
               </div>
 
@@ -1238,12 +1324,22 @@ body.light-mode .text-slate-100,
                     <button type="button" onmousedown="event.preventDefault()" onclick="applyColor('#22c55e')" class="w-4 h-4 rounded-full bg-green-500 border border-slate-600 hover:scale-110 transition" title="Green"></button><button type="button" onmousedown="event.preventDefault()" onclick="applyColor('#ffffff')" class="w-4 h-4 rounded-full bg-white border border-slate-400 hover:scale-110 transition" title="White"></button>
                   </div>
                   <span class="w-[1px] bg-slate-700 my-1 mx-0.5"></span>
+                  
+                  <div class="anki-preset-group" aria-label="Formatting presets">
+                    <button type="button" class="anki-preset-btn" style="color:#ef4444" data-color="#ef4444" data-underline="true" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('editCardBack','#ef4444',true)" title="Bold red underline">Abc</button>
+                    <button type="button" class="anki-preset-btn" style="color:#ef4444" data-color="#ef4444" data-underline="false" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('editCardBack','#ef4444',false)" title="Bold red">Abc</button>
+                    <button type="button" class="anki-preset-btn" style="color:#3b82f6" data-color="#3b82f6" data-underline="false" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('editCardBack','#3b82f6',false)" title="Bold blue">Abc</button>
+                    <button type="button" class="anki-preset-btn" style="color:#22c55e" data-color="#22c55e" data-underline="false" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('editCardBack','#22c55e',false)" title="Bold green">Abc</button>
+                    <button type="button" class="anki-preset-btn" style="color:#eab308" data-color="#eab308" data-underline="false" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('editCardBack','#eab308',false)" title="Bold yellow">Abc</button>
+                    <button type="button" class="anki-preset-btn" style="color:#000000" data-color="#000000" data-underline="false" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('editCardBack','#000000',false)" title="Bold black">Abc</button>
+                    <button type="button" class="anki-preset-btn" style="color:#000000" data-color="#000000" data-underline="true" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('editCardBack','#000000',true)" title="Bold black underline">Abc</button>
+                  </div>
                   <button type="button" onclick="execCmd('justifyLeft', 'editCardBack')" class="toolbar-btn" title="Align Left"><i class="fa-solid fa-align-left"></i></button>
                   <button type="button" onclick="execCmd('justifyCenter', 'editCardBack')" class="toolbar-btn" title="Align Center"><i class="fa-solid fa-align-center"></i></button>
                   <button type="button" onclick="execCmd('justifyRight', 'editCardBack')" class="toolbar-btn" title="Align Right"><i class="fa-solid fa-align-right"></i></button>
                   <button type="button" onmousedown="event.preventDefault()" onclick="execCmd('insertUnorderedList', 'editCardBack')" class="toolbar-btn" title="Bullet List"><i class="fa-solid fa-list-ul"></i></button>
                   <button type="button" onmousedown="event.preventDefault()" onclick="execCmd('insertOrderedList', 'editCardBack')" class="toolbar-btn" title="Numbered List"><i class="fa-solid fa-list-ol"></i></button>
-                  <button type="button" onclick="execCmd('removeFormat', 'editCardBack')" class="toolbar-btn" title="Clear Formatting"><i class="fa-solid fa-eraser"></i></button>
+                  <button type="button" onmousedown="event.preventDefault()" onclick="clearSelectedEditorFormatting('editCardBack')" class="toolbar-btn" title="Clear Formatting"><i class="fa-solid fa-eraser"></i></button>
                 </div>
                 <button type="button" onmousedown="event.preventDefault()" onclick="insertBackClozeField('editCardBack')" class="toolbar-btn mb-1" title="Insert a numbered cloze field"><i class="fa-solid fa-square-plus"></i> Add Cloze Field</button>
                 <div id="editCardBack" contenteditable="true" class="editor-canvas !min-h-[80px]"></div>
@@ -1383,7 +1479,17 @@ body.light-mode .text-slate-100,
               </div>             
 
  <span class="w-[1px] bg-slate-700 my-1 mx-0.5"></span>
-              <button type="button" onclick="execCmd('justifyLeft', 'createCardFront')" class="toolbar-btn" title="Align Left"><i class="fa-solid fa-align-left"></i></button>
+              
+                  <div class="anki-preset-group" aria-label="Formatting presets">
+                    <button type="button" class="anki-preset-btn" style="color:#ef4444" data-color="#ef4444" data-underline="true" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('createCardFront','#ef4444',true)" title="Bold red underline">Abc</button>
+                    <button type="button" class="anki-preset-btn" style="color:#ef4444" data-color="#ef4444" data-underline="false" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('createCardFront','#ef4444',false)" title="Bold red">Abc</button>
+                    <button type="button" class="anki-preset-btn" style="color:#3b82f6" data-color="#3b82f6" data-underline="false" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('createCardFront','#3b82f6',false)" title="Bold blue">Abc</button>
+                    <button type="button" class="anki-preset-btn" style="color:#22c55e" data-color="#22c55e" data-underline="false" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('createCardFront','#22c55e',false)" title="Bold green">Abc</button>
+                    <button type="button" class="anki-preset-btn" style="color:#eab308" data-color="#eab308" data-underline="false" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('createCardFront','#eab308',false)" title="Bold yellow">Abc</button>
+                    <button type="button" class="anki-preset-btn" style="color:#000000" data-color="#000000" data-underline="false" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('createCardFront','#000000',false)" title="Bold black">Abc</button>
+                    <button type="button" class="anki-preset-btn" style="color:#000000" data-color="#000000" data-underline="true" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('createCardFront','#000000',true)" title="Bold black underline">Abc</button>
+                  </div>
+                  <button type="button" onclick="execCmd('justifyLeft', 'createCardFront')" class="toolbar-btn" title="Align Left"><i class="fa-solid fa-align-left"></i></button>
               <button type="button" onclick="execCmd('justifyCenter', 'createCardFront')" class="toolbar-btn" title="Align Center"><i class="fa-solid fa-align-center"></i></button>
               <button type="button" onclick="execCmd('justifyRight', 'createCardFront')" class="toolbar-btn" title="Align Right"><i class="fa-solid fa-align-right"></i></button>
              
@@ -1392,10 +1498,11 @@ body.light-mode .text-slate-100,
 
 
 
-              <button type="button" onclick="execCmd('removeFormat', 'createCardFront')" class="toolbar-btn" title="Clear Formatting"><i class="fa-solid fa-eraser"></i></button>
+              <button type="button" onmousedown="event.preventDefault()" onclick="clearSelectedEditorFormatting('createCardFront')" class="toolbar-btn" title="Clear Formatting"><i class="fa-solid fa-eraser"></i></button>
             </div>
             
-<div id="createCardFront" contenteditable="true" class="editor-canvas" style="font-weight: bold;"><span style="font-weight: bold;"><br></span></div>
+<button type="button" onmousedown="event.preventDefault()" onclick="insertBackClozeField('createCardFront')" class="toolbar-btn mb-1" title="Convert selected front text to a cloze, or insert a new cloze field"><i class="fa-solid fa-square-plus"></i> Add Cloze Field</button>
+                <div id="createCardFront" contenteditable="true" class="editor-canvas" style="font-weight: bold;"><span style="font-weight: bold;"><br></span></div>
           </div>
 
           <!-- Back Editor -->
@@ -1434,7 +1541,17 @@ body.light-mode .text-slate-100,
                 <button type="button" onmousedown="event.preventDefault()" onclick="applyColor('#22c55e')" class="w-4 h-4 rounded-full bg-green-500 border border-slate-600 hover:scale-110 transition" title="Green"></button><button type="button" onmousedown="event.preventDefault()" onclick="applyColor('#ffffff')" class="w-4 h-4 rounded-full bg-white border border-slate-400 hover:scale-110 transition" title="White"></button>
               </div>
               <span class="w-[1px] bg-slate-700 my-1 mx-0.5"></span>
-              <button type="button" onclick="execCmd('justifyLeft', 'createCardBack')" class="toolbar-btn" title="Align Left"><i class="fa-solid fa-align-left"></i></button>
+              
+                  <div class="anki-preset-group" aria-label="Formatting presets">
+                    <button type="button" class="anki-preset-btn" style="color:#ef4444" data-color="#ef4444" data-underline="true" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('createCardBack','#ef4444',true)" title="Bold red underline">Abc</button>
+                    <button type="button" class="anki-preset-btn" style="color:#ef4444" data-color="#ef4444" data-underline="false" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('createCardBack','#ef4444',false)" title="Bold red">Abc</button>
+                    <button type="button" class="anki-preset-btn" style="color:#3b82f6" data-color="#3b82f6" data-underline="false" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('createCardBack','#3b82f6',false)" title="Bold blue">Abc</button>
+                    <button type="button" class="anki-preset-btn" style="color:#22c55e" data-color="#22c55e" data-underline="false" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('createCardBack','#22c55e',false)" title="Bold green">Abc</button>
+                    <button type="button" class="anki-preset-btn" style="color:#eab308" data-color="#eab308" data-underline="false" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('createCardBack','#eab308',false)" title="Bold yellow">Abc</button>
+                    <button type="button" class="anki-preset-btn" style="color:#000000" data-color="#000000" data-underline="false" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('createCardBack','#000000',false)" title="Bold black">Abc</button>
+                    <button type="button" class="anki-preset-btn" style="color:#000000" data-color="#000000" data-underline="true" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('createCardBack','#000000',true)" title="Bold black underline">Abc</button>
+                  </div>
+                  <button type="button" onclick="execCmd('justifyLeft', 'createCardBack')" class="toolbar-btn" title="Align Left"><i class="fa-solid fa-align-left"></i></button>
               <button type="button" onclick="execCmd('justifyCenter', 'createCardBack')" class="toolbar-btn" title="Align Center"><i class="fa-solid fa-align-center"></i></button>
               <button type="button" onclick="execCmd('justifyRight', 'createCardBack')" class="toolbar-btn" title="Align Right"><i class="fa-solid fa-align-right"></i></button>
 
@@ -1442,7 +1559,7 @@ body.light-mode .text-slate-100,
 <button type="button" onmousedown="event.preventDefault()" onclick="execCmd('insertOrderedList', 'createCardBack')" class="toolbar-btn" title="Numbered List"><i class="fa-solid fa-list-ol"></i></button>
 
 
-              <button type="button" onclick="execCmd('removeFormat', 'createCardBack')" class="toolbar-btn" title="Clear Formatting"><i class="fa-solid fa-eraser"></i></button>
+              <button type="button" onmousedown="event.preventDefault()" onclick="clearSelectedEditorFormatting('createCardBack')" class="toolbar-btn" title="Clear Formatting"><i class="fa-solid fa-eraser"></i></button>
             </div>
             <button type="button" onmousedown="event.preventDefault()" onclick="insertBackClozeField('createCardBack')" class="toolbar-btn mb-1" title="Insert a numbered cloze field"><i class="fa-solid fa-square-plus"></i> Add Cloze Field</button>
             <div id="createCardBack" contenteditable="true" class="editor-canvas"></div>
@@ -1580,7 +1697,17 @@ body.light-mode .text-slate-100,
               </div>
 
             <span class="w-[1px] bg-slate-700 my-1 mx-0.5"></span>
-            <button type="button" onclick="execCmd('justifyLeft', 'modalCardFront')" class="toolbar-btn" title="Align Left"><i class="fa-solid fa-align-left"></i></button>
+            
+                  <div class="anki-preset-group" aria-label="Formatting presets">
+                    <button type="button" class="anki-preset-btn" style="color:#ef4444" data-color="#ef4444" data-underline="true" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('modalCardFront','#ef4444',true)" title="Bold red underline">Abc</button>
+                    <button type="button" class="anki-preset-btn" style="color:#ef4444" data-color="#ef4444" data-underline="false" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('modalCardFront','#ef4444',false)" title="Bold red">Abc</button>
+                    <button type="button" class="anki-preset-btn" style="color:#3b82f6" data-color="#3b82f6" data-underline="false" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('modalCardFront','#3b82f6',false)" title="Bold blue">Abc</button>
+                    <button type="button" class="anki-preset-btn" style="color:#22c55e" data-color="#22c55e" data-underline="false" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('modalCardFront','#22c55e',false)" title="Bold green">Abc</button>
+                    <button type="button" class="anki-preset-btn" style="color:#eab308" data-color="#eab308" data-underline="false" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('modalCardFront','#eab308',false)" title="Bold yellow">Abc</button>
+                    <button type="button" class="anki-preset-btn" style="color:#000000" data-color="#000000" data-underline="false" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('modalCardFront','#000000',false)" title="Bold black">Abc</button>
+                    <button type="button" class="anki-preset-btn" style="color:#000000" data-color="#000000" data-underline="true" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('modalCardFront','#000000',true)" title="Bold black underline">Abc</button>
+                  </div>
+                  <button type="button" onclick="execCmd('justifyLeft', 'modalCardFront')" class="toolbar-btn" title="Align Left"><i class="fa-solid fa-align-left"></i></button>
             <button type="button" onclick="execCmd('justifyCenter', 'modalCardFront')" class="toolbar-btn" title="Align Center"><i class="fa-solid fa-align-center"></i></button>
             <button type="button" onclick="execCmd('justifyRight', 'modalCardFront')" class="toolbar-btn" title="Align Right"><i class="fa-solid fa-align-right"></i></button>
 
@@ -1588,9 +1715,10 @@ body.light-mode .text-slate-100,
 <button type="button" onmousedown="event.preventDefault()" onclick="execCmd('insertOrderedList', 'modalCardFront')" class="toolbar-btn" title="Numbered List"><i class="fa-solid fa-list-ol"></i></button>
 
 
-            <button type="button" onclick="execCmd('removeFormat', 'modalCardFront')" class="toolbar-btn" title="Clear Formatting"><i class="fa-solid fa-eraser"></i></button>
+            <button type="button" onmousedown="event.preventDefault()" onclick="clearSelectedEditorFormatting('modalCardFront')" class="toolbar-btn" title="Clear Formatting"><i class="fa-solid fa-eraser"></i></button>
           </div>
-<div id="modalCardFront" contenteditable="true" class="editor-canvas !min-h-[80px]" style="font-weight: bold;"></div>
+<button type="button" onmousedown="event.preventDefault()" onclick="insertBackClozeField('modalCardFront')" class="toolbar-btn mb-1" title="Convert selected front text to a cloze, or insert a new cloze field"><i class="fa-solid fa-square-plus"></i> Add Cloze Field</button>
+                <div id="modalCardFront" contenteditable="true" class="editor-canvas !min-h-[80px]" style="font-weight: bold;"></div>
         </div>
 
         <div>
@@ -1639,7 +1767,17 @@ body.light-mode .text-slate-100,
               </div>
 
             <span class="w-[1px] bg-slate-700 my-1 mx-0.5"></span>
-            <button type="button" onclick="execCmd('justifyLeft', 'modalCardBack')" class="toolbar-btn" title="Align Left"><i class="fa-solid fa-align-left"></i></button>
+            
+                  <div class="anki-preset-group" aria-label="Formatting presets">
+                    <button type="button" class="anki-preset-btn" style="color:#ef4444" data-color="#ef4444" data-underline="true" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('modalCardBack','#ef4444',true)" title="Bold red underline">Abc</button>
+                    <button type="button" class="anki-preset-btn" style="color:#ef4444" data-color="#ef4444" data-underline="false" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('modalCardBack','#ef4444',false)" title="Bold red">Abc</button>
+                    <button type="button" class="anki-preset-btn" style="color:#3b82f6" data-color="#3b82f6" data-underline="false" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('modalCardBack','#3b82f6',false)" title="Bold blue">Abc</button>
+                    <button type="button" class="anki-preset-btn" style="color:#22c55e" data-color="#22c55e" data-underline="false" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('modalCardBack','#22c55e',false)" title="Bold green">Abc</button>
+                    <button type="button" class="anki-preset-btn" style="color:#eab308" data-color="#eab308" data-underline="false" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('modalCardBack','#eab308',false)" title="Bold yellow">Abc</button>
+                    <button type="button" class="anki-preset-btn" style="color:#000000" data-color="#000000" data-underline="false" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('modalCardBack','#000000',false)" title="Bold black">Abc</button>
+                    <button type="button" class="anki-preset-btn" style="color:#000000" data-color="#000000" data-underline="true" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('modalCardBack','#000000',true)" title="Bold black underline">Abc</button>
+                  </div>
+                  <button type="button" onclick="execCmd('justifyLeft', 'modalCardBack')" class="toolbar-btn" title="Align Left"><i class="fa-solid fa-align-left"></i></button>
             <button type="button" onclick="execCmd('justifyCenter', 'modalCardBack')" class="toolbar-btn" title="Align Center"><i class="fa-solid fa-align-center"></i></button>
             <button type="button" onclick="execCmd('justifyRight', 'modalCardBack')" class="toolbar-btn" title="Align Right"><i class="fa-solid fa-align-right"></i></button>
 
@@ -1648,7 +1786,7 @@ body.light-mode .text-slate-100,
 
 
 
-            <button type="button" onclick="execCmd('removeFormat', 'modalCardBack')" class="toolbar-btn" title="Clear Formatting"><i class="fa-solid fa-eraser"></i></button>
+            <button type="button" onmousedown="event.preventDefault()" onclick="clearSelectedEditorFormatting('modalCardBack')" class="toolbar-btn" title="Clear Formatting"><i class="fa-solid fa-eraser"></i></button>
           </div>
           <button type="button" onmousedown="event.preventDefault()" onclick="insertBackClozeField('modalCardBack')" class="toolbar-btn mb-1" title="Insert a numbered cloze field"><i class="fa-solid fa-square-plus"></i> Add Cloze Field</button>
           <div id="modalCardBack" contenteditable="true" class="editor-canvas !min-h-[80px]"></div>
@@ -1890,47 +2028,63 @@ document.addEventListener('keydown', function(e) {
 });
 
 
-// In Edit Card > Front, clear formatting only from the user's highlighted text.
-// Never flatten the whole editor when there is no selection.
-function clearSelectedEditFrontFormatting() {
-  const editor = document.getElementById('editCardFront');
+// Clear formatting only from highlighted text in the specified card editor.
+// Keep the clicked toolbar button from stealing the editor selection.
+function clearSelectedEditorFormatting(editorId) {
+  const editor = document.getElementById(editorId);
   if (!editor) return;
   const selection = window.getSelection();
-  const belongs = range => range && editor.contains(range.commonAncestorContainer);
+  const contained = range => range && !range.collapsed &&
+    editor.contains(range.startContainer) && editor.contains(range.endContainer);
+
   let range = selection.rangeCount ? selection.getRangeAt(0).cloneRange() : null;
-  if ((!belongs(range) || range.collapsed) && belongs(savedRange) && !savedRange.collapsed) {
-    range = savedRange.cloneRange();
-  }
-  if (!belongs(range) || range.collapsed) return;
+  if (!contained(range) && contained(savedRange)) range = savedRange.cloneRange();
+  if (!contained(range)) return; // Never clear the whole editor or an old selection.
 
-  // Extract only the highlighted contents; never rewrite the rest of the card.
-  // This is more reliable than execCommand('removeFormat') for selections
-  // sitting inside inherited <b>, <font>, or PowerPoint-generated wrappers.
-  const selected = range.toString();
-  if (!selected) return;
-
-  // Preserve explicit newlines when a highlighted span crosses line breaks.
+  // Only extract the selected part; formatting outside the range stays intact.
   const extracted = range.extractContents();
-  const baseColor = getComputedStyle(editor).color;
-  const baseSize = getComputedStyle(editor).fontSize;
-  const span = document.createElement('span');
-  span.className = 'anki-cleared-format';
-  span.style.setProperty('font-weight', 'normal', 'important');
-  span.style.setProperty('font-style', 'normal', 'important');
-  span.style.setProperty('text-decoration', 'none', 'important');
-  span.style.setProperty('color', baseColor, 'important');
-  span.style.setProperty('font-size', baseSize, 'important');
-  // Keep line breaks while removing inline formatting in the selection.
-  span.textContent = extracted.textContent || selected;
-  range.insertNode(span);
+  const plain = document.createDocumentFragment();
+  const blockTags = new Set(['P', 'DIV', 'LI', 'H1', 'H2', 'H3', 'BLOCKQUOTE']);
+  function appendPlain(node) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      plain.appendChild(document.createTextNode(node.nodeValue));
+      return;
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) return;
+    if (node.tagName === 'BR') {
+      plain.appendChild(document.createElement('br'));
+      return;
+    }
+    const block = blockTags.has(node.tagName);
+    const hadContent = plain.hasChildNodes();
+    if (block && hadContent && plain.lastChild.nodeName !== 'BR')
+      plain.appendChild(document.createElement('br'));
+    for (const child of node.childNodes) appendPlain(child);
+  }
+  for (const child of extracted.childNodes) appendPlain(child);
 
-  const restored = document.createRange();
-  restored.selectNodeContents(span);
+  // Explicit resets override bold/color/underline inherited from pasted spans.
+  // This span affects only the selected content and does not modify its siblings.
+  const clean = document.createElement('span');
+  clean.className = 'anki-cleared-format';
+  const editorStyle = getComputedStyle(editor);
+  clean.style.setProperty('font-weight', 'normal', 'important');
+  clean.style.setProperty('font-style', 'normal', 'important');
+  clean.style.setProperty('text-decoration', 'none', 'important');
+  clean.style.setProperty('color', editorStyle.color, 'important');
+  clean.style.setProperty('font-size', editorStyle.fontSize, 'important');
+  clean.style.setProperty('font-family', editorStyle.fontFamily, 'important');
+  clean.style.setProperty('background', 'transparent', 'important');
+  clean.appendChild(plain);
+  range.insertNode(clean);
+
+  const selected = document.createRange();
+  selected.selectNodeContents(clean);
   editor.focus();
   selection.removeAllRanges();
-  selection.addRange(restored);
-  savedRange = restored.cloneRange();
-  activeEditorId = editor.id;
+  selection.addRange(selected);
+  savedRange = selected.cloneRange();
+  activeEditorId = editorId;
 }
 
 function execCmd(command, editorId = null, value = null) {
@@ -1950,20 +2104,7 @@ function execCmd(command, editorId = null, value = null) {
   }
 
   if (command === 'removeFormat') {
-    // Aggressive deep-clean: remove all inline styles, spans, and formatting wrappers completely
-    const sel = window.getSelection();
-    if (sel.rangeCount > 0 && !sel.isCollapsed) {
-      const range = sel.getRangeAt(0);
-      const tempDiv = document.createElement('div');
-      tempDiv.appendChild(range.extractContents());
-      // Strip all tags except basic line breaks, keeping only raw text
-      range.insertNode(document.createTextNode(tempDiv.textContent || tempDiv.innerText || ''));
-    } else {
-      // If no text is selected, clear formatting on the entire active editor box safely
-      const htmlContent = editor.innerText;
-      editor.innerHTML = '';
-      editor.appendChild(document.createTextNode(htmlContent));
-    }
+    clearSelectedEditorFormatting(targetId);
   } else {
     document.execCommand(command, false, value);
   }
@@ -2857,6 +2998,69 @@ const content = await zip.generateAsync({ type: "blob" });
       }
     }
 
+    // Search existing card data without editing it or changing review progress.
+    function ankiSearchPlainText(html) {
+      const temp = document.createElement('div');
+      temp.innerHTML = String(html || '');
+      return (temp.textContent || '').replace(/\{\{c\d+::/gi, ' ')
+        .replace(/::/g, ' ').replace(/\}\}/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+
+    function searchAnkiCards(scope) {
+      const isCurrent = scope === 'current';
+      const input = document.getElementById(isCurrent ? 'currentDeckCardSearch' : 'allDeckCardSearch');
+      const results = document.getElementById(isCurrent ? 'currentDeckCardSearchResults' : 'allDeckCardSearchResults');
+      if (!input || !results) return;
+      const query = input.value.trim().toLocaleLowerCase();
+      results.replaceChildren();
+      results.classList.toggle('hidden', !query);
+      if (!query) return;
+      const found = [];
+      const decks = isCurrent
+        ? [[appState.activeStudyDeckId, appState.decks[appState.activeStudyDeckId]]]
+        : Object.entries(appState.decks || {});
+      for (const [deckId, deck] of decks) {
+        if (!deck || !Array.isArray(deck.cards)) continue;
+        for (const card of deck.cards) {
+          const content = [card.title || '', ankiSearchPlainText(card.front),
+            ankiSearchPlainText(card.back), ankiSearchPlainText(card.clozeText)].join(' ');
+          if (content.toLocaleLowerCase().includes(query)) found.push({deckId, deck, card, content});
+        }
+      }
+      const summary = document.createElement('p');
+      summary.className = 'text-xs text-slate-400';
+      summary.textContent = `${found.length} matching card${found.length === 1 ? '' : 's'}` +
+        (found.length > 100 ? ' (showing first 100)' : '');
+      results.appendChild(summary);
+      found.slice(0, 100).forEach(({deckId, deck, card, content}) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'anki-search-result';
+        const title = document.createElement('strong');
+        title.className = 'text-sm';
+        title.textContent = `${deck.name} · ${card.title || 'Card'}`;
+        const snippet = document.createElement('small');
+        snippet.textContent = content.slice(0, 200);
+        button.append(title, snippet);
+        button.addEventListener('click', () => openAnkiSearchResult(deckId, card.id));
+        results.appendChild(button);
+      });
+    }
+
+    function openAnkiSearchResult(deckId, cardId) {
+      const deck = appState.decks[deckId];
+      if (!deck || !deck.cards.some(card => String(card.id) === String(cardId))) return;
+      // Use the existing non-destructive full-deck practice view to allow
+      // finding cards regardless of scheduled review time.
+      startStudy(deckId, true);
+      const index = appState.studyQueue.findIndex(card => String(card.id) === String(cardId));
+      if (index >= 0) {
+        appState.studyIndex = index;
+        showStudyCard();
+        renderSidebarList();
+      }
+    }
+
     function deleteDeck(deckId) {
       if (confirm("Are you sure you want to delete this deck and all its cards?")) {
         delete appState.decks[deckId];
@@ -2867,8 +3071,17 @@ const content = await zip.generateAsync({ type: "blob" });
 
     
 function resetStudyDeck(deckId) {
-      // Non-destructive full-deck practice; original review schedule and saved position stay intact.
+      // A temporary, non-destructive full-deck session. Never modify dueAt,
+      // reviewData, the saved resume position, or the stored card collection.
+      const deck = appState.decks[deckId];
+      if (!deck || !Array.isArray(deck.cards)) return;
       startStudy(deckId, true);
+      // Explicitly make the practice queue the complete stored deck, not the
+      // due-only queue from Open or a previously filtered review session.
+      appState.studyQueue = deck.cards.slice();
+      appState.studyIndex = 0;
+      renderSidebarList();
+      if (appState.studyQueue.length) showStudyCard();
     }
 
 function startStudy(deckId, practiceAll = false) {
@@ -2877,6 +3090,8 @@ function startStudy(deckId, practiceAll = false) {
       if (!deck) return;
 
       appState.activeStudyDeckId = deckId;
+      const currentSearch = document.getElementById('currentDeckCardSearch');
+      if (currentSearch) { currentSearch.value = ''; searchAnkiCards('current'); }
       // Only present new cards and cards whose scheduled review time has arrived.
       // Cards rated Again/Hard/Good/Easy become available again at their saved dueAt.
       const now = Date.now();
@@ -2952,6 +3167,59 @@ function startStudy(deckId, practiceAll = false) {
     }
 
     // --- SIDEBAR & MULTI-SELECT POSITION REORDERING ---
+    let ankiDraggingCardIds = [];
+    function clearAnkiSidebarDragState() {
+      document.querySelectorAll('#slide-list .slide-item').forEach(li =>
+        li.classList.remove('anki-drag-source','anki-drop-before','anki-drop-after'));
+      ankiDraggingCardIds = [];
+    }
+    function onAnkiSidebarDragStart(event) {
+      if (event.target.closest('button,input')) { event.preventDefault(); return; }
+      const draggedId = event.currentTarget.dataset.cardId;
+      // Move the whole selected group when dragging a selected card.
+      ankiDraggingCardIds = selectedSidebarCardIds.has(draggedId)
+        ? appState.studyQueue.filter(card => selectedSidebarCardIds.has(card.id)).map(card => String(card.id))
+        : [draggedId];
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', draggedId);
+      event.currentTarget.classList.add('anki-drag-source');
+    }
+    function onAnkiSidebarDragOver(event) {
+      if (!ankiDraggingCardIds.length) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'move';
+      const li = event.currentTarget;
+      li.classList.remove('anki-drop-before', 'anki-drop-after');
+      const after = event.clientY > li.getBoundingClientRect().top + li.getBoundingClientRect().height / 2;
+      li.classList.add(after ? 'anki-drop-after' : 'anki-drop-before');
+    }
+    function onAnkiSidebarDragLeave(event) {
+      event.currentTarget.classList.remove('anki-drop-before','anki-drop-after');
+    }
+    function onAnkiSidebarDrop(event) {
+      if (!ankiDraggingCardIds.length) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const targetId = event.currentTarget.dataset.cardId;
+      const before = event.clientY <= event.currentTarget.getBoundingClientRect().top +
+        event.currentTarget.getBoundingClientRect().height / 2;
+      const movingIds = new Set(ankiDraggingCardIds);
+      if (movingIds.has(targetId)) { clearAnkiSidebarDragState(); return; }
+      const oldQueue = appState.studyQueue;
+      const activeId = oldQueue[appState.studyIndex]?.id;
+      const moving = oldQueue.filter(card => movingIds.has(String(card.id)));
+      const remaining = oldQueue.filter(card => !movingIds.has(String(card.id)));
+      const targetIndex = remaining.findIndex(card => String(card.id) === targetId);
+      if (targetIndex < 0 || !moving.length) { clearAnkiSidebarDragState(); return; }
+      remaining.splice(targetIndex + (before ? 0 : 1), 0, ...moving);
+      appState.studyQueue = remaining;
+      appState.studyIndex = Math.max(0, remaining.findIndex(card => card.id === activeId));
+      clearAnkiSidebarDragState();
+      updateDeckCardsFromQueue(); // Preserves unshown future-due cards.
+      renderSidebarList();
+      showStudyCard();
+    }
+
     function renderSidebarList() {
       const listEl = document.getElementById('slide-list');
       const countEl = document.getElementById('sidebarCardCount');
@@ -2964,6 +3232,13 @@ function startStudy(deckId, practiceAll = false) {
         const li = document.createElement('li');
         const isChecked = selectedSidebarCardIds.has(card.id);
         li.className = `slide-item ${index === appState.studyIndex ? 'active' : ''}`;
+        li.draggable = true;
+        li.dataset.cardId = String(card.id);
+        li.addEventListener('dragstart', onAnkiSidebarDragStart);
+        li.addEventListener('dragover', onAnkiSidebarDragOver);
+        li.addEventListener('drop', onAnkiSidebarDrop);
+        li.addEventListener('dragleave', onAnkiSidebarDragLeave);
+        li.addEventListener('dragend', clearAnkiSidebarDragState);
         
         let displayLabel = card.title ? card.title : '';
         if (!displayLabel) {
@@ -3037,6 +3312,54 @@ function startStudy(deckId, practiceAll = false) {
       }
     }
 
+    function deleteSelectedSidebarCards() {
+      const deck = appState.decks[appState.activeStudyDeckId];
+      if (!deck || !Array.isArray(deck.cards)) return;
+
+      // Only delete IDs actually selected from the current deck's visible list.
+      // The complete stored deck is used for deletion, not the due-only queue.
+      const storedIds = new Set(deck.cards.map(card => String(card.id)));
+      const deleteIds = new Set(
+        [...selectedSidebarCardIds]
+          .map(id => String(id))
+          .filter(id => storedIds.has(id))
+      );
+      if (!deleteIds.size) return;
+
+      const count = deleteIds.size;
+      if (!confirm(`Permanently delete ${count} selected card${count === 1 ? '' : 's'} from this deck? This cannot be undone.`)) return;
+
+      // Keep the currently displayed card, if it survives deletion.
+      const activeCardId = appState.studyQueue[appState.studyIndex]?.id;
+      const oldIndex = appState.studyIndex;
+      deck.cards = deck.cards.filter(card => !deleteIds.has(String(card.id)));
+      appState.studyQueue = appState.studyQueue.filter(card => !deleteIds.has(String(card.id)));
+
+      if (deck.lastCardId != null && deleteIds.has(String(deck.lastCardId))) {
+        // A deleted resume target cannot be restored; retain other review data.
+        deck.lastCardId = null;
+        deck.lastIndex = Math.min(deck.lastIndex || 0, Math.max(0, deck.cards.length - 1));
+      }
+
+      selectedSidebarCardIds.clear();
+      sidebarSelectionAnchorIndex = null;
+
+      const keptIndex = appState.studyQueue.findIndex(card => String(card.id) === String(activeCardId));
+      appState.studyIndex = keptIndex >= 0
+        ? keptIndex
+        : Math.min(oldIndex, Math.max(0, appState.studyQueue.length - 1));
+
+      saveLocalState();
+      if (!appState.studyQueue.length) {
+        // Avoid rendering an empty queue with showStudyCard(), which requires a card.
+        exitStudy();
+      } else {
+        renderSidebarList();
+        showStudyCard();
+      }
+      showToast(`${count} card${count === 1 ? '' : 's'} deleted.`);
+    }
+
     function moveSelectedSidebarCards(direction) {
       if (selectedSidebarCardIds.size === 0) return;
 
@@ -3102,7 +3425,24 @@ function startStudy(deckId, practiceAll = false) {
 
     function updateDeckCardsFromQueue() {
       if (appState.activeStudyDeckId && appState.decks[appState.activeStudyDeckId]) {
-        appState.decks[appState.activeStudyDeckId].cards = [...appState.studyQueue];
+        const deck = appState.decks[appState.activeStudyDeckId];
+        const original = Array.isArray(deck.cards) ? deck.cards : [];
+        // A normal study queue can contain only currently due cards. Reordering
+        // that subset must never discard future-due cards from the saved deck.
+        const queuedIds = new Set(appState.studyQueue.map(card => String(card.id)));
+        const reordered = [...appState.studyQueue];
+        let next = 0;
+        deck.cards = original.map(card =>
+          queuedIds.has(String(card.id)) ? reordered[next++] : card
+        );
+        // Also retain cards newly added to the queue before persistence.
+        const existingIds = new Set(deck.cards.map(card => String(card.id)));
+        for (const card of reordered) {
+          if (!existingIds.has(String(card.id))) {
+            deck.cards.push(card);
+            existingIds.add(String(card.id));
+          }
+        }
         saveLocalState();
       }
     }
@@ -3201,7 +3541,13 @@ function startStudy(deckId, practiceAll = false) {
       if (!confirm("Are you sure you want to delete this card?")) return;
       appState.studyQueue = appState.studyQueue.filter(c => c.id !== cardId);
       selectedSidebarCardIds.delete(cardId);
-      updateDeckCardsFromQueue();
+      // Delete only the requested card from the complete saved deck, including
+      // future-due cards that are not visible in a normal review queue.
+      const deck = appState.decks[appState.activeStudyDeckId];
+      if (deck && Array.isArray(deck.cards)) {
+        deck.cards = deck.cards.filter(c => c.id !== cardId);
+        saveLocalState();
+      }
       if (appState.studyIndex >= appState.studyQueue.length) {
         appState.studyIndex = Math.max(0, appState.studyQueue.length - 1);
       }
@@ -3418,7 +3764,7 @@ function openAddCardModal() {
         const visible = numbers.indexOf(Number(match[1])) < revealCount;
         const replacement = document.createElement('span');
         if (visible) {
-          replacement.className = 'text-emerald-300 font-semibold';
+          replacement.className = 'anki-cloze-revealed-answer';
           const answerRange = clozeTextRange(container, answerStart, answerEnd);
           if (answerRange) replacement.appendChild(answerRange.cloneContents());
           else replacement.textContent = match[2];
@@ -3679,6 +4025,19 @@ document.addEventListener('paste', function (e) {
                     while (root.lastElementChild && isEmptyBlock(root.lastElementChild))
                         root.lastElementChild.remove();
                     trimEdges();
+                    // Rich clipboard HTML may wrap the answer in <p>/<div>.
+                    // Keep their colors/font/bold styling but avoid inserting a
+                    // block that separates the cloze token into paragraphs.
+                    // This only runs for a paste inside a cloze answer.
+                    const inlineBlocks = [...root.querySelectorAll('p, div')];
+                    inlineBlocks.reverse().forEach(block => {
+                        const inline = document.createElement('span');
+                        inline.setAttribute('style', block.getAttribute('style') || '');
+                        // Retain other authoring classes (for example rich-text bold).
+                        if (block.className) inline.className = block.className;
+                        while (block.firstChild) inline.appendChild(block.firstChild);
+                        block.replaceWith(inline);
+                    });
                     html = root.innerHTML;
                 }
             }
@@ -3969,6 +4328,61 @@ document.addEventListener('focusin', (e) => {
 
 
     
+
+// Apply a preset to selected text only, preserving the remaining card contents.
+function applyAnkiPreset(editorId, color, underline) {
+  const editor = document.getElementById(editorId);
+  if (!editor) return;
+  const selection = window.getSelection();
+  let range = selection.rangeCount ? selection.getRangeAt(0).cloneRange() : null;
+  const inEditor = r => r && editor.contains(r.commonAncestorContainer);
+  if ((!inEditor(range) || range.collapsed) && inEditor(savedRange) && !savedRange.collapsed) {
+    range = savedRange.cloneRange();
+  }
+  if (!inEditor(range) || range.collapsed) return;
+
+  // Clear ALL old formatting from the selection before applying the preset.
+  // Keep line breaks and list structure, and don't change surrounding text.
+  const fragment = range.extractContents();
+  const cleanNode = node => {
+    if (node.nodeType !== Node.ELEMENT_NODE) return;
+    [...node.childNodes].forEach(cleanNode);
+    const formattingTags = ['B','STRONG','I','EM','U','S','STRIKE','FONT','MARK','SMALL','BIG','SUB','SUP'];
+    if (formattingTags.includes(node.tagName)) {
+      const replacement = document.createDocumentFragment();
+      while (node.firstChild) replacement.appendChild(node.firstChild);
+      node.replaceWith(replacement);
+    } else {
+      node.removeAttribute('style');
+      if (node.tagName === 'SPAN') {
+        const isCloze = node.classList.contains('anki-inline-cloze-token');
+        node.removeAttribute('class');
+        if (isCloze) node.className = 'anki-inline-cloze-token';
+      }
+    }
+  };
+  [...fragment.childNodes].forEach(cleanNode);
+  const span = document.createElement('span');
+  span.style.color = color;
+  span.style.fontWeight = 'bold';
+  span.style.fontStyle = 'normal';
+  span.style.fontSize = getComputedStyle(editor).fontSize;
+  span.style.fontFamily = getComputedStyle(editor).fontFamily;
+  span.style.backgroundColor = 'transparent';
+  span.style.textDecorationLine = underline ? 'underline' : 'none';
+  span.style.textDecorationColor = 'currentColor';
+  span.appendChild(fragment);
+  range.insertNode(span);
+  const applied = document.createRange();
+  applied.selectNodeContents(span);
+  editor.focus();
+  selection.removeAllRanges();
+  selection.addRange(applied);
+  activeEditorId = editorId;
+  savedRange = applied.cloneRange();
+  editor.dispatchEvent(new Event('input', {bubbles: true}));
+}
+
 function applyColor(color) {
       if (!activeEditorId) return;
       const element = document.getElementById(activeEditorId);
@@ -4079,7 +4493,7 @@ async function insertBackClozeField(editorId) {
 document.addEventListener('dblclick', function(event) {
   const element = event.target.nodeType === Node.TEXT_NODE
     ? event.target.parentElement : event.target;
-  const editor = element?.closest?.('#createCardBack, #modalCardBack, #editCardBack');
+  const editor = element?.closest?.('#createCardBack, #modalCardBack, #editCardBack, #createCardFront, #modalCardFront, #editCardFront');
   if (!editor) return;
 
   let token = element.closest?.('.anki-inline-cloze-token');
@@ -4109,7 +4523,7 @@ document.addEventListener('dblclick', function(event) {
 document.addEventListener('keydown', function(event) {
   if (event.key !== 'Tab' || event.shiftKey) return;
   const editor = event.target?.closest?.(
-    '#createCardBack, #modalCardBack, #editCardBack'
+    '#createCardBack, #modalCardBack, #editCardBack, #createCardFront, #modalCardFront, #editCardFront'
   );
   if (!editor) return;
   const selection = window.getSelection();
