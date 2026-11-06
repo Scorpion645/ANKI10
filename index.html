@@ -5425,6 +5425,10 @@ function saveCardEdits() {
 
 
         if (selectedDecks.length > 0) {
+          // For a single selected deck imported as a NEW deck, display the
+          // actual .apkg filename rather than the embedded Anki deck name.
+          // Preserve the internal name as the lookup key for portable progress.
+          const importedFileDeckName = file.name.replace(/\.(apkg|colpkg)$/i, '').trim();
           const targetDeckId = document.getElementById('ankiImportTargetDeck')?.value || '__new__';
           if (targetDeckId !== '__new__' && appState.decks[targetDeckId]) {
             const targetDeck = appState.decks[targetDeckId];
@@ -5460,7 +5464,8 @@ function saveCardEdits() {
               const deckId = 'deck_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
               appState.decks[deckId] = {
                 id: deckId,
-                name: deckName,
+                name: selectedDecks.length === 1 && importedFileDeckName
+                  ? importedFileDeckName : deckName,
                 category: appState.selectedCategory === 'ALL' ? 'General' : appState.selectedCategory,
                 cards: importedCardsByDeck[deckName],
                 lastIndex: Math.min(importedLastIndexByDeck[deckName] || 0, Math.max(0, importedCardsByDeck[deckName].length - 1)),
