@@ -1287,6 +1287,7 @@ body:not(.focus-study-active) #view-study #studyViewMode > .perspective-1000 {
                   <button type="button" onmousedown="event.preventDefault()" onclick="clearSelectedEditorFormatting('editCardFront')" class="toolbar-btn" title="Clear Formatting (selected front text only)"><i class="fa-solid fa-eraser"></i></button>
                 </div>
                 <button type="button" onmousedown="event.preventDefault()" onclick="insertBackClozeField('editCardFront')" class="toolbar-btn mb-1" title="Convert selected front text to a cloze, or insert a new cloze field"><i class="fa-solid fa-square-plus"></i> Add Cloze Field</button>
+<button type="button" onmousedown="event.preventDefault()" onclick="toggleClozeTogether('editCardFront')" class="toolbar-btn mb-1" title="Link this cloze to the preceding cloze so both reveal together"><i class="fa-solid fa-link"></i> Reveal Together</button>
                 <div id="editCardFront" contenteditable="true" class="editor-canvas !min-h-[80px]"></div>
               </div>
 
@@ -1346,6 +1347,7 @@ body:not(.focus-study-active) #view-study #studyViewMode > .perspective-1000 {
                   <button type="button" onmousedown="event.preventDefault()" onclick="clearSelectedEditorFormatting('editCardBack')" class="toolbar-btn" title="Clear Formatting"><i class="fa-solid fa-eraser"></i></button>
                 </div>
                 <button type="button" onmousedown="event.preventDefault()" onclick="insertBackClozeField('editCardBack')" class="toolbar-btn mb-1" title="Insert a numbered cloze field"><i class="fa-solid fa-square-plus"></i> Add Cloze Field</button>
+<button type="button" onmousedown="event.preventDefault()" onclick="toggleClozeTogether('editCardBack')" class="toolbar-btn mb-1" title="Link this cloze to the preceding cloze so both reveal together"><i class="fa-solid fa-link"></i> Reveal Together</button>
                 <div id="editCardBack" contenteditable="true" class="editor-canvas !min-h-[80px]"></div>
               </div>
 
@@ -1388,6 +1390,18 @@ body:not(.focus-study-active) #view-study #studyViewMode > .perspective-1000 {
           <span>Card & Deck Organizer</span>
         </h2>
         
+        <!-- Nested medical specialty organizer; existing category data is reused. -->
+        <div class="rounded-xl bg-slate-900/50 border border-slate-700 p-3 space-y-3">
+          <div class="text-xs font-semibold text-indigo-300">Specialty / Subject / Subsubject hierarchy</div>
+          <div class="flex flex-wrap gap-2 items-center">
+            <select id="organizerParentSubject" aria-label="Parent subject" class="bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-lg px-2 py-2 flex-1 min-w-[140px]"></select>
+            <input id="organizerNewSubject" type="text" placeholder="New specialty or subsubject" class="bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-lg px-3 py-2 flex-1 min-w-[170px]" />
+            <button type="button" onclick="createNestedSubject()" class="toolbar-btn">+ Add Subject</button>
+          </div>
+          <div id="organizerSubjectTree" class="text-xs space-y-1 max-h-[260px] overflow-y-auto"></div>
+          <p class="text-[11px] text-slate-400">Create as many levels as needed. Assign decks using their existing group dropdown on the Decks page. Select a subject here to view its decks and descendants.</p>
+        </div>
+
         <div class="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
           <div>
             <label class="block text-xs font-semibold text-slate-400 mb-1">Filter Source Deck</label>
@@ -1506,6 +1520,7 @@ body:not(.focus-study-active) #view-study #studyViewMode > .perspective-1000 {
             </div>
             
 <button type="button" onmousedown="event.preventDefault()" onclick="insertBackClozeField('createCardFront')" class="toolbar-btn mb-1" title="Convert selected front text to a cloze, or insert a new cloze field"><i class="fa-solid fa-square-plus"></i> Add Cloze Field</button>
+<button type="button" onmousedown="event.preventDefault()" onclick="toggleClozeTogether('createCardFront')" class="toolbar-btn mb-1" title="Link this cloze to the preceding cloze so both reveal together"><i class="fa-solid fa-link"></i> Reveal Together</button>
                 <div id="createCardFront" contenteditable="true" class="editor-canvas" style="font-weight: bold;"><span style="font-weight: bold;"><br></span></div>
           </div>
 
@@ -1566,6 +1581,7 @@ body:not(.focus-study-active) #view-study #studyViewMode > .perspective-1000 {
               <button type="button" onmousedown="event.preventDefault()" onclick="clearSelectedEditorFormatting('createCardBack')" class="toolbar-btn" title="Clear Formatting"><i class="fa-solid fa-eraser"></i></button>
             </div>
             <button type="button" onmousedown="event.preventDefault()" onclick="insertBackClozeField('createCardBack')" class="toolbar-btn mb-1" title="Insert a numbered cloze field"><i class="fa-solid fa-square-plus"></i> Add Cloze Field</button>
+<button type="button" onmousedown="event.preventDefault()" onclick="toggleClozeTogether('createCardBack')" class="toolbar-btn mb-1" title="Link this cloze to the preceding cloze so both reveal together"><i class="fa-solid fa-link"></i> Reveal Together</button>
             <div id="createCardBack" contenteditable="true" class="editor-canvas"></div>
           </div>
 
@@ -1722,6 +1738,7 @@ body:not(.focus-study-active) #view-study #studyViewMode > .perspective-1000 {
             <button type="button" onmousedown="event.preventDefault()" onclick="clearSelectedEditorFormatting('modalCardFront')" class="toolbar-btn" title="Clear Formatting"><i class="fa-solid fa-eraser"></i></button>
           </div>
 <button type="button" onmousedown="event.preventDefault()" onclick="insertBackClozeField('modalCardFront')" class="toolbar-btn mb-1" title="Convert selected front text to a cloze, or insert a new cloze field"><i class="fa-solid fa-square-plus"></i> Add Cloze Field</button>
+<button type="button" onmousedown="event.preventDefault()" onclick="toggleClozeTogether('modalCardFront')" class="toolbar-btn mb-1" title="Link this cloze to the preceding cloze so both reveal together"><i class="fa-solid fa-link"></i> Reveal Together</button>
                 <div id="modalCardFront" contenteditable="true" class="editor-canvas !min-h-[80px]" style="font-weight: bold;"></div>
         </div>
 
@@ -1793,6 +1810,7 @@ body:not(.focus-study-active) #view-study #studyViewMode > .perspective-1000 {
             <button type="button" onmousedown="event.preventDefault()" onclick="clearSelectedEditorFormatting('modalCardBack')" class="toolbar-btn" title="Clear Formatting"><i class="fa-solid fa-eraser"></i></button>
           </div>
           <button type="button" onmousedown="event.preventDefault()" onclick="insertBackClozeField('modalCardBack')" class="toolbar-btn mb-1" title="Insert a numbered cloze field"><i class="fa-solid fa-square-plus"></i> Add Cloze Field</button>
+<button type="button" onmousedown="event.preventDefault()" onclick="toggleClozeTogether('modalCardBack')" class="toolbar-btn mb-1" title="Link this cloze to the preceding cloze so both reveal together"><i class="fa-solid fa-link"></i> Reveal Together</button>
           <div id="modalCardBack" contenteditable="true" class="editor-canvas !min-h-[80px]"></div>
         </div>
       </div>
@@ -3023,7 +3041,7 @@ const content = await zip.generateAsync({ type: "blob" });
 
       deckKeys.forEach(deckId => {
         const deck = appState.decks[deckId];
-        if (appState.selectedCategory !== 'ALL' && deck.category !== appState.selectedCategory) return;
+        if (appState.selectedCategory !== 'ALL' && deck.category !== appState.selectedCategory && !deck.category?.startsWith(appState.selectedCategory + ' / ')) return;
         
         visibleCount++;
         const cardCount = deck.cards ? deck.cards.length : 0;
@@ -4485,24 +4503,55 @@ function applyColor(color) {
 // This runs when a card is saved, not during editing.
 function renumberClozeEditors(frontEditorId, backEditorId) {
   let nextNumber = 1;
+  let previousNumber = null;
   for (const editorId of [frontEditorId, backEditorId]) {
     const editor = document.getElementById(editorId);
     if (!editor) continue;
     const source = editor.textContent || '';
     const matches = [...source.matchAll(/\{\{c(\d+)::[\s\S]*?(?:::[\s\S]*?)?\}\}/g)];
-    // Process in reverse order so replacing digits never shifts earlier positions.
-    // Numbering for the second editor continues after the first editor.
-    const startNumber = nextNumber;
-    nextNumber += matches.length;
-    for (let i = matches.length - 1; i >= 0; i--) {
-      const match = matches[i];
+    const updates = [];
+    for (const match of matches) {
       const range = clozeTextRange(editor, match.index + 3,
                                    match.index + 3 + match[1].length);
       if (!range) continue;
-      range.deleteContents();
-      range.insertNode(document.createTextNode(String(startNumber + i)));
+      const node = range.startContainer;
+      const parent = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+      const token = parent?.closest?.('.anki-inline-cloze-token');
+      const linked = token?.getAttribute('data-cloze-with-previous') === 'true';
+      const number = linked && previousNumber !== null ? previousNumber : nextNumber++;
+      previousNumber = number;
+      updates.push({range, number});
+    }
+    // Reverse replacements keep offsets of earlier text stable.
+    for (const item of updates.reverse()) {
+      item.range.deleteContents();
+      item.range.insertNode(document.createTextNode(String(item.number)));
     }
   }
+}
+
+// Put the caret inside a cloze field, then click Reveal Together.
+// Its number will match the preceding cloze when the card is saved.
+// Click again to unlink it. Uses an attribute that survives saving/exporting.
+function toggleClozeTogether(editorId) {
+  const editor = document.getElementById(editorId);
+  if (!editor) return;
+  const selection = window.getSelection();
+  const range = selection.rangeCount && editor.contains(selection.getRangeAt(0).commonAncestorContainer)
+    ? selection.getRangeAt(0) :
+    (savedRange && editor.contains(savedRange.commonAncestorContainer) ? savedRange : null);
+  const node = range?.startContainer;
+  const element = node?.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+  const token = element?.closest?.('.anki-inline-cloze-token');
+  if (!token || !editor.contains(token)) {
+    showToast('Click inside the cloze field you want to link first.');
+    return;
+  }
+  const linked = token.getAttribute('data-cloze-with-previous') === 'true';
+  if (linked) token.removeAttribute('data-cloze-with-previous');
+  else token.setAttribute('data-cloze-with-previous', 'true');
+  token.style.outline = linked ? '' : '1px dashed #818cf8';
+  showToast(linked ? 'Cloze unlinked. Save to renumber.' : 'Linked to previous cloze. Save to renumber.');
 }
 
 // Replace selected back-face text with an advanced cloze whose answer is
@@ -4945,6 +4994,71 @@ function saveCardEdits() {
       renderDecks();
     }
 
+    // Store folder hierarchy as slash-delimited category paths, so the existing
+    // deck grouping, study state, and backup format continue to work unchanged.
+    function createNestedSubject() {
+      const parent = document.getElementById('organizerParentSubject')?.value || '';
+      const input = document.getElementById('organizerNewSubject');
+      const name = input?.value.trim().replace(/\s*\/\s*/g, ' / ');
+      if (!name || name.includes('/') || name.length > 80) {
+        showToast('Enter one subject name without a slash (up to 80 characters).');
+        return;
+      }
+      const path = parent ? `${parent} / ${name}` : name;
+      if (appState.categories.includes(path)) {
+        showToast('That subject already exists.');
+        return;
+      }
+      appState.categories.push(path);
+      input.value = '';
+      saveLocalState();
+      renderNestedSubjects();
+      renderCategories();
+      renderDecks();
+      showToast('Subject created. Assign a deck to it using the group dropdown.');
+    }
+
+    function renderNestedSubjects() {
+      const tree = document.getElementById('organizerSubjectTree');
+      const select = document.getElementById('organizerParentSubject');
+      if (!tree || !select) return;
+      const old = select.value;
+      select.replaceChildren(new Option('Top level (specialty)', ''));
+      tree.replaceChildren();
+      const paths = new Set(appState.categories || []);
+      for (const deck of Object.values(appState.decks)) {
+        if (deck.category) paths.add(deck.category);
+      }
+      // Include intermediate parents even if they haven't been added explicitly.
+      for (const path of [...paths]) {
+        const parts = path.split(' / ');
+        for (let i = 1; i < parts.length; i++) paths.add(parts.slice(0, i).join(' / '));
+      }
+      const sorted = [...paths].sort((a,b) => a.localeCompare(b));
+      for (const path of sorted) {
+        const depth = path.split(' / ').length - 1;
+        const title = path.split(' / ').at(-1);
+        const option = new Option(`${'  '.repeat(depth)}${title}`, path);
+        select.add(option);
+        const count = Object.values(appState.decks).filter(deck =>
+          deck.category === path || deck.category?.startsWith(path + ' / ')).length;
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'block text-left w-full rounded-lg py-1.5 px-2 hover:bg-slate-700/70 text-slate-300';
+        button.style.paddingLeft = `${8 + depth * 18}px`;
+        button.textContent = `${depth ? '↳ ' : '▸ '}${title} (${count} deck${count===1?'':'s'})`;
+        button.title = `Show decks in ${path} and its subsubjects`;
+        button.onclick = () => {
+          appState.selectedCategory = path;
+          renderCategories();
+          renderDecks();
+          switchTab('decks');
+        };
+        tree.appendChild(button);
+      }
+      if ([...select.options].some(opt => opt.value === old)) select.value = old;
+    }
+
     function populateOrganizerDropdowns() {
       const sourceSelect = document.getElementById('organizerSourceDeck');
       const targetSelect = document.getElementById('organizerTargetDeck');
@@ -4959,6 +5073,7 @@ function saveCardEdits() {
       });
 
       renderOrganizerCards();
+      renderNestedSubjects();
     }
 
     function renderOrganizerCards() {
