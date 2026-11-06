@@ -2411,6 +2411,7 @@ function promptCreateDeck() {
           ? exportDeckEntries[0][1].name.replace(/[\\/:*?"<>|]/g, '_') + '_'
           : 'AnkiSync_Deck_') + Date.now() + '.apkg';
         let exportFilename = defaultExportName;
+        let selectedSaveHandle = null;
         if (isIOSSave) {
           const enteredName = window.prompt('Save As — choose a .apkg file name. After export, choose Save to Files to select a folder.', defaultExportName);
           if (enteredName === null) return;
@@ -2420,7 +2421,33 @@ function promptCreateDeck() {
             return;
           }
           exportFilename = /\.apkg$/i.test(cleanName) ? cleanName : cleanName + '.apkg';
+        } else if (window.isSecureContext && 'showSaveFilePicker' in window) {
+          // Choose the destination first: its actual filename must also be
+          // written into the package's internal single-deck metadata.
+          try {
+            selectedSaveHandle = await window.showSaveFilePicker({
+              suggestedName: defaultExportName,
+              types: [{
+                description: 'Anki Package (*.apkg)',
+                accept: { 'application/octet-stream': ['.apkg'] },
+              }],
+            });
+            exportFilename = selectedSaveHandle.name || defaultExportName;
+          } catch (err) {
+            if (err.name === 'AbortError') return;
+            console.warn('Save picker unavailable; using browser download:', err);
+          }
         }
+
+        // The filename and the internal deck name are separate Anki fields.
+        // For a single-deck export, persist the chosen filename as the deck
+        // name too. Never rename the user's live deck or any cards in memory.
+        // For multi-deck packages retain individual internal deck names.
+        const exportedSingleDeckName = exportDeckEntries.length === 1
+          ? exportFilename.replace(/\.apkg$/i, '').trim()
+          : null;
+        const exportDeckName = (deck) =>
+          exportedSingleDeckName || deck.name || 'Deck';
         const SQL = await initSqlJs();
         const db = new SQL.Database();
 
@@ -2468,12 +2495,12 @@ function promptCreateDeck() {
         for (const [deckKey, deck] of exportDeckEntries) {
           const did = isFirstDeck ? 1 : ++deckIdCounter;
           if (isFirstDeck) {
-            decksMeta["1"].name = deck.name || "Default";
+            decksMeta["1"].name = exportDeckName(deck);
             isFirstDeck = false;
           } else {
             decksMeta[String(did)] = {
               id: did,
-              name: deck.name || "Deck",
+              name: exportDeckName(deck),
               mod: now,
               usn: 0,
               mtimeSec: now,
@@ -2622,7 +2649,7 @@ function promptCreateDeck() {
           version: 1,
           exportedAt: new Date().toISOString(),
           decks: exportDeckEntries.map(([, deck]) => ({
-            name: deck.name,
+            name: exportDeckName(deck),
             lastIndex: Number(deck.lastIndex) || 0,
             lastCardId: deck.lastCardId || null,
             cards: (deck.cards || []).map(card => ({
@@ -2669,30 +2696,21 @@ const content = await zip.generateAsync({ type: "blob" });
           return;
         }
         
-        // Check if File System Access API is supported and usable
-        if (window.isSecureContext && 'showSaveFilePicker' in window) {
+        // Write to the location already selected before creating the package.
+        if (selectedSaveHandle) {
           try {
-            const handle = await window.showSaveFilePicker({
-              suggestedName: (onlyDeckId ? exportDeckEntries[0][1].name.replace(/[\\/:*?"<>|]/g, '_') + '_' : 'AnkiSync_Export_') + Date.now() + '.apkg',
-              types: [{
-                description: 'Anki Package (*.apkg)',
-                accept: { 'application/octet-stream': ['.apkg'] },
-              }],
-            });
-            const writable = await handle.createWritable();
+            const writable = await selectedSaveHandle.createWritable();
             await writable.write(content);
             await writable.close();
+            showToast('Deck exported successfully!');
             return;
           } catch (err) {
-            if (err.name === 'AbortError') {
-              return; // User cancelled the save dialog
-            }
-            console.warn("File System Access API failed, falling back to standard download:", err);
+            console.warn('Could not write selected file; using download:', err);
           }
         }
 
         // Fallback: Creates a direct download link without the generic popup prompt
-        const filename = (onlyDeckId ? exportDeckEntries[0][1].name.replace(/[\\/:*?"<>|]/g, '_') + '_' : 'AnkiSync_Deck_') + Date.now() + '.apkg';
+        const filename = exportFilename;
         const downloadAnchor = document.createElement('a');
         downloadAnchor.href = URL.createObjectURL(content);
         downloadAnchor.download = filename;
