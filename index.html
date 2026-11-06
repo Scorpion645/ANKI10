@@ -783,15 +783,15 @@ body.light-mode .anki-search-result { background: #fff; color: #0f172a; }
     body:has(#view-study:not(.hidden)) #mainContainer {
       max-width: min(1728px, 100vw) !important;
     }
-    #view-study .deck-viewer-container { min-height: 525px; height: max(525px, calc(100vh - 180px)); }
-    #view-study #studyCard, #view-study .perspective-1000 { min-height: 506.25px !important; }
+    #view-study .deck-viewer-container { min-height: 685px; height: max(685px, calc(100vh - 180px)); }
+    #view-study #studyCard, #view-study .perspective-1000 { min-height: 658.125px !important; }
     #view-study #frontContent, #view-study #backContent {
       max-width: none !important;
-      max-height: 438.75px !important;
+      max-height: 570.375px !important;
     }
     @media (max-width: 700px) {
-      #view-study .deck-viewer-container { min-height: 437.5px; height: auto; }
-      #view-study #studyCard, #view-study .perspective-1000 { min-height: 506.25px !important; }
+      #view-study .deck-viewer-container { min-height: 570px; height: auto; }
+      #view-study #studyCard, #view-study .perspective-1000 { min-height: 658.125px !important; }
     }
 
     /* iPhone only: compact the non-focus study sidebar to numbered navigation. */
@@ -1079,6 +1079,17 @@ body:not(.focus-study-active) #view-study #studyViewMode > .perspective-1000 {
 
   <!-- VIEW 2: STUDY MODE WITH SIDEBAR & CONTROLS -->
     <div id="view-study" class="tab-view hidden space-y-4">
+      <!-- Current-deck search (all cards, including those not currently due). -->
+      <div id="currentDeckSearchPanel" class="bg-slate-800/40 p-3 rounded-2xl border border-slate-700/60 space-y-2">
+        <label for="currentDeckCardSearch" class="block text-xs font-semibold text-slate-400">Search current deck</label>
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-magnifying-glass text-slate-400"></i>
+          <input id="currentDeckCardSearch" type="search" placeholder="Find a card in this deck…"
+            oninput="searchAnkiCards('current')" class="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100" />
+        </div>
+        <div id="currentDeckCardSearchResults" class="hidden space-y-1 max-h-60 overflow-y-auto"></div>
+      </div>
+
       <div class="flex items-center justify-between bg-slate-800/60 p-4 rounded-2xl border border-slate-700 flex-wrap gap-2 transition-colors">
         <button onclick="exitStudy()" class="px-3.5 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-xl text-xs font-semibold flex items-center space-x-2 transition">
           <i class="fa-solid fa-arrow-left"></i>
@@ -1116,18 +1127,11 @@ body:not(.focus-study-active) #view-study #studyViewMode > .perspective-1000 {
             <i class="fa-solid fa-pen-to-square"></i>
             <span>Edit Card</span>
           </button>
+          <button type="button" onclick="saveCurrentDeckToApkg()" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition shadow-md" title="Save only the currently open deck as an .apkg file">
+            <i class="fa-solid fa-file-export"></i>
+            <span>Save Deck .apkg</span>
+          </button>
         </div>
-      </div>
-
-      <!-- Current-deck search (all cards, including those not currently due). -->
-      <div id="currentDeckSearchPanel" class="bg-slate-800/40 p-3 rounded-2xl border border-slate-700/60 space-y-2">
-        <label for="currentDeckCardSearch" class="block text-xs font-semibold text-slate-400">Search current deck</label>
-        <div class="flex items-center gap-2">
-          <i class="fa-solid fa-magnifying-glass text-slate-400"></i>
-          <input id="currentDeckCardSearch" type="search" placeholder="Find a card in this deck…"
-            oninput="searchAnkiCards('current')" class="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100" />
-        </div>
-        <div id="currentDeckCardSearchResults" class="hidden space-y-1 max-h-60 overflow-y-auto"></div>
       </div>
 
       <!-- Permanent Sidebar Slide List & Main Card Viewer Layout -->
@@ -2382,8 +2386,41 @@ function promptCreateDeck() {
     }
 
     // --- TRUE .APKG FILE EXPORT (WITH NATIVE "SAVE AS" FILE PICKER) ---
-    async function saveAllDecksToFile() {
+    async function saveCurrentDeckToApkg() {
+      const deckId = appState.activeStudyDeckId;
+      if (!deckId || !appState.decks[deckId]) {
+        showToast('Open a deck first to export it.');
+        return;
+      }
+      return saveAllDecksToFile(deckId);
+    }
+
+    async function saveAllDecksToFile(onlyDeckId = null) {
       try {
+        const exportDeckEntries = onlyDeckId
+          ? Object.entries(appState.decks).filter(([id]) => id === onlyDeckId)
+          : Object.entries(appState.decks);
+        if (!exportDeckEntries.length) throw new Error('No deck selected for export.');
+
+        // On iPhone/iPad, Safari and Home Screen apps do not offer the
+        // desktop File System Access save picker. Ask for a file name before
+        // producing the package, then offer the native iOS Save to Files flow.
+        const isIOSSave = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+          (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        const defaultExportName = (onlyDeckId
+          ? exportDeckEntries[0][1].name.replace(/[\\/:*?"<>|]/g, '_') + '_'
+          : 'AnkiSync_Deck_') + Date.now() + '.apkg';
+        let exportFilename = defaultExportName;
+        if (isIOSSave) {
+          const enteredName = window.prompt('Save As — choose a .apkg file name. After export, choose Save to Files to select a folder.', defaultExportName);
+          if (enteredName === null) return;
+          const cleanName = enteredName.trim().replace(/[\\/:*?"<>|]/g, '_');
+          if (!cleanName || cleanName === '.apkg') {
+            showToast('Please enter a valid file name.');
+            return;
+          }
+          exportFilename = /\.apkg$/i.test(cleanName) ? cleanName : cleanName + '.apkg';
+        }
         const SQL = await initSqlJs();
         const db = new SQL.Database();
 
@@ -2428,7 +2465,7 @@ function promptCreateDeck() {
         const zip = new JSZip();
 
         let isFirstDeck = true;
-        for (const [deckKey, deck] of Object.entries(appState.decks)) {
+        for (const [deckKey, deck] of exportDeckEntries) {
           const did = isFirstDeck ? 1 : ++deckIdCounter;
           if (isFirstDeck) {
             decksMeta["1"].name = deck.name || "Default";
@@ -2584,7 +2621,7 @@ function promptCreateDeck() {
           format: 'AnkiSyncPortableProgress',
           version: 1,
           exportedAt: new Date().toISOString(),
-          decks: Object.values(appState.decks).map(deck => ({
+          decks: exportDeckEntries.map(([, deck]) => ({
             name: deck.name,
             lastIndex: Number(deck.lastIndex) || 0,
             lastCardId: deck.lastCardId || null,
@@ -2599,12 +2636,44 @@ function promptCreateDeck() {
         
 
 const content = await zip.generateAsync({ type: "blob" });
+
+        if (isIOSSave) {
+          // iOS Share Sheet offers Save to Files, where the user can choose
+          // iCloud Drive / On My iPhone / On My iPad and a destination folder.
+          // Naming conflicts and replacement are controlled by the Files UI.
+          const exportFile = new File([content], exportFilename, {
+            type: 'application/octet-stream'
+          });
+          if (typeof navigator.share === 'function') {
+            try {
+              if (!navigator.canShare || navigator.canShare({ files: [exportFile] })) {
+                await navigator.share({ files: [exportFile] });
+                return;
+              }
+            } catch (err) {
+              if (err.name === 'AbortError') return;
+              console.warn('iOS file sharing failed; trying download:', err);
+            }
+          }
+          // Fallback for browsers that do not expose file sharing.
+          // The file goes to Downloads, where Files can move/rename it.
+          const fallbackURL = URL.createObjectURL(content);
+          const fallbackAnchor = document.createElement('a');
+          fallbackAnchor.href = fallbackURL;
+          fallbackAnchor.download = exportFilename;
+          document.body.appendChild(fallbackAnchor);
+          fallbackAnchor.click();
+          fallbackAnchor.remove();
+          setTimeout(() => URL.revokeObjectURL(fallbackURL), 60000);
+          showToast('Saved to Downloads. Use Files to move or replace it.');
+          return;
+        }
         
         // Check if File System Access API is supported and usable
         if (window.isSecureContext && 'showSaveFilePicker' in window) {
           try {
             const handle = await window.showSaveFilePicker({
-              suggestedName: "AnkiSync_Export_" + Date.now() + ".apkg",
+              suggestedName: (onlyDeckId ? exportDeckEntries[0][1].name.replace(/[\\/:*?"<>|]/g, '_') + '_' : 'AnkiSync_Export_') + Date.now() + '.apkg',
               types: [{
                 description: 'Anki Package (*.apkg)',
                 accept: { 'application/octet-stream': ['.apkg'] },
@@ -2623,7 +2692,7 @@ const content = await zip.generateAsync({ type: "blob" });
         }
 
         // Fallback: Creates a direct download link without the generic popup prompt
-        const filename = "AnkiSync_Deck_" + Date.now() + ".apkg";
+        const filename = (onlyDeckId ? exportDeckEntries[0][1].name.replace(/[\\/:*?"<>|]/g, '_') + '_' : 'AnkiSync_Deck_') + Date.now() + '.apkg';
         const downloadAnchor = document.createElement('a');
         downloadAnchor.href = URL.createObjectURL(content);
         downloadAnchor.download = filename;
@@ -4993,8 +5062,14 @@ function saveCardEdits() {
 
     // --- ANKI IMPORT ENGINE ---
     async function handleAnkiFileUpload(event) {
-      const file = event.target.files[0];
+      const selectedFiles = Array.from(event.target.files || []);
+      const file = selectedFiles[0];
       if (!file) return;
+      if (selectedFiles.length !== 1 || !/\.(apkg|colpkg)$/i.test(file.name)) {
+        alert('Please select exactly one .apkg or .colpkg file.');
+        event.target.value = '';
+        return;
+      }
 
       const progressContainer = document.getElementById('importProgress');
       const progressBar = document.getElementById('importProgressBar');
@@ -5261,6 +5336,13 @@ function saveCardEdits() {
           throw new Error("No decks found in the imported file.");
         }
 
+        const packageStem = file.name.replace(/\.(apkg|colpkg)$/i, '')
+          .replace(/_\d{10,}$/, '').trim().toLowerCase();
+        const matchingDecks = deckNames.filter(name =>
+          name.toLowerCase() === packageStem ||
+          name.toLowerCase().split('::').pop() === packageStem
+        );
+        const autoChoice = matchingDecks.length === 1 ? matchingDecks[0] : null;
         const selectedDecks = await new Promise((resolve) => {
           if (deckNames.length === 1) {
             resolve(deckNames);
@@ -5275,7 +5357,7 @@ function saveCardEdits() {
             const cardCount = importedCardsByDeck[dName].length;
             listHtml += `
               <label class="flex items-center space-x-3 p-3 bg-slate-900 rounded-xl border border-slate-700 cursor-pointer hover:border-indigo-500 transition">
-                <input type="checkbox" value="${dName}" checked class="import-deck-cb w-4 h-4 rounded bg-slate-800 border-slate-600 text-indigo-600 focus:ring-0" />
+                <input type="checkbox" value="${dName}" ${dName === autoChoice ? 'checked' : ''} class="import-deck-cb w-4 h-4 rounded bg-slate-800 border-slate-600 text-indigo-600 focus:ring-0" />
                 <div class="flex-1 truncate">
                   <span class="text-sm font-semibold text-white block truncate">${dName}</span>
                   <span class="text-xs text-slate-400">${cardCount} cards</span>
@@ -5290,7 +5372,7 @@ function saveCardEdits() {
                 <i class="fa-solid fa-file-import text-indigo-400"></i>
                 <span>Select Decks to Import</span>
               </h3>
-              <p class="text-xs text-slate-400">Choose which decks you want to add to your library:</p>
+              <p class="text-xs text-slate-400">This one package contains ${deckNames.length} internal decks. Choose only the deck(s) you want. Nothing is preselected unless a deck matches the file name.</p>
               <div class="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
                 ${listHtml}
               </div>
@@ -5308,6 +5390,10 @@ function saveCardEdits() {
 
           modalBg.querySelector('#confirmImportBtn').onclick = () => {
             const checked = Array.from(modalBg.querySelectorAll('.import-deck-cb:checked')).map(cb => cb.value);
+            if (!checked.length) {
+              alert('Please select at least one deck, or Cancel.');
+              return;
+            }
             modalBg.remove();
             resolve(checked);
           };
