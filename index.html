@@ -1443,6 +1443,13 @@ body.light-mode .anki-organizer-row.anki-selected { background:#e0e7ff; border-c
             <input id="ankiOrganizerSelectedFiles" type="file" multiple accept=".apkg,.colpkg,.anki,.anki2,.anki21,.json" class="hidden" onchange="importAnkiOrganizerFileSelection(event, false)">
             <input id="ankiOrganizerManifestOnly" type="file" accept=".json,application/json" class="hidden" onchange="ankiOrganizerApplySelectedManifest(event)">
           </div>
+          <div class="flex flex-wrap gap-2 items-center pt-1 border-t border-slate-700/50">
+            <span class="text-[11px] text-indigo-300 font-semibold">Transfer full library to iPhone</span>
+            <button type="button" onclick="exportStudyBackup()" class="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-xs font-semibold" title="Export cards, images, study progress and organizer hierarchy together"><i class="fa-solid fa-file-export"></i> Export Library + Hierarchy</button>
+            <button type="button" onclick="document.getElementById('ankiOrganizerPortableBackupInput').click()" class="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-xs font-semibold" title="Restore a complete library from another device (with confirmation)"><i class="fa-solid fa-file-import"></i> Import Library + Hierarchy</button>
+            <input id="ankiOrganizerPortableBackupInput" type="file" accept=".json,application/json" class="hidden" onchange="importStudyBackup(event)">
+          </div>
+          <p class="text-[11px] text-slate-400">On an iPhone without imported cards, the hierarchy JSON shows missing decks as read-only placeholders. To study them, choose the corresponding .apkg packages through Select Files / Manifest, or transfer all cards and progress at once using the library backup buttons above. Importing a full library backup asks permission before replacing this device's stored decks.</p>
           <p id="ankiOrganizerFolderStatus" role="status" class="text-xs text-slate-400">Open your Anki folder or use Select Files / Manifest. When AnkiSync-Organizer.json is provided, its hierarchy is applied automatically. On iPhone, choose the JSON and needed .apkg files in Files; Safari cannot silently scan iCloud Drive.</p>
           <p class="text-[11px] text-slate-400">The fixed <strong>AnkiSync-Organizer.json</strong> determines the placement of <em>existing package files</em>. The folder scan checks which packages actually exist, so obsolete local imports are not written into the manifest. On supported Windows browsers, Open Folder once to link your iCloud Drive folder; auto-save writes the JSON there while permission remains granted. iPhone Safari requires choosing the files again using Files; it cannot continuously monitor or silently overwrite an iCloud Drive folder from this HTML.</p>
         </div>
@@ -2294,7 +2301,7 @@ function promptCreateDeck() {
       studyQueue: [],
       studyIndex: 0,
       attachedPhotoBase64: null,
-      syncKey: localStorage.getItem('anki_sync_key') || '',
+      syncKey: (()=>{try{return localStorage.getItem('anki_sync_key')||'';}catch(e){return '';}})(),
       selectedCardIds: new Set(),
       clipboardCard: null
     };
@@ -2314,8 +2321,11 @@ function promptCreateDeck() {
     let sketchTool = 'pen';
 
     window.addEventListener('DOMContentLoaded', async () => {
-      await initIndexedDB();
+      const storageReady=await initIndexedDB();
       await loadStateFromIDB();
+      if(!storageReady) {
+        ankiOrganizerStatus('Browser storage is unavailable in this viewing mode. A JSON can be read, but cards may disappear after closing the page. Open AnkiSync as a persistent Safari website (HTTPS), not in Files/Quick Look preview.',true);
+      }
       loadEmbeddedStudyBackup();
       // Browser-local categories can be stale after a reload. Reapply the last
       // imported hierarchy guide before showing either the deck or tree view.
@@ -2343,7 +2353,13 @@ function promptCreateDeck() {
 
     function initIndexedDB() {
       return new Promise((resolve) => {
-        const request = indexedDB.open('AnkiSyncDB', 1);
+        let request;
+        try { request = indexedDB.open('AnkiSyncDB', 1); }
+        catch(error) {
+          console.warn('Browser storage is unavailable in this viewing mode:', error);
+          resolve(false);
+          return;
+        }
         request.onerror = () => resolve(false);
         request.onsuccess = (e) => {
           idbDB = e.target.result;
@@ -2387,6 +2403,8 @@ function promptCreateDeck() {
           appState.decks = backup.decks;
           appState.categories = backup.categories;
           appState.selectedCategory = backup.selectedCategory || 'ALL';
+          if(validateAnkiOrganizerManifest(backup.organizerManifest))
+            ankiOrganizerLoadedManifest=backup.organizerManifest;
           saveLocalState();
         }
       } catch (error) {
@@ -2415,7 +2433,8 @@ function promptCreateDeck() {
           exportedAt: new Date().toISOString(),
           decks: appState.decks,
           categories: appState.categories,
-          selectedCategory: appState.selectedCategory
+          selectedCategory: appState.selectedCategory,
+          organizerManifest: buildAnkiOrganizerManifest()
         };
         const safeJson = JSON.stringify(backup).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026');
         const pattern = /(<script\s+id="embeddedStudyBackup"\s+type="application\/json">)[\s\S]*?(<\/script>)/i;
@@ -2449,7 +2468,8 @@ function promptCreateDeck() {
           exportedAt: new Date().toISOString(),
           decks: appState.decks,
           categories: appState.categories,
-          selectedCategory: appState.selectedCategory
+          selectedCategory: appState.selectedCategory,
+          organizerManifest: buildAnkiOrganizerManifest()
         };
         const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
@@ -2471,7 +2491,7 @@ function promptCreateDeck() {
       const file = event.target.files && event.target.files[0];
       if (!file) return;
       try {
-        const backup = JSON.parse(await file.text());
+        const backup = JSON.parse(await ankiOrganizerReadSelectedText(file));
         if (!backup || backup.format !== 'AnkiSyncStudyBackup' || backup.version !== 1 ||
             !backup.decks || typeof backup.decks !== 'object' || !Array.isArray(backup.categories)) {
           throw new Error('This is not a supported AnkiSync study backup.');
@@ -2491,10 +2511,19 @@ function promptCreateDeck() {
         appState.activeStudyDeckId = null;
         appState.studyQueue = [];
         appState.studyIndex = 0;
+        ankiOrganizerVerifiedFiles=null;
+        ankiOrganizerInventoryComplete=false;
+        if(validateAnkiOrganizerManifest(backup.organizerManifest)) {
+          applyAnkiOrganizerManifest(backup.organizerManifest);
+        } else {
+          ankiOrganizerLoadedManifest=null;
+        }
         saveLocalState();
         renderCategories();
         renderDecks();
-        switchTab('decks');
+        renderNestedSubjects();
+        switchTab('organizer');
+        ankiOrganizerStatus(`Restored ${deckIds.length} deck(s), including cards, review progress and ${ankiOrganizerLoadedManifest?'saved hierarchy':'their saved categories'}.`);
         showToast(`Imported ${deckIds.length} deck(s), including saved review progress.`);
       } catch (error) {
         console.error('Study backup import failed:', error);
@@ -5528,7 +5557,7 @@ function saveCardEdits() {
       const select = document.getElementById('organizerParentSubject');
       if (!tree || !select) return;
       const old = select.value;
-      const availableDecks=ankiOrganizerAvailableDecks();
+      const availableDecks=ankiOrganizerDisplayedDecks();
       // Discard removed decks from the selection without touching saved cards.
       for (const id of ankiOrganizerSelectedDeckIds) {
         if (!appState.decks[id]) ankiOrganizerSelectedDeckIds.delete(id);
@@ -5571,7 +5600,12 @@ function saveCardEdits() {
         row.className='anki-organizer-row';
         // Cap indentation so the trash button stays visible on narrow devices.
         row.style.paddingLeft = `${9 + Math.min(depth, 6)*14}px`;
-        row.draggable=true;
+        const missingDeck=kind==='deck' && id.startsWith('anki_missing_manifest_');
+        row.draggable=!missingDeck;
+        if(missingDeck) {
+          row.title='Listed in hierarchy JSON; import the .apkg package to study this deck.';
+          row.style.opacity='0.75';
+        }
         if (kind === 'deck' && ankiOrganizerSelectedDeckIds.has(id)) row.classList.add('anki-selected');
         row.dataset.kind=kind;
         row.dataset.id=id;
@@ -5593,7 +5627,7 @@ function saveCardEdits() {
           spacer.className='anki-organizer-toggle-placeholder';
           row.appendChild(spacer);
         }
-        if (kind === 'deck') {
+        if (kind === 'deck' && !missingDeck) {
           const checkbox = document.createElement('input');
           checkbox.type='checkbox';
           checkbox.className='anki-organizer-checkbox';
@@ -5618,9 +5652,9 @@ function saveCardEdits() {
         }
         const countNode=document.createElement('span');
         countNode.className='text-[10px] text-slate-500 shrink-0';
-        countNode.textContent=kind==='folder' ? `${count} deck${count===1?'':'s'}` : `${count} cards`;
+        countNode.textContent=missingDeck ? 'Needs .apkg' : (kind==='folder' ? `${count} deck${count===1?'':'s'}` : `${count} cards`);
         row.append(symbol,label,countNode);
-        if((kind==='folder' && !isRoot) || kind==='deck') {
+        if((kind==='folder' && !isRoot) || (kind==='deck' && !missingDeck)) {
           const remove=document.createElement('button');
           remove.type='button';remove.className='anki-organizer-delete';
           remove.title=kind==='deck' ? 'Delete this deck and its cards; preserve nested decks' : 'Delete folder; keep all decks';
@@ -5633,7 +5667,7 @@ function saveCardEdits() {
           });
           row.appendChild(remove);
         }
-        row.addEventListener('dragstart',e=>{
+        if(!missingDeck) row.addEventListener('dragstart',e=>{
           e.dataTransfer.effectAllowed='move';
           // Dragging one of the checked decks moves all checked decks together.
           // Dragging an unchecked deck still moves only that deck.
@@ -5649,7 +5683,8 @@ function saveCardEdits() {
           e.preventDefault();e.stopPropagation();row.classList.remove('anki-drop-target');
           try {
             const payload=JSON.parse(e.dataTransfer.getData('text/plain'));
-            if (payload.kind==='decks') moveAnkiOrganizerDeckBatch(payload.ids,kind,id);
+            if (missingDeck) { showToast('Import this deck before using it as a move destination.'); return; }
+          if (payload.kind==='decks') moveAnkiOrganizerDeckBatch(payload.ids,kind,id);
             else moveAnkiOrganizerNode(payload,kind,id);
           } catch(error) {showToast(error.message||'Could not move item.');}
         });
@@ -5686,7 +5721,8 @@ function saveCardEdits() {
           target.add(new Option(`📁 ${path}`, 'folder:' + path));
         }
         for (const deck of availableDecks) {
-          target.add(new Option(`↳ ${ankiDeckVirtualPath(deck)}`, 'deck:' + deck.id));
+          if(!deck.ankiMissingPackage)
+            target.add(new Option(`↳ ${ankiDeckVirtualPath(deck)}`, 'deck:' + deck.id));
         }
         if ([...target.options].some(option => option.value === prior)) target.value = prior;
       }
@@ -6337,7 +6373,7 @@ function saveCardEdits() {
       body.classList.toggle('light-mode');
       
       const isLight = body.classList.contains('light-mode');
-      localStorage.setItem('anki_theme', isLight ? 'light' : 'dark');
+      try {localStorage.setItem('anki_theme', isLight ? 'light' : 'dark');}catch(e){}
 
       if (isLight) {
         themeIcon.className = "fa-solid fa-moon";
@@ -6350,7 +6386,8 @@ function saveCardEdits() {
 
     // Restore saved theme preference on page load
     window.addEventListener('DOMContentLoaded', () => {
-      const savedTheme = localStorage.getItem('anki_theme');
+      let savedTheme='';
+      try {savedTheme=localStorage.getItem('anki_theme')||'';} catch(e) {}
       if (savedTheme === 'light') {
         document.body.classList.add('light-mode');
         const themeIcon = document.getElementById('themeIcon');
@@ -6756,6 +6793,24 @@ function updateDeckCategory(deckId, newCategory) {
          ankiOrganizerPhysicalDeckPresent(deck) && !ids.has(deck.id) &&
          !ankiOrganizerEntryForFile(deck.sourceFilePath,deck.sourceFingerprint,deck.name)));
     }
+    function ankiOrganizerDisplayedDecks() {
+      const real=ankiOrganizerAvailableDecks();
+      if(!Array.isArray(ankiOrganizerLoadedManifest?.decks)) return real;
+      const matched=ankiOrganizerMatchCachedDecks();
+      const claimed=new Set([...matched.values()].map(e=>ankiOrganizerNormalizePath(e.path)));
+      const missing=ankiOrganizerLoadedManifest.decks
+        .filter(e=>!claimed.has(ankiOrganizerNormalizePath(e.path)))
+        .map((entry,index)=>({
+          id:'anki_missing_manifest_'+index,
+          name:entry.name||ankiOrganizerFileStem(entry.path),
+          category:typeof entry.category==='string'?entry.category:'',
+          sourceFilePath:ankiOrganizerNormalizePath(entry.path),
+          sourceFingerprint:entry.fingerprint||'',
+          cards:[],
+          ankiMissingPackage:true
+        }));
+      return real.concat(missing);
+    }
     function ankiOrganizerPhysicalMatch(entry) {
       if (!ankiOrganizerVerifiedFiles) return true;
       const path=ankiOrganizerNormalizePath(entry?.path);
@@ -6969,8 +7024,23 @@ function updateDeckCategory(deckId, newCategory) {
       if(isFolder) ankiOrganizerFolderHandle=null; // Browser file inputs cannot grant write permission.
       await importAnkiOrganizerItems(selected.map(file=>({file,path:organizerPathForFile(file)})),{complete:!!isFolder});
     }
+    async function ankiOrganizerReadSelectedText(file) {
+      // Safari's document-provider File objects can vary; support both modern
+      // File.text() and the older FileReader route without changing the format.
+      if (typeof file.text === 'function') {
+        try { return await file.text(); } catch(error) {
+          console.warn('File.text failed; retrying with FileReader:', error);
+        }
+      }
+      return await new Promise((resolve,reject)=>{
+        const reader=new FileReader();
+        reader.onload=()=>resolve(String(reader.result||''));
+        reader.onerror=()=>reject(reader.error||new Error('Could not read the selected file.'));
+        reader.readAsText(file);
+      });
+    }
     async function ankiOrganizerReadManifestFile(file) {
-      const json=JSON.parse(await file.text());
+      const json=JSON.parse(await ankiOrganizerReadSelectedText(file));
       if(!validateAnkiOrganizerManifest(json))
         throw new Error('This JSON is not an AnkiSync organizer hierarchy. Select the AnkiSync-Organizer.json file.');
       return json;
@@ -6980,7 +7050,7 @@ function updateDeckCategory(deckId, newCategory) {
       const missing=Math.max(0,data.decks.length-result.updated);
       const example=data.decks.find(e=>ankiOrganizerFileStem(e.path)==='01. Diffuse Lung Diseases');
       const detail=example ? ` Diffuse Lung Diseases → ${example.category.split(' / ').at(-1)}.` : '';
-      return `Hierarchy JSON applied: ${result.updated}/${data.decks.length} deck(s) matched; ${missing} need their .apkg imported.${detail} Tree refreshed. Unlisted browser-cached decks are hidden, not deleted.`;
+      return `Hierarchy JSON applied: ${result.updated}/${data.decks.length} deck(s) matched; ${missing} need their .apkg imported.${detail} ${missing?'Missing decks are displayed as read-only placeholders. Use Select Files / Manifest to add their .apkg packages, or Import Library + Hierarchy from a PC backup.':'All manifest decks are available.'} Unlisted browser-cached decks are hidden, not deleted.`;
     }
     async function ankiOrganizerApplySelectedManifest(event) {
       const file=event.target.files?.[0];
@@ -7375,7 +7445,16 @@ function updateDeckCategory(deckId, newCategory) {
       showToast('Hierarchy file downloaded with its fixed name.');
     }
 
-    window.addEventListener('DOMContentLoaded',setupFloatingEditButton);
+    window.addEventListener('DOMContentLoaded',()=>{
+      setupFloatingEditButton();
+      // Some iOS Files pickers grey out .apkg/.colpkg when an accept filter
+      // contains unknown extensions. The importer still validates filenames.
+      if (/iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+          (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1)) {
+        const picker=document.getElementById('ankiOrganizerSelectedFiles');
+        if (picker) picker.removeAttribute('accept');
+      }
+    });
 
   </script>
 </body>
