@@ -1016,6 +1016,7 @@ body.light-mode .anki-organizer-delete { color:#be123c; }
 .anki-organizer-row.anki-selected { background:rgba(79,70,229,.20); border-color:rgba(129,140,248,.45); }
 body.light-mode .anki-organizer-row.anki-selected { background:#e0e7ff; border-color:#a5b4fc; }
 .anki-organizer-checkbox { flex:0 0 15px; width:15px; height:15px; accent-color:#6366f1; cursor:pointer; }
+#ankiOrganizerMoveSelectedBtn:disabled { opacity:.45; cursor:not-allowed; }
 </style>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col font-sans antialiased selection:bg-indigo-500 selection:text-white">
@@ -1436,11 +1437,13 @@ body.light-mode .anki-organizer-row.anki-selected { background:#e0e7ff; border-c
             <button type="button" onclick="pickAnkiOrganizerFolder()" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold"><i class="fa-solid fa-folder-open"></i> Open Folder</button>
             <button type="button" onclick="document.getElementById('ankiOrganizerSelectedFiles').click()" class="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-xs font-semibold"><i class="fa-solid fa-file-import"></i> Select Files / Manifest</button>
             <button type="button" onclick="saveAnkiOrganizerHierarchy()" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold"><i class="fa-solid fa-floppy-disk"></i> Save Hierarchy As...</button>
+            <button type="button" onclick="ankiOrganizerRefreshLinkedFolder()" class="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-xs font-semibold"><i class="fa-solid fa-arrows-rotate"></i> Refresh Linked Folder</button>
+            <label class="inline-flex items-center gap-1.5 text-[11px] text-slate-300 cursor-pointer"><input id="ankiOrganizerAutoSave" type="checkbox" checked class="rounded border-slate-600 bg-slate-900 text-indigo-500" onchange="ankiOrganizerToggleAutoSave(this.checked)"><span>Auto-save hierarchy to linked folder (PC)</span></label>
             <input id="ankiOrganizerFolderInput" type="file" webkitdirectory directory multiple accept=".apkg,.colpkg,.anki,.anki2,.anki21,.json" class="hidden" onchange="importAnkiOrganizerFileSelection(event, true)">
             <input id="ankiOrganizerSelectedFiles" type="file" multiple accept=".apkg,.colpkg,.anki,.anki2,.anki21,.json" class="hidden" onchange="importAnkiOrganizerFileSelection(event, false)">
           </div>
-          <p id="ankiOrganizerFolderStatus" role="status" class="text-xs text-slate-400">Open a folder containing .apkg/.colpkg files. On iPhone, use Select Files / Manifest if the folder picker is unavailable.</p>
-          <p class="text-[11px] text-slate-400">Drag a deck onto a folder to move it, onto another deck to nest under it, or drag folders into other folders. Save As lets you choose where to save the fixed file <strong>AnkiSync-Organizer.json</strong> and replace the prior manifest in supported browsers; otherwise the browser downloads or shares that file. The original .apkg files are not rewritten.</p>
+          <p id="ankiOrganizerFolderStatus" role="status" class="text-xs text-slate-400">Open your Anki folder with its AnkiSync-Organizer.json file. On iPhone, use Select Files / Manifest to select the JSON together with the .apkg files.</p>
+          <p class="text-[11px] text-slate-400">The fixed <strong>AnkiSync-Organizer.json</strong> determines the placement of <em>existing package files</em>. The folder scan checks which packages actually exist, so obsolete local imports are not written into the manifest. On supported Windows browsers, Open Folder once to link your iCloud Drive folder; auto-save writes the JSON there while permission remains granted. iPhone Safari requires choosing the files again using Files; it cannot continuously monitor or silently overwrite an iCloud Drive folder from this HTML.</p>
         </div>
 
         <!-- Nested medical specialty organizer; existing category data is reused. -->
@@ -1458,8 +1461,13 @@ body.light-mode .anki-organizer-row.anki-selected { background:#e0e7ff; border-c
               <button type="button" onclick="clearAnkiOrganizerDeckSelection()" class="toolbar-btn">Clear Selection</button>
             </div>
           </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <label for="ankiOrganizerMoveTarget" class="text-[11px] font-semibold text-slate-400">Move selected decks to</label>
+            <select id="ankiOrganizerMoveTarget" aria-label="Move selected decks to folder or parent deck" class="bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-lg px-2 py-2 flex-1 min-w-[150px]"></select>
+            <button id="ankiOrganizerMoveSelectedBtn" type="button" onclick="moveSelectedAnkiOrganizerDecks()" class="toolbar-btn" disabled><i class="fa-solid fa-arrow-right" aria-hidden="true"></i> Move Selected</button>
+          </div>
           <div id="organizerSubjectTree" class="text-xs space-y-1 max-h-[260px] overflow-y-auto"></div>
-          <p class="text-[11px] text-slate-400">Create unlimited subject levels. Select multiple decks using the checkboxes, then drag any selected deck onto a folder or parent deck to move the selection together. Use +/− to expand or collapse folders and parent decks. The trash icon deletes a folder but keeps its decks and cards.</p>
+          <p class="text-[11px] text-slate-400">Select multiple decks, choose a destination and click Move Selected, or drag a selected deck onto a folder or parent deck. The trash icon on a deck deletes that deck after confirmation; child decks are kept. Deleting a folder keeps all its contents.</p>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
@@ -2308,11 +2316,18 @@ function promptCreateDeck() {
       await initIndexedDB();
       await loadStateFromIDB();
       loadEmbeddedStudyBackup();
+      // Browser-local categories can be stale after a reload. Reapply the last
+      // imported hierarchy guide before showing either the deck or tree view.
+      if(validateAnkiOrganizerManifest(ankiOrganizerLoadedManifest))
+        applyAnkiOrganizerManifest(ankiOrganizerLoadedManifest);
       renderCategories();
       renderDecks();
       refreshAnkiImportDeckOptions();
       initSketchCanvas();
       checkPasteVisibility();
+      // Reopen previously authorized desktop iCloud folder only if permission
+      // is still granted; never trigger a hidden permission prompt on iPhone.
+      await ankiOrganizerRestoreHandle();
 
       // Listen for clipboard or deck changes from other browser tabs
       window.addEventListener('storage', (e) => {
@@ -2347,7 +2362,8 @@ function promptCreateDeck() {
           store.put({
             decks: appState.decks,
             categories: appState.categories,
-            selectedCategory: appState.selectedCategory
+            selectedCategory: appState.selectedCategory,
+            organizerManifest: ankiOrganizerLoadedManifest
           }, 'app_state');
         } catch(e) {
           console.error("IndexedDB save error:", e);
@@ -2499,6 +2515,9 @@ function promptCreateDeck() {
               if (req.result.decks) appState.decks = req.result.decks;
               if (req.result.categories) appState.categories = req.result.categories;
               if (req.result.selectedCategory) appState.selectedCategory = req.result.selectedCategory;
+              if (validateAnkiOrganizerManifest(req.result.organizerManifest)) {
+                ankiOrganizerLoadedManifest = req.result.organizerManifest;
+              }
             }
             resolve();
           };
@@ -3150,7 +3169,7 @@ const content = await zip.generateAsync({ type: "blob" });
       const emptyNotice = document.getElementById('emptyDecksNotice');
       grid.innerHTML = '';
 
-      const deckKeys = Object.keys(appState.decks);
+      const deckKeys = Object.keys(appState.decks).filter(id=>ankiOrganizerIsVerifiedDeck(appState.decks[id]));
       let visibleCount = 0;
 
       deckKeys.forEach(deckId => {
@@ -3287,11 +3306,7 @@ const content = await zip.generateAsync({ type: "blob" });
     }
 
     function deleteDeck(deckId) {
-      if (confirm("Are you sure you want to delete this deck and all its cards?")) {
-        delete appState.decks[deckId];
-        saveLocalState();
-        renderDecks();
-      }
+      deleteAnkiOrganizerDeck(deckId);
     }
 
     
@@ -5389,6 +5404,7 @@ function saveCardEdits() {
       renderCategories();
       renderDecks();
       showToast('Subject created. Assign a deck to it using the group dropdown.');
+      ankiOrganizerScheduleAutosave();
     }
 
     // Existing portable manifests use category paths for nested decks. A path that
@@ -5436,6 +5452,7 @@ function saveCardEdits() {
       renderCategories(); renderDecks(); renderNestedSubjects();
       ankiOrganizerStatus('Folder/group removed; its decks were preserved. Use Save Hierarchy As... to update the manifest.');
       showToast('Folder/group deleted; all contained decks and cards were kept.');
+      ankiOrganizerScheduleAutosave();
     }
     const ankiOrganizerSelectedDeckIds = new Set();
     function updateAnkiOrganizerSelectionCount() {
@@ -5444,6 +5461,47 @@ function saveCardEdits() {
         const n = ankiOrganizerSelectedDeckIds.size;
         status.textContent = `${n} deck${n === 1 ? '' : 's'} selected`;
       }
+      const button = document.getElementById('ankiOrganizerMoveSelectedBtn');
+      if (button) button.disabled = ankiOrganizerSelectedDeckIds.size === 0;
+    }
+    function moveSelectedAnkiOrganizerDecks() {
+      const selected = [...ankiOrganizerSelectedDeckIds].filter(id => appState.decks[id]);
+      if (!selected.length) {
+        ankiOrganizerStatus('Select at least one deck with its checkbox first.', true);
+        return;
+      }
+      const choice = document.getElementById('ankiOrganizerMoveTarget')?.value || 'folder:';
+      const kind = choice.startsWith('deck:') ? 'deck' : 'folder';
+      const id = choice.slice(kind === 'deck' ? 5 : 7);
+      moveAnkiOrganizerDeckBatch(selected, kind, id);
+    }
+    function deleteAnkiOrganizerDeck(deckId) {
+      const deck = appState.decks[deckId];
+      if (!deck) return;
+      if (!window.confirm(`Delete the deck "${deck.name}" and its ${deck.cards?.length || 0} cards?\n\nNested decks will be moved up one level, not deleted. This cannot be undone.`)) return;
+      // A deleted parent deck cannot leave its child decks under a phantom
+      // parent folder. Promote its descendant paths while preserving their cards.
+      const oldPath = ankiDeckVirtualPath(deck);
+      const parent = String(deck.category || '');
+      const prefix = oldPath + ' / ';
+      const promote = value => {
+        const path = String(value || '');
+        if (path === oldPath) return parent;
+        if (path.startsWith(prefix)) return [parent, path.slice(prefix.length)].filter(Boolean).join(' / ');
+        return path;
+      };
+      appState.categories = [...new Set(appState.categories.filter(path => path !== oldPath).map(promote).filter(Boolean))];
+      for (const child of Object.values(appState.decks)) {
+        if (child.id !== deckId) child.category = promote(child.category);
+      }
+      delete appState.decks[deckId];
+      ankiOrganizerSelectedDeckIds.delete(deckId);
+      ankiCollapsedTreeNodes.delete('deck:' + deckId);
+      if (appState.selectedCategory !== 'ALL' && !appState.categories.includes(appState.selectedCategory)) appState.selectedCategory = 'ALL';
+      saveLocalState(); renderCategories(); renderDecks(); populateOrganizerDropdowns();
+      ankiOrganizerStatus(`Deleted deck "${deck.name}". Any nested decks were preserved. Save Hierarchy As... to update your manifest.`);
+      showToast(`Deleted ${deck.name}; nested decks were kept.`);
+      ankiOrganizerScheduleAutosave();
     }
     function toggleAnkiOrganizerDeckSelection(deckId, checked) {
       if (!appState.decks[deckId]) return;
@@ -5466,6 +5524,7 @@ function saveCardEdits() {
       const select = document.getElementById('organizerParentSubject');
       if (!tree || !select) return;
       const old = select.value;
+      const availableDecks=ankiOrganizerAvailableDecks();
       // Discard removed decks from the selection without touching saved cards.
       for (const id of ankiOrganizerSelectedDeckIds) {
         if (!appState.decks[id]) ankiOrganizerSelectedDeckIds.delete(id);
@@ -5476,7 +5535,7 @@ function saveCardEdits() {
 
       // Include ancestor paths for older saved collections and nested Anki files.
       const allPaths = new Set((appState.categories || []).filter(Boolean));
-      Object.values(appState.decks).forEach(deck => { if (deck.category) allPaths.add(deck.category); });
+      availableDecks.forEach(deck => { if (deck.category) allPaths.add(deck.category); });
       for (const path of [...allPaths]) {
         const segments = path.split(' / ');
         for (let i=1; i<segments.length; i++) allPaths.add(segments.slice(0,i).join(' / '));
@@ -5496,17 +5555,18 @@ function saveCardEdits() {
         map.get(key).push(value);
       };
       realFolders.forEach(folder => add(folderChildren,parentPath(folder),folder));
-      Object.values(appState.decks).forEach(deck => add(deckChildren,deck.category || '',deck));
+      availableDecks.forEach(deck => add(deckChildren,deck.category || '',deck));
       for (const list of folderChildren.values()) list.sort((a,b)=>a.localeCompare(b));
       for (const list of deckChildren.values()) list.sort((a,b)=>(a.name||'').localeCompare(b.name||''));
       const hasChildren = path => !!((folderChildren.get(path)||[]).length || (deckChildren.get(path)||[]).length);
-      const folderCount = path => Object.values(appState.decks).filter(deck => deck.category===path || deck.category?.startsWith(path+' / ')).length;
+      const folderCount = path => availableDecks.filter(deck => deck.category===path || deck.category?.startsWith(path+' / ')).length;
       const visitedDecks = new Set(), visitedFolders = new Set();
 
       function appendRow(kind,id,title,depth,count,expandable) {
         const row = document.createElement('div');
         row.className='anki-organizer-row';
-        row.style.paddingLeft = `${9 + depth*17}px`;
+        // Cap indentation so the trash button stays visible on narrow devices.
+        row.style.paddingLeft = `${9 + Math.min(depth, 6)*14}px`;
         row.draggable=true;
         if (kind === 'deck' && ankiOrganizerSelectedDeckIds.has(id)) row.classList.add('anki-selected');
         row.dataset.kind=kind;
@@ -5556,13 +5616,17 @@ function saveCardEdits() {
         countNode.className='text-[10px] text-slate-500 shrink-0';
         countNode.textContent=kind==='folder' ? `${count} deck${count===1?'':'s'}` : `${count} cards`;
         row.append(symbol,label,countNode);
-        if(kind==='folder' && !isRoot) {
+        if((kind==='folder' && !isRoot) || kind==='deck') {
           const remove=document.createElement('button');
           remove.type='button';remove.className='anki-organizer-delete';
-          remove.title='Delete folder; keep all decks';
-          remove.setAttribute('aria-label',`Delete folder ${title}`);
+          remove.title=kind==='deck' ? 'Delete this deck and its cards; preserve nested decks' : 'Delete folder; keep all decks';
+          remove.setAttribute('aria-label',`${kind==='deck'?'Delete deck':'Delete folder'} ${title}`);
           remove.innerHTML='<i class="fa-solid fa-trash-can" aria-hidden="true"></i>';
-          remove.addEventListener('click',e=>{e.stopPropagation();deleteAnkiOrganizerFolder(id);});
+          remove.addEventListener('click',e=>{
+            e.preventDefault(); e.stopPropagation();
+            if (kind==='deck') deleteAnkiOrganizerDeck(id);
+            else deleteAnkiOrganizerFolder(id);
+          });
           row.appendChild(remove);
         }
         row.addEventListener('dragstart',e=>{
@@ -5608,6 +5672,20 @@ function saveCardEdits() {
       }
       branch('',1);
       if([...select.options].some(opt=>opt.value===old)) select.value=old;
+      // Explicit move destination works on touch screens and when native
+      // HTML5 dragging is blocked by the browser or an embedded iframe.
+      const target = document.getElementById('ankiOrganizerMoveTarget');
+      if (target) {
+        const prior = target.value;
+        target.replaceChildren(new Option('Top level', 'folder:'));
+        for (const path of realFolders) {
+          target.add(new Option(`📁 ${path}`, 'folder:' + path));
+        }
+        for (const deck of availableDecks) {
+          target.add(new Option(`↳ ${ankiDeckVirtualPath(deck)}`, 'deck:' + deck.id));
+        }
+        if ([...target.options].some(option => option.value === prior)) target.value = prior;
+      }
     }
 
     function populateOrganizerDropdowns() {
@@ -6097,8 +6175,11 @@ function saveCardEdits() {
 
 
         if (selectedDecks.length > 0 && folderBatch) {
-          const sourceFilePath = String(options.relativePath || file.name).replace(/\\/g, '/').replace(/^\/+/, '');
-          const importedName = file.name.replace(/\.(apkg|colpkg|anki|anki2|anki21)$/i, '').trim();
+          const sourceFilePath=ankiOrganizerNormalizePath(options.relativePath || file.name);
+          const sourceFingerprint=options.sourceFingerprint || await ankiOrganizerFingerprintFile(file);
+          const importedName=ankiOrganizerFileStem(file.name);
+          const manifestEntry=ankiOrganizerEntryForFile(sourceFilePath,sourceFingerprint,importedName);
+          const canonicalPath=manifestEntry ? ankiOrganizerNormalizePath(manifestEntry.path) : sourceFilePath;
           // Namespace card IDs by source file to prevent two packages with
           // overlapping Anki note IDs from mixing cards across decks.
           let hash = 2166136261;
@@ -6106,27 +6187,27 @@ function saveCardEdits() {
           const sourceNamespace = (hash >>> 0).toString(36);
           const allCards = selectedDecks.flatMap(name => importedCardsByDeck[name] || [])
             .map(card => ({...card, id: `file_${sourceNamespace}_${card.id}`}));
-          let existing = Object.values(appState.decks).find(deck => deck.sourceFilePath === sourceFilePath);
-          if (existing) {
-            const ids = new Set((existing.cards || []).map(c => String(c.id)));
-            for (const card of allCards) {
-              if (!ids.has(String(card.id))) { existing.cards.push(card); ids.add(String(card.id)); }
-            }
+          let existing=ankiOrganizerFindExistingDeck(canonicalPath,sourceFingerprint,importedName,allCards);
+          if(existing) {
+            ankiOrganizerMergeCards(existing,allCards);
           } else {
             const deckId = 'deck_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
             const parentPath = sourceFilePath.split('/').slice(0,-1).filter(Boolean).join(' / ');
             const fallbackCategory = parentPath || 'General';
             existing = appState.decks[deckId] = {
               id:deckId, name:importedName || file.name, category:fallbackCategory,
-              sourceFilePath, sourceFileName:file.name,
+              sourceFilePath:canonicalPath, sourceFileName:file.name,
+              sourceFingerprint,
               cards:allCards,
               lastIndex:Math.min(Math.max(...selectedDecks.map(name => importedLastIndexByDeck[name] || 0),0), Math.max(0,allCards.length-1))
             };
           }
-          existing.sourceFilePath = sourceFilePath;
-          existing.sourceFileName = file.name;
-          const category = findAnkiOrganizerManifestCategory(sourceFilePath);
-          if (category !== null) existing.category = category;
+          existing.sourceFilePath=canonicalPath;
+          existing.sourceFileName=file.name;
+          existing.sourceFingerprint=sourceFingerprint;
+          if(manifestEntry?.name) existing.name=manifestEntry.name;
+          const category=findAnkiOrganizerManifestCategory(canonicalPath,sourceFingerprint,importedName);
+          if(category!==null) existing.category=category;
           ensureAnkiCategoryPath(existing.category);
           saveLocalState();
         } else if (selectedDecks.length > 0) {
@@ -6312,6 +6393,7 @@ function updateDeckCategory(deckId, newCategory) {
     saveLocalState();
     renderDecks();
     showToast("Deck group updated successfully!");
+    ankiOrganizerScheduleAutosave();
   }
 }
 
@@ -6324,6 +6406,16 @@ function updateDeckCategory(deckId, newCategory) {
     let ankiOrganizerFolderHandle = null;
     let ankiOrganizerLoadedManifest = null;
     let ankiOrganizerFolderBusy = false;
+    // Null means no folder/files have been verified in this session.
+    // An inventory contains ONLY packages successfully opened in the selected folder.
+    let ankiOrganizerVerifiedFiles = null;
+    // Only a complete folder scan is evidence that an unselected file is absent.
+    // iPhone file selection may include just a subset of the iCloud folder.
+    let ankiOrganizerInventoryComplete = false;
+    let ankiOrganizerAutoSaveTimer = null;
+    let ankiOrganizerAutoSaveRunning = false;
+    let ankiOrganizerAutoSaveEnabled = true;
+
     let pendingAnkiHardResetDeckId = null;
     let ankiFloatingDrag = null;
     let ankiFloatingSuppressClick = false;
@@ -6431,15 +6523,191 @@ function updateDeckCategory(deckId, newCategory) {
         if(!appState.categories.includes(p)) appState.categories.push(p);
       }
     }
-    function findAnkiOrganizerManifestCategory(filePath) {
-      const entries=ankiOrganizerLoadedManifest?.decks;
-      if(!Array.isArray(entries)) return null;
-      const path=String(filePath||'').replace(/\\/g,'/');
-      const item=entries.find(e=>e && e.path===path);
-      if(item) return typeof item.category === 'string' ? item.category : '';
-      const sameName=entries.filter(e=>e && String(e.path||'').split('/').at(-1)===path.split('/').at(-1));
-      return sameName.length===1 ? (sameName[0].category ?? '') : null;
+    function ankiOrganizerNormalizePath(value) {
+      return String(value || '').replace(/\\/g,'/').replace(/^\.\//,'').replace(/^\/+|\/+$/g,'')
+        .split('/').filter(part=>part && part!=='.').join('/');
     }
+    function ankiOrganizerBaseName(path) {
+      return ankiOrganizerNormalizePath(path).split('/').pop() || '';
+    }
+    function ankiOrganizerFileStem(path) {
+      return ankiOrganizerBaseName(path).replace(/\.(?:apkg|colpkg|anki|anki2|anki21)$/i,'');
+    }
+    function ankiOrganizerEntryForFile(filePath, fingerprint = '', deckName = '') {
+      const entries = ankiOrganizerLoadedManifest?.decks;
+      if (!Array.isArray(entries) || !entries.length) return null;
+      const path = ankiOrganizerNormalizePath(filePath);
+      const fp = String(fingerprint || '');
+      const compatible = e => !(fp && e.fingerprint && e.fingerprint !== fp);
+      // The manifest is a LAYOUT GUIDE. A unique, exact physical filename/path
+      // still identifies the intended node after the package contents change.
+      if (path) {
+        const exact=entries.filter(e=>e && ankiOrganizerNormalizePath(e.path)===path);
+        if(exact.length===1) return exact[0];
+      }
+      // Fingerprints travel unchanged across iCloud/Windows/iPhone directory names.
+      // Require uniqueness; never pick the first of several ambiguous entries.
+      if (fp) {
+        const matches = entries.filter(e => e && e.fingerprint === fp);
+        if (matches.length === 1) return matches[0];
+        if (matches.length > 1 && path) {
+          const exact = matches.filter(e => ankiOrganizerNormalizePath(e.path) === path);
+          if (exact.length === 1) return exact[0];
+        }
+      }
+      const basename = ankiOrganizerBaseName(path).toLowerCase();
+      if (basename) {
+        const named = entries.filter(e => e && ankiOrganizerBaseName(e.path).toLowerCase() === basename);
+        if (named.length === 1) return named[0];
+      }
+      if (deckName) {
+        const named = entries.filter(e => e && compatible(e) && (e.name === deckName || ankiOrganizerFileStem(e.path) === deckName));
+        if (named.length === 1) return named[0];
+      }
+      return null;
+    }
+    function findAnkiOrganizerManifestCategory(filePath, fingerprint = '', deckName = '') {
+      const item=ankiOrganizerEntryForFile(filePath, fingerprint, deckName);
+      return item ? (typeof item.category==='string' ? item.category : '') : null;
+    }
+    // Small, portable, content-derived identity. Read three bounded samples,
+    // rather than requiring the browser to load a huge .apkg twice. Includes
+    // size; independent of the iPhone's directory and last-modified timestamp.
+    async function ankiOrganizerFingerprintFile(file) {
+      const size=Number(file.size||0), length=65536;
+      const offsets=[0,Math.max(0,Math.floor((size-length)/2)),Math.max(0,size-length)];
+      const seen=new Set();
+      let h1=2166136261, h2=2246822519;
+      const feed=n=>{
+        h1=Math.imul(h1 ^ n,16777619);
+        h2=Math.imul(h2 ^ n,3266489917);
+      };
+      for(const offset of offsets) {
+        if(seen.has(offset)) continue;
+        seen.add(offset);
+        const bytes=new Uint8Array(await file.slice(offset,Math.min(size,offset+length)).arrayBuffer());
+        for(const byte of bytes) feed(byte);
+        feed(offset & 255);
+      }
+      return 'sample-v1:'+size+':'+(h1>>>0).toString(16)+':'+(h2>>>0).toString(16);
+    }
+    // A package reselected under a different directory used to obtain a new
+    // file_* namespace. Normalize only that import prefix, never note content.
+    function ankiOrganizerCardKey(card) {
+      return String(card?.id ?? '').replace(/^file_[a-z0-9]+_/i,'');
+    }
+    function ankiOrganizerSameCardOverlap(a,b) {
+      const ids=new Set((a.cards||[]).map(ankiOrganizerCardKey).filter(Boolean));
+      return (b.cards||[]).some(card=>ids.has(ankiOrganizerCardKey(card)));
+    }
+    function ankiOrganizerFindExistingDeck(path,fingerprint,name,cards=[]) {
+      const decks=Object.values(appState.decks);
+      const normalized=ankiOrganizerNormalizePath(path);
+      const fp=String(fingerprint||'');
+      const exact=decks.find(d=>d.sourceFilePath && ankiOrganizerNormalizePath(d.sourceFilePath)===normalized &&
+        !(fp && d.sourceFingerprint && d.sourceFingerprint!==fp));
+      if(exact) return exact;
+      if(fp) {
+        const byFp=decks.find(d=>d.sourceFingerprint===fp);
+        if(byFp) return byFp;
+      }
+      const basename=ankiOrganizerBaseName(normalized).toLowerCase();
+      const byName=decks.filter(d=>d.sourceFilePath &&
+        ankiOrganizerBaseName(d.sourceFilePath).toLowerCase()===basename &&
+        !(fp && d.sourceFingerprint && d.sourceFingerprint!==fp));
+      if(byName.length===1) return byName[0];
+      if(byName.length>1 && cards.length) {
+        const imported={cards};
+        const overlap=byName.filter(d=>ankiOrganizerSameCardOverlap(d,imported));
+        if(overlap.length===1) return overlap[0];
+      }
+      // Single-file imports predate folder identities; attach them only if the
+      // card identities overlap, avoiding false merges of manually named decks.
+      const imported={cards};
+      const old=decks.filter(d=>!d.sourceFilePath &&
+        (d.name===name || d.name===ankiOrganizerFileStem(path)) &&
+        cards.length && ankiOrganizerSameCardOverlap(d,imported));
+      return old.length===1 ? old[0] : null;
+    }
+    function ankiOrganizerMergeCards(target,otherCards) {
+      if(!Array.isArray(target.cards)) target.cards=[];
+      const map=new Map(target.cards.map((c,i)=>[ankiOrganizerCardKey(c),i]));
+      for(const card of otherCards||[]) {
+        const key=ankiOrganizerCardKey(card);
+        if(!key || !map.has(key)) {
+          map.set(key,target.cards.length);
+          target.cards.push(card);
+        } else {
+          const current=target.cards[map.get(key)];
+          // Never replace existing study progress with a newly imported card.
+          if(!current.reviewData && card.reviewData) current.reviewData=card.reviewData;
+        }
+      }
+    }
+    function ankiOrganizerReconcileDuplicates() {
+      let removed=0;
+      const grouped=new Map();
+      for(const deck of Object.values(appState.decks)) {
+        const entry=ankiOrganizerEntryForFile(deck.sourceFilePath,deck.sourceFingerprint,deck.name);
+        const key=entry ? ankiOrganizerNormalizePath(entry.path) : '';
+        if(!key) continue;
+        if(!grouped.has(key)) grouped.set(key,[]);
+        grouped.get(key).push(deck);
+      }
+      for(const [path,list] of grouped) {
+        if(list.length<2) continue;
+        // Prefer the deck with the most study history, then the most cards.
+        const score=d=>(d.cards||[]).filter(c=>!!c.reviewData).length*10000+(d.cards||[]).length;
+        list.sort((a,b)=>score(b)-score(a));
+        const keeper=list[0];
+        for(const duplicate of list.slice(1)) {
+          const equivalent=ankoSameSource(keeper,duplicate,path);
+          if(!equivalent) continue;
+          ankiOrganizerMergeCards(keeper,duplicate.cards);
+          if(!keeper.lastCardId && duplicate.lastCardId) keeper.lastCardId=duplicate.lastCardId;
+          delete appState.decks[duplicate.id];
+          ankiOrganizerSelectedDeckIds.delete(duplicate.id);
+          removed++;
+        }
+      }
+      return removed;
+    }
+    function ankoSameSource(a,b,manifestPath) {
+      const ap=ankiOrganizerNormalizePath(a.sourceFilePath),bp=ankiOrganizerNormalizePath(b.sourceFilePath);
+      if(a.sourceFingerprint && b.sourceFingerprint && a.sourceFingerprint!==b.sourceFingerprint)
+        return ankiOrganizerSameCardOverlap(a,b);
+      if(ap && bp && ap===bp) return true;
+      if(a.sourceFingerprint && b.sourceFingerprint) return a.sourceFingerprint===b.sourceFingerprint;
+      return ankiOrganizerSameCardOverlap(a,b);
+    }
+    function ankiOrganizerIsVerifiedDeck(deck) {
+      if (!ankiOrganizerVerifiedFiles || !ankiOrganizerInventoryComplete || !deck?.sourceFilePath) return true;
+      const path=ankiOrganizerNormalizePath(deck.sourceFilePath);
+      const fp=String(deck.sourceFingerprint||'');
+      return [...ankiOrganizerVerifiedFiles.values()].some(item =>
+        (fp && item.fingerprint && fp === item.fingerprint) ||
+        (ankiOrganizerNormalizePath(item.path) === path && !(fp && item.fingerprint && fp !== item.fingerprint)) ||
+        (ankiOrganizerBaseName(item.path).toLowerCase() === ankiOrganizerBaseName(path).toLowerCase() &&
+          !(fp && item.fingerprint && fp !== item.fingerprint)));
+    }
+    function ankiOrganizerAvailableDecks() {
+      return Object.values(appState.decks).filter(ankiOrganizerIsVerifiedDeck);
+    }
+    function ankiOrganizerPhysicalMatch(entry) {
+      if (!ankiOrganizerVerifiedFiles) return true;
+      const path=ankiOrganizerNormalizePath(entry?.path);
+      const fp=String(entry?.fingerprint||'');
+      return [...ankiOrganizerVerifiedFiles.values()].some(item=>
+        (fp && item.fingerprint===fp) ||
+        (path===ankiOrganizerNormalizePath(item.path) && !(fp && item.fingerprint && fp!==item.fingerprint)) ||
+        (ankiOrganizerBaseName(path).toLowerCase()===ankiOrganizerBaseName(item.path).toLowerCase() &&
+         !(fp && item.fingerprint && fp!==item.fingerprint)));
+    }
+    function ankiOrganizerCountMissingManifestFiles() {
+      if (!ankiOrganizerVerifiedFiles || !ankiOrganizerInventoryComplete || !ankiOrganizerLoadedManifest) return [];
+      return ankiOrganizerLoadedManifest.decks.filter(entry=>!ankiOrganizerPhysicalMatch(entry));
+    }
+
     function organizerPathForFile(file) {
       const path=(file.webkitRelativePath||file.name).replace(/\\/g,'/');
       const parts=path.split('/');
@@ -6447,51 +6715,167 @@ function updateDeckCategory(deckId, newCategory) {
       return file.webkitRelativePath && parts.length>1 ? parts.slice(1).join('/') : path;
     }
     function validateAnkiOrganizerManifest(data) {
-      return data && data.format==='AnkiSyncOrganizer' && data.version===1 && Array.isArray(data.decks);
+      return data && data.format==='AnkiSyncOrganizer' && data.version===1 &&
+        Array.isArray(data.decks) && data.decks.every(e=>e && typeof e.path==='string');
     }
     function applyAnkiOrganizerManifest(data) {
       if(!validateAnkiOrganizerManifest(data)) throw new Error('Invalid AnkiSync organizer manifest.');
       ankiOrganizerLoadedManifest=data;
-      // Treat the saved folder/category tree as authoritative, including deleted
-      // groups. Retain unrelated local decks by preserving their own paths.
-      if (Array.isArray(data.categories)) {
-        appState.categories = [...new Set(data.categories.filter(c => typeof c === 'string' && c.trim()))];
-      }
+      // The manifest is ONLY a layout guide: never create decks or cards here.
+      // Existing imported decks are resolved by path, fingerprint or unique name.
+      const savedCategories=Array.isArray(data.categories)
+        ? data.categories.filter(c=>typeof c==='string' && c.trim()) : [];
+      appState.categories=[...new Set(savedCategories)];
       let updated=0;
-      for (const deck of Object.values(appState.decks)) {
-        const category = deck.sourceFilePath ? findAnkiOrganizerManifestCategory(deck.sourceFilePath) : null;
-        if(category !== null) { deck.category=category;updated++; }
-        ensureAnkiCategoryPath(deck.category);
+      const assigned=new Map();
+      for(const deck of Object.values(appState.decks)) {
+        const entry=ankiOrganizerEntryForFile(deck.sourceFilePath,deck.sourceFingerprint,deck.name);
+        if(!entry) continue;
+        assigned.set(deck.id,entry);
+        // Keep the manifest's canonical path and parent name across devices.
+        // Otherwise a child category like "Pulmonary / COPD" can appear as a
+        // phantom folder when iPhone imports the parent deck under a new name.
+        deck.sourceFilePath=ankiOrganizerNormalizePath(entry.path);
+        deck.sourceFileName=ankiOrganizerBaseName(entry.path);
+        if(entry.fingerprint && !deck.sourceFingerprint) deck.sourceFingerprint=entry.fingerprint;
+        if(typeof entry.name==='string' && entry.name.trim()) deck.name=entry.name;
+        deck.category=typeof entry.category==='string' ? entry.category : '';
+        updated++;
       }
+      const removed=ankiOrganizerReconcileDuplicates();
+      // Bring back only the ancestors needed for the saved layout and any
+      // unrelated local decks; do not turn a manifest into duplicate decks.
+      for(const deck of Object.values(appState.decks)) ensureAnkiCategoryPath(deck.category);
+      ankiOrganizerRestoreCollapse(data);
       saveLocalState();renderCategories();renderDecks();renderNestedSubjects();
-      return updated;
+      return {updated,removed};
+    }
+    function ankiOrganizerRestoreCollapse(data) {
+      if(!Array.isArray(data.collapsed)) return;
+      ankiCollapsedTreeNodes.clear();
+      for(const node of data.collapsed) {
+        if(!node || typeof node!=='object') continue;
+        if(node.kind==='folder' && typeof node.path==='string')
+          ankiCollapsedTreeNodes.add('folder:'+node.path);
+        if(node.kind==='deck') {
+          const deck=Object.values(appState.decks).find(d=>
+            (node.path && ankiOrganizerNormalizePath(d.sourceFilePath)===ankiOrganizerNormalizePath(node.path)) ||
+            (node.fingerprint && d.sourceFingerprint===node.fingerprint));
+          if(deck) ankiCollapsedTreeNodes.add('deck:'+deck.id);
+        }
+      }
+      try {localStorage.setItem('anki_organizer_collapsed_v2',JSON.stringify([...ankiCollapsedTreeNodes]));}catch(e){}
     }
     function ankiOrganizerStatus(message,isError=false) {
       const el=document.getElementById('ankiOrganizerFolderStatus');
       if(el) {el.textContent=message;el.className='text-xs '+(isError?'text-rose-300':'text-slate-400');}
     }
+    function ankiOrganizerToggleAutoSave(enabled) {
+      ankiOrganizerAutoSaveEnabled=!!enabled;
+      try{localStorage.setItem('anki_organizer_folder_autosave_v1',String(!!enabled));}catch(e){}
+      ankiOrganizerStatus(enabled ? 'Auto-save enabled for the linked desktop folder.' : 'Auto-save disabled; use Save Hierarchy As... for manual saves.');
+    }
+    async function ankiOrganizerRememberHandle(handle) {
+      if(!idbDB || !handle) return;
+      try {
+        await new Promise(resolve=>{
+          const tx=idbDB.transaction('state','readwrite');
+          tx.objectStore('state').put(handle,'anki_organizer_directory_handle');
+          tx.oncomplete=resolve;tx.onerror=resolve;tx.onabort=resolve;
+        });
+      }catch(error){console.warn('Could not remember folder access:',error);}
+    }
+    async function ankiOrganizerRestoreHandle() {
+      try {
+        const setting=localStorage.getItem('anki_organizer_folder_autosave_v1');
+        ankiOrganizerAutoSaveEnabled=setting!== 'false';
+        const checkbox=document.getElementById('ankiOrganizerAutoSave');
+        if(checkbox) checkbox.checked=ankiOrganizerAutoSaveEnabled;
+        if(!idbDB || typeof window.showDirectoryPicker!=='function') return;
+        const handle=await new Promise(resolve=>{
+          const tx=idbDB.transaction('state','readonly');
+          const req=tx.objectStore('state').get('anki_organizer_directory_handle');
+          req.onsuccess=()=>resolve(req.result || null);req.onerror=()=>resolve(null);
+        });
+        if(!handle || handle.kind!=='directory') return;
+        const state=await handle.queryPermission({mode:'readwrite'});
+        if(state==='granted') {
+          ankiOrganizerFolderHandle=handle;
+          // Read without a permission prompt. Changes made on another device
+          // appear here next time this page is opened/refreshed.
+          await ankiOrganizerLoadFromHandle(handle);
+        } else {
+          ankiOrganizerStatus('A previous linked folder needs permission again. Click Open Folder and select your iCloud Drive/Anki folder.');
+        }
+      } catch(error) {console.warn('Linked-folder reconnection unavailable:',error);}
+    }
+    async function ankiOrganizerCollectFolderFiles(handle) {
+      const files=[];
+      async function walk(folder,prefix='') {
+        for await(const [name,item] of folder.entries()) {
+          const path=prefix ? prefix+'/'+name : name;
+          if(item.kind==='directory') await walk(item,path);
+          else if(/\.(apkg|colpkg|anki|anki2|anki21)$/i.test(name) || name===ANKI_ORGANIZER_MANIFEST)
+            files.push({file:await item.getFile(),path});
+        }
+      }
+      await walk(handle);
+      return files;
+    }
+    async function ankiOrganizerLoadFromHandle(handle) {
+      if(ankiOrganizerFolderBusy) return;
+      const files=await ankiOrganizerCollectFolderFiles(handle);
+      await importAnkiOrganizerItems(files,{complete:true});
+    }
+    async function ankiOrganizerRefreshLinkedFolder() {
+      if(!ankiOrganizerFolderHandle) {
+        ankiOrganizerStatus('No linked folder. Click Open Folder to select your iCloud Drive/Anki folder.',true);
+        return;
+      }
+      try {
+        if(await ankiOrganizerFolderHandle.queryPermission({mode:'readwrite'})!=='granted') {
+          ankiOrganizerStatus('Folder permission expired. Click Open Folder to reauthorize.',true);return;
+        }
+        await ankiOrganizerLoadFromHandle(ankiOrganizerFolderHandle);
+      } catch(error) {ankiOrganizerStatus('Unable to refresh linked folder: '+error.message,true);}
+    }
+    async function ankiOrganizerWriteLinkedFolder() {
+      if(!ankiOrganizerFolderHandle || !ankiOrganizerAutoSaveEnabled || ankiOrganizerAutoSaveRunning || !ankiOrganizerInventoryComplete) return;
+      ankiOrganizerAutoSaveRunning=true;
+      try {
+        if(await ankiOrganizerFolderHandle.queryPermission({mode:'readwrite'})!=='granted') {
+          ankiOrganizerStatus('Folder write permission expired. Click Open Folder to reconnect. Changes remain local.',true);return;
+        }
+        const data=buildAnkiOrganizerManifest();
+        if(!data.decks.length) return;
+        const handle=await ankiOrganizerFolderHandle.getFileHandle(ANKI_ORGANIZER_MANIFEST,{create:true});
+        const writable=await handle.createWritable();
+        await writable.write(JSON.stringify(data,null,2));
+        await writable.close();
+        ankiOrganizerLoadedManifest=data;
+        ankiOrganizerStatus(`Automatically updated ${ANKI_ORGANIZER_MANIFEST} in your linked desktop folder (${data.decks.length} verified packages).`);
+      } catch(error) {console.warn('Automatic manifest save failed:',error);
+        ankiOrganizerStatus('Automatic folder save failed: '+error.message+'; use Save Hierarchy As...',true);
+      } finally {ankiOrganizerAutoSaveRunning=false;}
+    }
+    function ankiOrganizerScheduleAutosave() {
+      if(!ankiOrganizerFolderHandle || !ankiOrganizerAutoSaveEnabled || !ankiOrganizerInventoryComplete) return;
+      clearTimeout(ankiOrganizerAutoSaveTimer);
+      ankiOrganizerAutoSaveTimer=setTimeout(ankiOrganizerWriteLinkedFolder,900);
+    }
+
     async function pickAnkiOrganizerFolder() {
-      if (ankiOrganizerFolderBusy) return;
-      if (typeof window.showDirectoryPicker === 'function') {
+      if(ankiOrganizerFolderBusy) return;
+      if(typeof window.showDirectoryPicker==='function') {
         try {
           const handle=await window.showDirectoryPicker({mode:'readwrite'});
           ankiOrganizerFolderHandle=handle;
-          const files=[];
-          async function walk(folder,prefix='') {
-            for await (const [name,item] of folder.entries()) {
-              const path=prefix ? prefix+'/'+name : name;
-              if(item.kind==='directory') await walk(item,path);
-              else if(/\.(apkg|colpkg|anki|anki2|anki21)$/i.test(name) || name===ANKI_ORGANIZER_MANIFEST) {
-                files.push({file:await item.getFile(),path});
-              }
-            }
-          }
-          await walk(handle);
-          await importAnkiOrganizerItems(files);
+          await ankiOrganizerRememberHandle(handle);
+          await ankiOrganizerLoadFromHandle(handle);
           return;
-        } catch(error) {
+        }catch(error){
           if(error.name==='AbortError') return;
-          ankiOrganizerStatus('Folder access unavailable; use Select Files / Manifest or the fallback folder picker. '+error.message,true);
+          ankiOrganizerStatus('Folder access unavailable; use Select Files / Manifest or fallback folder picker. '+error.message,true);
         }
       }
       document.getElementById('ankiOrganizerFolderInput')?.click();
@@ -6501,13 +6885,14 @@ function updateDeckCategory(deckId, newCategory) {
       event.target.value='';
       if(!selected.length) return;
       if(isFolder) ankiOrganizerFolderHandle=null; // Browser file inputs cannot grant write permission.
-      await importAnkiOrganizerItems(selected.map(file=>({file,path:organizerPathForFile(file)})));
+      await importAnkiOrganizerItems(selected.map(file=>({file,path:organizerPathForFile(file)})),{complete:!!isFolder});
     }
-    async function importAnkiOrganizerItems(items) {
+    async function importAnkiOrganizerItems(items, options = {}) {
       if(ankiOrganizerFolderBusy) return;
       ankiOrganizerFolderBusy=true;
       const packages=items.filter(v=>/\.(apkg|colpkg|anki|anki2|anki21)$/i.test(v.file.name));
       const manifestFile=items.find(v=>v.path.split('/').at(-1)===ANKI_ORGANIZER_MANIFEST);
+      const newVerifiedFiles=packages.length ? (options.complete ? new Map() : new Map(ankiOrganizerVerifiedFiles||[])) : null;
       let successes=0;const failed=[];
       try {
         if(manifestFile) {
@@ -6515,23 +6900,39 @@ function updateDeckCategory(deckId, newCategory) {
           applyAnkiOrganizerManifest(json);
         }
         if (!packages.length) {
-          ankiOrganizerStatus(manifestFile ? 'Hierarchy manifest loaded. Select .apkg files to load their cards.' : 'No supported Anki package files found.',!manifestFile);
+          ankiOrganizerStatus(manifestFile ? 'Hierarchy guide loaded. Select the actual .apkg files as well to verify which packages exist; no cards were added.' : 'No supported Anki package files found.',!manifestFile);
           return;
         }
         for(let index=0;index<packages.length;index++) {
           const {file,path}=packages[index];
           ankiOrganizerStatus(`Importing ${index+1} of ${packages.length}: ${path}…`);
           try {
-            await handleAnkiFileUpload({target:{files:[file],value:''}},{folderBatch:true,relativePath:path});
+            const fingerprint=await ankiOrganizerFingerprintFile(file);
+            await handleAnkiFileUpload({target:{files:[file],value:''}},{folderBatch:true,relativePath:path,sourceFingerprint:fingerprint});
+            newVerifiedFiles.set(ankiOrganizerNormalizePath(path),{path:ankiOrganizerNormalizePath(path),fingerprint});
             successes++;
           } catch(error) {
             failed.push(`${path}: ${error.message}`);
           }
         }
-        // Use the original folder's subfolders as the default hierarchy if no manifest exists.
-        // A previously assigned hierarchy and review progress always take precedence on reimport.
+        // Once package imports succeed, physical file inventory is authoritative.
+        // Unlisted stale imported decks remain in browser storage for safety,
+        // but are hidden rather than misleadingly appearing in the folder view.
+        if(newVerifiedFiles) {
+          ankiOrganizerVerifiedFiles=newVerifiedFiles;
+          ankiOrganizerInventoryComplete=!!options.complete;
+        }
+        // The manifest determines placement, not the directory the iPhone opened.
+        // Reconcile the whole imported collection; repeated loads cannot
+        // create another deck for the same known package.
+        const reconciled=ankiOrganizerLoadedManifest
+          ? applyAnkiOrganizerManifest(ankiOrganizerLoadedManifest)
+          : {updated:0,removed:0};
         saveLocalState();renderCategories();renderDecks();populateOrganizerDropdowns();
-        ankiOrganizerStatus(`${successes}/${packages.length} files loaded. Drag decks in the tree, then use Save Hierarchy As....${failed.length?' Failed: '+failed.slice(0,2).join(' · '):''}`,!!failed.length);
+        const missing=ankiOrganizerCountMissingManifestFiles();
+        const hidden=Object.values(appState.decks).filter(deck=>!ankiOrganizerIsVerifiedDeck(deck)).length;
+        const coverage=ankiOrganizerInventoryComplete ? 'Complete folder scan' : 'Selected files only (other files were not checked)';
+        ankiOrganizerStatus(`${successes}/${packages.length} package(s) loaded. ${coverage}. ${reconciled.removed} duplicate(s) consolidated. ${missing.length ? missing.length+' manifest entry/entries not found in this full scan: '+missing.slice(0,3).map(e=>e.path).join(', ')+'. ':''}${hidden?' '+hidden+' older local package deck(s) hidden (cards preserved).':''}${failed.length?' Failed: '+failed.slice(0,2).join(' · '):''}`,!!failed.length);
         if(failed.length) console.warn('Anki folder import errors:',failed);
       } catch(error) {
         console.error(error);
@@ -6547,16 +6948,20 @@ function updateDeckCategory(deckId, newCategory) {
       const selected=[...new Set(Array.isArray(ids) ? ids : [])].filter(id=>appState.decks[id]);
       if(!selected.length) return;
       if(selected.length===1) {
-        moveAnkiOrganizerNode({kind:'deck',id:selected[0]},targetKind,targetId);
-        ankiOrganizerSelectedDeckIds.clear();
-        renderNestedSubjects();
+        // Do not discard the checkbox when a drop is rejected as invalid.
+        const moved = moveAnkiOrganizerNode({kind:'deck',id:selected[0]},targetKind,targetId);
+        if (moved) {
+          ankiOrganizerSelectedDeckIds.clear();
+          renderNestedSubjects();
+        }
         return;
       }
       if(targetKind!=='deck' && targetKind!=='folder') return;
       const targetDeck=targetKind==='deck' ? appState.decks[targetId] : null;
       if(targetKind==='deck' && !targetDeck) return;
       if(targetKind==='deck' && selected.includes(targetId)) {
-        showToast('Uncheck the destination deck before moving the selection into it.');return;
+        const msg='The destination deck is selected. Uncheck it before moving other decks under it.';
+        ankiOrganizerStatus(msg,true);showToast(msg);return;
       }
       const targetFolder=targetKind==='folder' ? String(targetId || '') : ankiDeckVirtualPath(targetDeck);
       const roots=selected.filter(id=>{
@@ -6610,11 +7015,15 @@ function updateDeckCategory(deckId, newCategory) {
       saveLocalState();renderCategories();renderDecks();renderNestedSubjects();
       ankiOrganizerStatus(`${changes.length} deck${changes.length === 1 ? '' : 's'} moved (including any nested decks). Use Save Hierarchy As... to save their new positions.`);
       showToast(`${changes.length} deck${changes.length === 1 ? '' : 's'} moved together.`);
+      ankiOrganizerScheduleAutosave();
     }
 
     function moveAnkiOrganizerNode(source,targetKind,targetId) {
       if(!source || !['deck','folder'].includes(source.kind)) return;
-      if(source.kind===targetKind && source.id===targetId) return;
+      if(source.kind===targetKind && source.id===targetId) {
+        const msg='The destination deck is selected. Choose a different deck or folder to move it under.';
+        ankiOrganizerStatus(msg,true); showToast(msg); return false;
+      }
       const destination=targetKind==='folder' ? targetId : appState.decks[targetId];
       if(destination===undefined && targetKind==='deck') return;
       const targetFolder=targetKind==='folder' ? targetId :
@@ -6637,7 +7046,14 @@ function updateDeckCategory(deckId, newCategory) {
         if(!deck) return;
         const oldFolder=[deck.category,deck.name].filter(Boolean).join(' / ');
         const newFolder=[targetFolder,deck.name].filter(Boolean).join(' / ');
-        if(targetFolder===oldFolder || targetFolder.startsWith(oldFolder+' / ')) {showToast('A deck cannot be nested under itself.');return;}
+        if(targetFolder===oldFolder || targetFolder.startsWith(oldFolder+' / ')) {
+          const msg='A deck cannot be moved inside itself or one of its child decks.';
+          ankiOrganizerStatus(msg,true);showToast(msg);return false;
+        }
+        if(targetFolder === String(deck.category || '')) {
+          const msg='That deck is already in the selected destination.';
+          ankiOrganizerStatus(msg,true);showToast(msg);return false;
+        }
         const followChildren=path=>path===oldFolder ? newFolder : path.startsWith(oldFolder+' / ') ? newFolder+path.slice(oldFolder.length) : path;
         appState.categories=[...new Set(appState.categories.map(followChildren))];
         for(const child of Object.values(appState.decks)) {
@@ -6649,18 +7065,81 @@ function updateDeckCategory(deckId, newCategory) {
         if(Object.values(appState.decks).some(child=>child.category?.startsWith(newFolder+' / '))) ensureAnkiCategoryPath(newFolder);
       }
       saveLocalState();renderCategories();renderDecks();renderNestedSubjects();
-      ankiOrganizerStatus('Hierarchy updated locally. Click Save Hierarchy As... to make it portable to your iPhone.');
+      ankiOrganizerStatus('Hierarchy updated locally. Click Save Hierarchy As... (or auto-save to the linked folder) to make it portable.');
+      ankiOrganizerScheduleAutosave();
+      return true;
     }
 
     function buildAnkiOrganizerManifest() {
-      return {
-        format:'AnkiSyncOrganizer',version:1,
-        exportedAt:new Date().toISOString(),
-        categories:[...new Set(appState.categories)],
-        decks:Object.values(appState.decks).filter(deck=>deck.sourceFilePath).map(deck=>({
-          path:deck.sourceFilePath, name:deck.name, category:deck.category ?? ''
-        })).sort((a,b)=>a.path.localeCompare(b.path))
-      };
+      const entries = new Map();
+      const verified=ankiOrganizerVerifiedFiles;
+      if (verified && ankiOrganizerInventoryComplete) {
+        // The complete physical folder inventory, not IndexedDB, decides existence.
+        for(const item of verified.values()) {
+          const path=ankiOrganizerNormalizePath(item.path), fp=String(item.fingerprint||'');
+          const matching=ankiOrganizerAvailableDecks().filter(deck =>
+            (fp && deck.sourceFingerprint === fp) ||
+            (ankiOrganizerNormalizePath(deck.sourceFilePath) === path &&
+              !(fp && deck.sourceFingerprint && fp !== deck.sourceFingerprint)) ||
+            (ankiOrganizerBaseName(deck.sourceFilePath).toLowerCase()===ankiOrganizerBaseName(path).toLowerCase() &&
+              !(fp && deck.sourceFingerprint && fp!==deck.sourceFingerprint)));
+          if(matching.length!==1) continue; // Never guess when identity is ambiguous.
+          const deck=matching[0];
+          entries.set(path,{path,name:deck.name,category:deck.category??'',...(fp?{fingerprint:fp}:{})});
+        }
+      } else {
+        // On iPhone a file picker is frequently a PARTIAL selection, so never
+        // infer that unselected manifest entries have been deleted from iCloud.
+        // The loaded JSON remains the authority; only update matching records.
+        if(ankiOrganizerLoadedManifest?.decks?.length) {
+          for(const item of ankiOrganizerLoadedManifest.decks) {
+            const path=ankiOrganizerNormalizePath(item.path);
+            if(path) entries.set(path,{...item,path});
+          }
+          for(const deck of Object.values(appState.decks)) {
+            const entry=ankiOrganizerEntryForFile(deck.sourceFilePath,deck.sourceFingerprint,deck.name);
+            if(!entry) continue;
+            const path=ankiOrganizerNormalizePath(entry.path);
+            if(entries.has(path)) entries.set(path,{...entries.get(path),name:deck.name,category:deck.category??''});
+          }
+        } else {
+          // No authoritative JSON was loaded: older manual imports can still
+          // be saved, with a warning that existence was not verified.
+          for(const deck of Object.values(appState.decks)) {
+            if(!deck.sourceFilePath) continue;
+            const path=ankiOrganizerNormalizePath(deck.sourceFilePath);
+            if(!path) continue;
+            if(!entries.has(path)) entries.set(path,{path,name:deck.name,category:deck.category??'',
+              ...(deck.sourceFingerprint?{fingerprint:deck.sourceFingerprint}:{})});
+          }
+        }
+        // Include physically selected packages not yet described by this JSON.
+        if(verified) {
+          for(const item of verified.values()) {
+            const path=ankiOrganizerNormalizePath(item.path);
+            if([...entries.values()].some(e=>e.path===path || (e.fingerprint && e.fingerprint===item.fingerprint))) continue;
+            const deck=Object.values(appState.decks).find(d=>d.sourceFingerprint===item.fingerprint ||
+              ankiOrganizerBaseName(d.sourceFilePath).toLowerCase()===ankiOrganizerBaseName(path).toLowerCase());
+            if(deck) entries.set(path,{path,name:deck.name,category:deck.category??'',fingerprint:item.fingerprint});
+          }
+        }
+      }
+      const collapsed=[];
+      for(const key of ankiCollapsedTreeNodes) {
+        if(key.startsWith('folder:')) collapsed.push({kind:'folder',path:key.slice(7)});
+        else if(key.startsWith('deck:')) {
+          const deck=appState.decks[key.slice(5)];
+          if(deck?.sourceFilePath && ankiOrganizerIsVerifiedDeck(deck)) {
+            const fp=deck.sourceFingerprint;
+            const fileEntry=[...entries.values()].find(e=>(fp && e.fingerprint===fp) ||
+              ankiOrganizerNormalizePath(e.path)===ankiOrganizerNormalizePath(deck.sourceFilePath));
+            if(fileEntry) collapsed.push({kind:'deck',path:fileEntry.path,...(fileEntry.fingerprint?{fingerprint:fileEntry.fingerprint}:{})});
+          }
+        }
+      }
+      return {format:'AnkiSyncOrganizer',version:1,exportedAt:new Date().toISOString(),
+        categories:[...new Set((appState.categories||[]).filter(c=>c && !ankiIsImplicitDeckFolder(c)))],
+        collapsed,decks:[...entries.values()].sort((a,b)=>a.path.localeCompare(b.path))};
     }
     function downloadAnkiOrganizerManifest(textData) {
       const blob=new Blob([textData],{type:'application/json'});
@@ -6673,6 +7152,10 @@ function updateDeckCategory(deckId, newCategory) {
       if(!data.decks.length) {
         ankiOrganizerStatus('No folder-imported Anki packages to save yet. Open a folder and arrange its decks.',true);
         return;
+      }
+      if(!ankiOrganizerInventoryComplete) {
+        const proceed=window.confirm('The entire Anki folder has not been scanned in this session (iPhone file selection may be partial). Unselected packages will be preserved in the JSON, not assumed deleted. To remove nonexistent entries, perform a full folder scan on PC. Save this hierarchy anyway?');
+        if(!proceed) return;
       }
       const json=JSON.stringify(data,null,2);
       // Chromium desktop exposes a real Save As dialog with a starting file name.
