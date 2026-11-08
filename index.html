@@ -1434,21 +1434,27 @@ body.light-mode .anki-organizer-row.anki-selected { background:#e0e7ff; border-c
         <div class="rounded-xl bg-slate-900/50 border border-indigo-500/30 p-3 space-y-3">
           <div class="text-xs font-semibold text-indigo-300">Import folder of Anki files · arrange with drag &amp; drop</div>
           <div class="flex flex-wrap gap-2 items-center">
-            <button type="button" onclick="pickAnkiOrganizerFolder()" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold"><i class="fa-solid fa-folder-open"></i> Open Folder</button>
-            <button type="button" onclick="document.getElementById('ankiOrganizerSelectedFiles').click()" class="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-xs font-semibold"><i class="fa-solid fa-file-import"></i> Select Files / Manifest</button>
-            <button type="button" onclick="saveAnkiOrganizerHierarchy()" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold"><i class="fa-solid fa-floppy-disk"></i> Save Hierarchy As...</button>
-            <button type="button" onclick="ankiOrganizerRefreshLinkedFolder()" class="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-xs font-semibold"><i class="fa-solid fa-arrows-rotate"></i> Refresh Linked Folder</button>
-            <label class="inline-flex items-center gap-1.5 text-[11px] text-slate-300 cursor-pointer"><input id="ankiOrganizerAutoSave" type="checkbox" checked class="rounded border-slate-600 bg-slate-900 text-indigo-500" onchange="ankiOrganizerToggleAutoSave(this.checked)"><span>Auto-save hierarchy to linked folder (PC)</span></label>
+            <button id="ankiOrganizerOpenFolderButton" type="button" onclick="pickAnkiOrganizerFolder()" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold" title="Open the folder containing your Anki packages (PC)"><i class="fa-solid fa-folder-open"></i> Open Folder</button>
+            <button type="button" onclick="document.getElementById('ankiOrganizerSelectedFiles').click()" class="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-xs font-semibold" title="Select a hierarchy JSON and/or .apkg files; works on iPhone"><i class="fa-solid fa-file-import"></i> Select Files / Manifest</button>
+            <button type="button" onclick="saveAnkiOrganizerHierarchy()" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold" title="Save only the deck organization as AnkiSync-Organizer.json"><i class="fa-solid fa-floppy-disk"></i> Save Hierarchy As...</button>
             <input id="ankiOrganizerFolderInput" type="file" webkitdirectory directory multiple accept=".apkg,.colpkg,.anki,.anki2,.anki21,.json" class="hidden" onchange="importAnkiOrganizerFileSelection(event, true)">
             <input id="ankiOrganizerSelectedFiles" type="file" multiple accept=".apkg,.colpkg,.anki,.anki2,.anki21,.json" class="hidden" onchange="importAnkiOrganizerFileSelection(event, false)">
             <input id="ankiOrganizerManifestOnly" type="file" accept=".json,application/json" class="hidden" onchange="ankiOrganizerApplySelectedManifest(event)">
           </div>
+          <details id="ankiOrganizerDesktopOptions" class="text-xs text-slate-300 rounded-lg border border-slate-700/50 p-2">
+            <summary class="cursor-pointer text-indigo-300 font-semibold select-none">PC linked-folder options</summary>
+            <div class="flex flex-wrap items-center gap-3 pt-2">
+              <button id="ankiOrganizerRefreshButton" type="button" onclick="ankiOrganizerRefreshLinkedFolder()" class="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-xs font-semibold hidden"><i class="fa-solid fa-arrows-rotate"></i> Refresh Linked Folder</button>
+              <label class="inline-flex items-center gap-1.5 text-[11px] text-slate-300 cursor-pointer"><input id="ankiOrganizerAutoSave" type="checkbox" checked class="rounded border-slate-600 bg-slate-900 text-indigo-500" onchange="ankiOrganizerToggleAutoSave(this.checked)"><span>Auto-save hierarchy to linked folder (PC)</span></label>
+            </div>
+          </details>
           <div class="flex flex-wrap gap-2 items-center pt-1 border-t border-slate-700/50">
-            <span class="text-[11px] text-indigo-300 font-semibold">Transfer full library to iPhone</span>
-            <button type="button" onclick="exportStudyBackup()" class="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-xs font-semibold" title="Export cards, images, study progress and organizer hierarchy together"><i class="fa-solid fa-file-export"></i> Export Library + Hierarchy</button>
+            <span class="text-[11px] text-indigo-300 font-semibold">Full library backup (PC ↔ iPhone)</span>
+            <button type="button" onclick="exportStudyBackup()" class="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-xs font-semibold" title="Save As: AnkiSync-Library-Backup.json (all cards, images, progress, hierarchy)"><i class="fa-solid fa-file-export"></i> Export Library + Hierarchy</button>
             <button type="button" onclick="document.getElementById('ankiOrganizerPortableBackupInput').click()" class="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-xs font-semibold" title="Restore a complete library from another device (with confirmation)"><i class="fa-solid fa-file-import"></i> Import Library + Hierarchy</button>
             <input id="ankiOrganizerPortableBackupInput" type="file" accept=".json,application/json" class="hidden" onchange="importStudyBackup(event)">
           </div>
+          <p class="text-[11px] text-slate-400"><strong>Save Hierarchy As...</strong> writes AnkiSync-Organizer.json (deck locations only). <strong>Export Library + Hierarchy</strong> writes AnkiSync-Library-Backup.json (cards, images, review progress and deck locations). These are different file formats; do not replace one with the other.</p>
           <p class="text-[11px] text-slate-400">On an iPhone without imported cards, the hierarchy JSON shows missing decks as read-only placeholders. To study them, choose the corresponding .apkg packages through Select Files / Manifest, or transfer all cards and progress at once using the library backup buttons above. Importing a full library backup asks permission before replacing this device's stored decks.</p>
           <p id="ankiOrganizerFolderStatus" role="status" class="text-xs text-slate-400">Open your Anki folder or use Select Files / Manifest. When AnkiSync-Organizer.json is provided, its hierarchy is applied automatically. On iPhone, choose the JSON and needed .apkg files in Files; Safari cannot silently scan iCloud Drive.</p>
           <p class="text-[11px] text-slate-400">The fixed <strong>AnkiSync-Organizer.json</strong> determines the placement of <em>existing package files</em>. The folder scan checks which packages actually exist, so obsolete local imports are not written into the manifest. On supported Windows browsers, Open Folder once to link your iCloud Drive folder; auto-save writes the JSON there while permission remains granted. iPhone Safari requires choosing the files again using Files; it cannot continuously monitor or silently overwrite an iCloud Drive folder from this HTML.</p>
@@ -2459,8 +2465,10 @@ function promptCreateDeck() {
       }
     }
 
-    // Portable JSON backup includes the complete deck/card objects, including reviewData.dueAt.
-    function exportStudyBackup() {
+    // A portable full-library backup has its own fixed filename. It must not
+    // overwrite AnkiSync-Organizer.json, which is a different, hierarchy-only format.
+    const ANKI_LIBRARY_BACKUP_FILENAME = 'AnkiSync-Library-Backup.json';
+    async function exportStudyBackup() {
       try {
         const backup = {
           format: 'AnkiSyncStudyBackup',
@@ -2471,16 +2479,70 @@ function promptCreateDeck() {
           selectedCategory: appState.selectedCategory,
           organizerManifest: buildAnkiOrganizerManifest()
         };
-        const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+        const json = JSON.stringify(backup, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        // Desktop Chromium can open an actual Save As dialog: select the iCloud
+        // folder and choose the existing SAME-NAME file to replace it.
+        if (typeof window.showSaveFilePicker === 'function') {
+          const opts = {
+            id: 'ankisync-full-library-backup',
+            suggestedName: ANKI_LIBRARY_BACKUP_FILENAME,
+            types: [{description:'AnkiSync Full Library Backup',accept:{'application/json':['.json']}}]
+          };
+          if (ankiOrganizerFolderHandle) opts.startIn = ankiOrganizerFolderHandle;
+          try {
+            let handle;
+            try {handle = await window.showSaveFilePicker(opts);}
+            catch (e) {
+              if (e instanceof TypeError && opts.startIn) {
+                delete opts.startIn;
+                handle = await window.showSaveFilePicker(opts);
+              } else throw e;
+            }
+            if (handle.name !== ANKI_LIBRARY_BACKUP_FILENAME) {
+              ankiOrganizerStatus('Use the fixed filename '+ANKI_LIBRARY_BACKUP_FILENAME+' for the full library backup.',true);
+              return;
+            }
+            const writable = await handle.createWritable();
+            await writable.write(json);
+            await writable.close();
+            ankiOrganizerStatus('Saved '+ANKI_LIBRARY_BACKUP_FILENAME+' to the chosen folder. Select the existing file next time to replace it.');
+            showToast('Full library backup saved.');
+            return;
+          } catch (e) {
+            if (e?.name === 'AbortError') {
+              ankiOrganizerStatus('Library backup Save As canceled; no file was changed.');
+              return;
+            }
+            console.warn('Native full-library Save As unavailable:',e);
+            ankiOrganizerStatus('Native Save As unavailable: offering the browser save/share option instead.',true);
+          }
+        }
+        // iPhone Safari has no desktop Save As picker. Offer Save to Files via
+        // the share sheet; replacing an existing file is controlled by iOS Files.
+        if (typeof navigator.share === 'function' && typeof navigator.canShare === 'function') {
+          try {
+            const file = new File([blob], ANKI_LIBRARY_BACKUP_FILENAME,{type:'application/json'});
+            if (navigator.canShare({files:[file]})) {
+              await navigator.share({files:[file],title:ANKI_LIBRARY_BACKUP_FILENAME});
+              ankiOrganizerStatus('Full library shared. Use Save to Files and choose the destination folder; replace the old file in Files if needed.');
+              return;
+            }
+          } catch (e) {
+            if (e?.name === 'AbortError') return;
+            console.warn('Backup share not available:',e);
+          }
+        }
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `AnkiSync-Study-Backup-${new Date().toISOString().slice(0,10)}.json`;
+        link.download = ANKI_LIBRARY_BACKUP_FILENAME;
         document.body.appendChild(link);
         link.click();
         link.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
-        showToast('Study progress backup exported. Keep this file to transfer your progress.');
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        ankiOrganizerStatus('Downloaded '+ANKI_LIBRARY_BACKUP_FILENAME+'. Move it to your chosen folder and replace the old backup there if your browser did not offer Save As.');
+        showToast('Full library backup exported.');
       } catch (error) {
         console.error('Study backup export failed:', error);
         alert('Could not export the study backup. Please try again.');
@@ -6887,6 +6949,18 @@ function updateDeckCategory(deckId, newCategory) {
       const el=document.getElementById('ankiOrganizerFolderStatus');
       if(el) {el.textContent=message;el.className='text-xs '+(isError?'text-rose-300':'text-slate-400');}
     }
+    // Keep the primary organizer toolbar compact. iPhone Safari does not have
+    // a persistent directory handle; folder-only utilities stay on desktop.
+    function ankiOrganizerUpdateFolderControls() {
+      const isIOS = /iPad|iPhone|iPod/i.test(navigator.userAgent) ||
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      const openBtn = document.getElementById('ankiOrganizerOpenFolderButton');
+      const desktop = document.getElementById('ankiOrganizerDesktopOptions');
+      const refresh = document.getElementById('ankiOrganizerRefreshButton');
+      if (openBtn) openBtn.classList.toggle('hidden',isIOS);
+      if (desktop) desktop.classList.toggle('hidden',isIOS || typeof window.showDirectoryPicker !== 'function');
+      if (refresh) refresh.classList.toggle('hidden',!ankiOrganizerFolderHandle);
+    }
     function ankiOrganizerToggleAutoSave(enabled) {
       ankiOrganizerAutoSaveEnabled=!!enabled;
       try{localStorage.setItem('anki_organizer_folder_autosave_v1',String(!!enabled));}catch(e){}
@@ -6918,6 +6992,7 @@ function updateDeckCategory(deckId, newCategory) {
         const state=await handle.queryPermission({mode:'readwrite'});
         if(state==='granted') {
           ankiOrganizerFolderHandle=handle;
+          ankiOrganizerUpdateFolderControls();
           // Read without a permission prompt. Changes made on another device
           // appear here next time this page is opened/refreshed.
           await ankiOrganizerLoadFromHandle(handle);
@@ -7007,6 +7082,7 @@ function updateDeckCategory(deckId, newCategory) {
         try {
           const handle=await window.showDirectoryPicker({mode:'readwrite'});
           ankiOrganizerFolderHandle=handle;
+          ankiOrganizerUpdateFolderControls();
           await ankiOrganizerRememberHandle(handle);
           await ankiOrganizerLoadFromHandle(handle);
           return;
@@ -7021,7 +7097,7 @@ function updateDeckCategory(deckId, newCategory) {
       const selected=[...(event.target.files||[])];
       event.target.value='';
       if(!selected.length) return;
-      if(isFolder) ankiOrganizerFolderHandle=null; // Browser file inputs cannot grant write permission.
+      if(isFolder) {ankiOrganizerFolderHandle=null;ankiOrganizerUpdateFolderControls();} // Browser file inputs cannot grant write permission.
       await importAnkiOrganizerItems(selected.map(file=>({file,path:organizerPathForFile(file)})),{complete:!!isFolder});
     }
     async function ankiOrganizerReadSelectedText(file) {
@@ -7447,6 +7523,7 @@ function updateDeckCategory(deckId, newCategory) {
 
     window.addEventListener('DOMContentLoaded',()=>{
       setupFloatingEditButton();
+      ankiOrganizerUpdateFolderControls();
       // Some iOS Files pickers grey out .apkg/.colpkg when an accept filter
       // contains unknown extensions. The importer still validates filenames.
       if (/iPhone|iPad|iPod/i.test(navigator.userAgent) ||
