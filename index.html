@@ -779,19 +779,19 @@ body.light-mode .anki-search-result { background: #fff; color: #0f172a; }
 
 
 
-    /* Keep the expanded study width; reduce study-card height by 50%. */
+    /* Existing expanded study width; study card reduced by a further 30%. */
     body:has(#view-study:not(.hidden)) #mainContainer {
       max-width: min(1728px, 100vw) !important;
     }
     #view-study .deck-viewer-container { min-height: 685px; height: max(685px, calc(100vh - 180px)); }
-    #view-study #studyCard, #view-study .perspective-1000 { min-height: 658.125px !important; }
+    #view-study #studyCard, #view-study .perspective-1000 { min-height: 460.688px !important; }
     #view-study #frontContent, #view-study #backContent {
       max-width: none !important;
-      max-height: 570.375px !important;
+      max-height: 399.263px !important;
     }
     @media (max-width: 700px) {
       #view-study .deck-viewer-container { min-height: 570px; height: auto; }
-      #view-study #studyCard, #view-study .perspective-1000 { min-height: 658.125px !important; }
+      #view-study #studyCard, #view-study .perspective-1000 { min-height: 460.688px !important; }
     }
 
     /* iPhone only: compact the non-focus study sidebar to numbered navigation. */
@@ -971,6 +971,51 @@ body:not(.focus-study-active) #view-study #studyViewMode > .perspective-1000 {
 #slide-list .slide-item.anki-drop-before { box-shadow: inset 0 3px 0 #818cf8; }
 #slide-list .slide-item.anki-drop-after { box-shadow: inset 0 -3px 0 #818cf8; }
 
+
+/* Image occlusion extension: scoped styling; all existing colors and layout retained. */
+.anki-image-cloze { position:relative; display:inline-block; max-width:100%; vertical-align:middle; line-height:0; }
+.anki-image-cloze > img { display:block !important; margin:0 !important; height:auto; max-width:100%; }
+.anki-image-mask { position:absolute; box-sizing:border-box; background:#4f46e5; border:2px solid #a5b4fc; border-radius:4px; color:#fff;
+  display:flex; align-items:center; justify-content:center; overflow:hidden; font:700 12px/1.1 ui-sans-serif,system-ui,sans-serif;
+  text-align:center; pointer-events:none; z-index:2; }
+.anki-image-mask-label { padding:2px; max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.anki-image-cloze-editor { position:relative; display:inline-block; max-width:100%; line-height:0; touch-action:none; user-select:none; }
+.anki-image-cloze-editor > img { display:block; max-width:100%; max-height:56vh; height:auto; width:auto; pointer-events:none; }
+.anki-image-cloze-editor .anki-image-mask { pointer-events:auto; cursor:pointer; }
+.anki-image-cloze-editor .anki-image-mask.selected { border:3px solid #fde68a; box-shadow:0 0 0 2px #f59e0b; }
+#imageClozeDrawingArea { position:absolute; inset:0; touch-action:none; cursor:crosshair; }
+#imageClozeDrawingArea .anki-image-mask { pointer-events:auto; }
+#imageClozeDraft { position:absolute; border:2px dashed #fbbf24; background:rgba(99,102,241,.5); pointer-events:none; }
+/* Targeted organizer / movable card-edit enhancements. */
+.anki-floating-edit-button { position:fixed; right:18px; top:38%; z-index:75; touch-action:none;
+  display:flex; align-items:center; gap:8px; padding:10px 14px; border-radius:13px;
+  border:1px solid #818cf8; background:#4f46e5; color:#fff; font-size:12px; font-weight:700;
+  box-shadow:0 7px 22px rgba(0,0,0,.38); cursor:grab; user-select:none; -webkit-user-select:none; }
+.anki-floating-edit-button.hidden { display:none !important; }
+.anki-floating-edit-button.anki-dragging { cursor:grabbing; opacity:.9; }
+.anki-organizer-row { padding:7px 9px; border-radius:9px; display:flex; align-items:center; gap:7px;
+  margin-top:2px; color:#cbd5e1; border:1px solid transparent; touch-action:pan-y; }
+.anki-organizer-row:hover { background:rgba(99,102,241,.15); }
+.anki-organizer-row.anki-drop-target { background:rgba(79,70,229,.32); border-color:#a5b4fc; }
+.anki-organizer-row[draggable="true"] { cursor:grab; }
+.anki-organizer-row .anki-organizer-label { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+body.light-mode .anki-organizer-row { color:#334155; }
+body.light-mode .anki-organizer-row:hover { background:#e0e7ff; }
+/* Compact reset controls live beneath each deck's category dropdown. */
+.anki-deck-reset-buttons { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; width:100%; }
+.anki-deck-reset-buttons button { min-width:0; white-space:nowrap; display:flex; align-items:center; justify-content:center; gap:6px; }
+/* Expand/collapse controls apply to both real folders and nested files. */
+.anki-organizer-toggle, .anki-organizer-toggle-placeholder { flex:0 0 22px; width:22px; height:24px; display:inline-flex; align-items:center; justify-content:center; }
+.anki-organizer-toggle { border-radius:5px; color:#a5b4fc; cursor:pointer; }
+.anki-organizer-toggle:hover { background:rgba(99,102,241,.25); }
+.anki-organizer-delete { flex-shrink:0; padding:4px 6px; border-radius:6px; color:#fda4af; }
+.anki-organizer-delete:hover { background:rgba(244,63,94,.15); color:#fecdd3; }
+body.light-mode .anki-organizer-toggle { color:#4f46e5; }
+body.light-mode .anki-organizer-delete { color:#be123c; }
+/* Existing organizer palette: selection highlights only, without changing row typography. */
+.anki-organizer-row.anki-selected { background:rgba(79,70,229,.20); border-color:rgba(129,140,248,.45); }
+body.light-mode .anki-organizer-row.anki-selected { background:#e0e7ff; border-color:#a5b4fc; }
+.anki-organizer-checkbox { flex:0 0 15px; width:15px; height:15px; accent-color:#6366f1; cursor:pointer; }
 </style>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col font-sans antialiased selection:bg-indigo-500 selection:text-white">
@@ -1123,10 +1168,6 @@ body:not(.focus-study-active) #view-study #studyViewMode > .perspective-1000 {
             <i class="fa-solid fa-expand"></i>
             <span id="immersiveBtnText">Full Screen</span>
           </button>
-          <button onclick="toggleEditCurrentCard()" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition shadow-md">
-            <i class="fa-solid fa-pen-to-square"></i>
-            <span>Edit Card</span>
-          </button>
           <button type="button" onclick="saveCurrentDeckToApkg()" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition shadow-md" title="Save only the currently open deck as an .apkg file">
             <i class="fa-solid fa-file-export"></i>
             <span>Save Deck .apkg</span>
@@ -1254,13 +1295,11 @@ body:not(.focus-study-active) #view-study #studyViewMode > .perspective-1000 {
                   <button type="button" onclick="execCmd('italic', 'editCardFront')" class="toolbar-btn" title="Italic"><i class="fa-solid fa-italic"></i></button>
                   <button type="button" onclick="execCmd('underline', 'editCardFront')" class="toolbar-btn" title="Underline"><i class="fa-solid fa-underline"></i></button>
                   <span class="w-[1px] bg-slate-700 my-1 mx-0.5"></span>
-                  <select onchange="execCmd('fontSize', 'editCardFront', this.value); this.selectedIndex=0;" class="bg-slate-900 border border-slate-700 text-[11px] rounded px-1 text-slate-300 outline-none h-7">
-                    <option value="" disabled selected>Size</option>
-                    <option value="1">Small (1)</option>
-                    <option value="3">Normal (3)</option>
-                    <option value="5">Large (5)</option>
-                    <option value="7">Huge (7)</option>
-                  </select>
+                  <div class="inline-flex items-center gap-1" role="group" aria-label="Font size">
+                    <button type="button" onmousedown="event.preventDefault()" onclick="applyEditorFontSize('editCardFront', 'N')" class="toolbar-btn font-semibold" title="Normal text">N</button>
+                    <button type="button" onmousedown="event.preventDefault()" onclick="applyEditorFontSize('editCardFront', 'L')" class="toolbar-btn font-semibold" title="Large text">L</button>
+                    <button type="button" onmousedown="event.preventDefault()" onclick="applyEditorFontSize('editCardFront', 'XL')" class="toolbar-btn font-semibold" title="Extra large text">XL</button>
+                  </div>
                   <div class="color-palette-bar flex items-center space-x-1 px-1 bg-slate-900/50 rounded-lg border border-slate-700/60 py-0.5">
                     <button type="button" onmousedown="event.preventDefault()" onclick="applyColor('#000000')" class="w-4 h-4 rounded-full bg-black border border-slate-600 hover:scale-110 transition" title="Black"></button>
                     <button type="button" onmousedown="event.preventDefault()" onclick="applyColor('#ef4444')" class="w-4 h-4 rounded-full bg-red-500 border border-slate-600 hover:scale-110 transition" title="Red"></button>
@@ -1288,6 +1327,7 @@ body:not(.focus-study-active) #view-study #studyViewMode > .perspective-1000 {
                 </div>
                 <button type="button" onmousedown="event.preventDefault()" onclick="insertBackClozeField('editCardFront')" class="toolbar-btn mb-1" title="Convert selected front text to a cloze, or insert a new cloze field"><i class="fa-solid fa-square-plus"></i> Add Cloze Field</button>
 <button type="button" onmousedown="event.preventDefault()" onclick="toggleClozeTogether('editCardFront')" class="toolbar-btn mb-1" title="Link this cloze to the preceding cloze so both reveal together"><i class="fa-solid fa-link"></i> Reveal Together</button>
+<button type="button" onmousedown="event.preventDefault()" onclick="openImageClozeModal('editCardFront')" class="toolbar-btn mb-1" title="Draw reversible, numbered masks on an image; reveal them with Space"><i class="fa-solid fa-masks-theater"></i> Image Cloze</button>
                 <div id="editCardFront" contenteditable="true" class="editor-canvas !min-h-[80px]"></div>
               </div>
 
@@ -1314,13 +1354,11 @@ body:not(.focus-study-active) #view-study #studyViewMode > .perspective-1000 {
                   <button type="button" onclick="execCmd('italic', 'editCardBack')" class="toolbar-btn" title="Italic"><i class="fa-solid fa-italic"></i></button>
                   <button type="button" onclick="execCmd('underline', 'editCardBack')" class="toolbar-btn" title="Underline"><i class="fa-solid fa-underline"></i></button>
                   <span class="w-[1px] bg-slate-700 my-1 mx-0.5"></span>
-                  <select onchange="execCmd('fontSize', 'editCardBack', this.value); this.selectedIndex=0;" class="bg-slate-900 border border-slate-700 text-[11px] rounded px-1 text-slate-300 outline-none h-7">
-                    <option value="" disabled selected>Size</option>
-                    <option value="1">Small (1)</option>
-                    <option value="3">Normal (3)</option>
-                    <option value="5">Large (5)</option>
-                    <option value="7">Huge (7)</option>
-                  </select>
+                  <div class="inline-flex items-center gap-1" role="group" aria-label="Font size">
+                    <button type="button" onmousedown="event.preventDefault()" onclick="applyEditorFontSize('editCardBack', 'N')" class="toolbar-btn font-semibold" title="Normal text">N</button>
+                    <button type="button" onmousedown="event.preventDefault()" onclick="applyEditorFontSize('editCardBack', 'L')" class="toolbar-btn font-semibold" title="Large text">L</button>
+                    <button type="button" onmousedown="event.preventDefault()" onclick="applyEditorFontSize('editCardBack', 'XL')" class="toolbar-btn font-semibold" title="Extra large text">XL</button>
+                  </div>
                   <div class="color-palette-bar flex items-center space-x-1 px-1 bg-slate-900/50 rounded-lg border border-slate-700/60 py-0.5">
                     <button type="button" onmousedown="event.preventDefault()" onclick="applyColor('#000000')" class="w-4 h-4 rounded-full bg-black border border-slate-600 hover:scale-110 transition" title="Black"></button>
                     <button type="button" onmousedown="event.preventDefault()" onclick="applyColor('#ef4444')" class="w-4 h-4 rounded-full bg-red-500 border border-slate-600 hover:scale-110 transition" title="Red"></button>
@@ -1348,6 +1386,7 @@ body:not(.focus-study-active) #view-study #studyViewMode > .perspective-1000 {
                 </div>
                 <button type="button" onmousedown="event.preventDefault()" onclick="insertBackClozeField('editCardBack')" class="toolbar-btn mb-1" title="Insert a numbered cloze field"><i class="fa-solid fa-square-plus"></i> Add Cloze Field</button>
 <button type="button" onmousedown="event.preventDefault()" onclick="toggleClozeTogether('editCardBack')" class="toolbar-btn mb-1" title="Link this cloze to the preceding cloze so both reveal together"><i class="fa-solid fa-link"></i> Reveal Together</button>
+<button type="button" onmousedown="event.preventDefault()" onclick="openImageClozeModal('editCardBack')" class="toolbar-btn mb-1" title="Draw reversible, numbered masks on an image; reveal them with Space"><i class="fa-solid fa-masks-theater"></i> Image Cloze</button>
                 <div id="editCardBack" contenteditable="true" class="editor-canvas !min-h-[80px]"></div>
               </div>
 
@@ -1390,6 +1429,20 @@ body:not(.focus-study-active) #view-study #studyViewMode > .perspective-1000 {
           <span>Card & Deck Organizer</span>
         </h2>
         
+        <!-- Folder-based .apkg import and portable hierarchy manifest. -->
+        <div class="rounded-xl bg-slate-900/50 border border-indigo-500/30 p-3 space-y-3">
+          <div class="text-xs font-semibold text-indigo-300">Import folder of Anki files · arrange with drag &amp; drop</div>
+          <div class="flex flex-wrap gap-2 items-center">
+            <button type="button" onclick="pickAnkiOrganizerFolder()" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold"><i class="fa-solid fa-folder-open"></i> Open Folder</button>
+            <button type="button" onclick="document.getElementById('ankiOrganizerSelectedFiles').click()" class="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-xs font-semibold"><i class="fa-solid fa-file-import"></i> Select Files / Manifest</button>
+            <button type="button" onclick="saveAnkiOrganizerHierarchy()" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold"><i class="fa-solid fa-floppy-disk"></i> Save Hierarchy As...</button>
+            <input id="ankiOrganizerFolderInput" type="file" webkitdirectory directory multiple accept=".apkg,.colpkg,.anki,.anki2,.anki21,.json" class="hidden" onchange="importAnkiOrganizerFileSelection(event, true)">
+            <input id="ankiOrganizerSelectedFiles" type="file" multiple accept=".apkg,.colpkg,.anki,.anki2,.anki21,.json" class="hidden" onchange="importAnkiOrganizerFileSelection(event, false)">
+          </div>
+          <p id="ankiOrganizerFolderStatus" role="status" class="text-xs text-slate-400">Open a folder containing .apkg/.colpkg files. On iPhone, use Select Files / Manifest if the folder picker is unavailable.</p>
+          <p class="text-[11px] text-slate-400">Drag a deck onto a folder to move it, onto another deck to nest under it, or drag folders into other folders. Save As lets you choose where to save the fixed file <strong>AnkiSync-Organizer.json</strong> and replace the prior manifest in supported browsers; otherwise the browser downloads or shares that file. The original .apkg files are not rewritten.</p>
+        </div>
+
         <!-- Nested medical specialty organizer; existing category data is reused. -->
         <div class="rounded-xl bg-slate-900/50 border border-slate-700 p-3 space-y-3">
           <div class="text-xs font-semibold text-indigo-300">Specialty / Subject / Subsubject hierarchy</div>
@@ -1398,8 +1451,15 @@ body:not(.focus-study-active) #view-study #studyViewMode > .perspective-1000 {
             <input id="organizerNewSubject" type="text" placeholder="New specialty or subsubject" class="bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-lg px-3 py-2 flex-1 min-w-[170px]" />
             <button type="button" onclick="createNestedSubject()" class="toolbar-btn">+ Add Subject</button>
           </div>
+          <div class="flex items-center justify-between gap-2 flex-wrap text-[11px]">
+            <span id="ankiOrganizerSelectionCount" class="text-indigo-300" role="status">0 decks selected</span>
+            <div class="flex items-center gap-2">
+              <button type="button" onclick="selectVisibleAnkiOrganizerDecks()" class="toolbar-btn">Select Visible</button>
+              <button type="button" onclick="clearAnkiOrganizerDeckSelection()" class="toolbar-btn">Clear Selection</button>
+            </div>
+          </div>
           <div id="organizerSubjectTree" class="text-xs space-y-1 max-h-[260px] overflow-y-auto"></div>
-          <p class="text-[11px] text-slate-400">Create as many levels as needed. Assign decks using their existing group dropdown on the Decks page. Select a subject here to view its decks and descendants.</p>
+          <p class="text-[11px] text-slate-400">Create unlimited subject levels. Select multiple decks using the checkboxes, then drag any selected deck onto a folder or parent deck to move the selection together. Use +/− to expand or collapse folders and parent decks. The trash icon deletes a folder but keeps its decks and cards.</p>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
@@ -1480,13 +1540,11 @@ body:not(.focus-study-active) #view-study #studyViewMode > .perspective-1000 {
               <button type="button" onclick="execCmd('italic', 'createCardFront')" class="toolbar-btn" title="Italic"><i class="fa-solid fa-italic"></i></button>
               <button type="button" onclick="execCmd('underline', 'createCardFront')" class="toolbar-btn" title="Underline"><i class="fa-solid fa-underline"></i></button>
               <span class="w-[1px] bg-slate-700 my-1 mx-0.5"></span>
-              <select onchange="execCmd('fontSize', 'createCardFront', this.value); this.selectedIndex=0;" class="bg-slate-900 border border-slate-700 text-[11px] rounded px-1 text-slate-300 outline-none h-7">
-                <option value="" disabled selected>Size</option>
-                <option value="1">Small (1)</option>
-                <option value="3">Normal (3)</option>
-                <option value="5">Large (5)</option>
-                <option value="7">Huge (7)</option>
-              </select>
+              <div class="inline-flex items-center gap-1" role="group" aria-label="Font size">
+                    <button type="button" onmousedown="event.preventDefault()" onclick="applyEditorFontSize('createCardFront', 'N')" class="toolbar-btn font-semibold" title="Normal text">N</button>
+                    <button type="button" onmousedown="event.preventDefault()" onclick="applyEditorFontSize('createCardFront', 'L')" class="toolbar-btn font-semibold" title="Large text">L</button>
+                    <button type="button" onmousedown="event.preventDefault()" onclick="applyEditorFontSize('createCardFront', 'XL')" class="toolbar-btn font-semibold" title="Extra large text">XL</button>
+                  </div>
               
 <div class="color-palette-bar flex items-center space-x-1 px-1 bg-slate-900/50 rounded-lg border border-slate-700/60 py-0.5">
                 <button type="button" onmousedown="event.preventDefault()" onclick="applyColor('#000000')" class="w-4 h-4 rounded-full bg-black border border-slate-600 hover:scale-110 transition" title="Black"></button>
@@ -1521,6 +1579,7 @@ body:not(.focus-study-active) #view-study #studyViewMode > .perspective-1000 {
             
 <button type="button" onmousedown="event.preventDefault()" onclick="insertBackClozeField('createCardFront')" class="toolbar-btn mb-1" title="Convert selected front text to a cloze, or insert a new cloze field"><i class="fa-solid fa-square-plus"></i> Add Cloze Field</button>
 <button type="button" onmousedown="event.preventDefault()" onclick="toggleClozeTogether('createCardFront')" class="toolbar-btn mb-1" title="Link this cloze to the preceding cloze so both reveal together"><i class="fa-solid fa-link"></i> Reveal Together</button>
+<button type="button" onmousedown="event.preventDefault()" onclick="openImageClozeModal('createCardFront')" class="toolbar-btn mb-1" title="Draw reversible, numbered masks on an image; reveal them with Space"><i class="fa-solid fa-masks-theater"></i> Image Cloze</button>
                 <div id="createCardFront" contenteditable="true" class="editor-canvas" style="font-weight: bold;"><span style="font-weight: bold;"><br></span></div>
           </div>
 
@@ -1544,13 +1603,11 @@ body:not(.focus-study-active) #view-study #studyViewMode > .perspective-1000 {
               <button type="button" onclick="execCmd('italic', 'createCardBack')" class="toolbar-btn" title="Italic"><i class="fa-solid fa-italic"></i></button>
               <button type="button" onclick="execCmd('underline', 'createCardBack')" class="toolbar-btn" title="Underline"><i class="fa-solid fa-underline"></i></button>
               <span class="w-[1px] bg-slate-700 my-1 mx-0.5"></span>
-              <select onchange="execCmd('fontSize', 'createCardBack', this.value); this.selectedIndex=0;" class="bg-slate-900 border border-slate-700 text-[11px] rounded px-1 text-slate-300 outline-none h-7">
-                <option value="" disabled selected>Size</option>
-                <option value="1">Small (1)</option>
-                <option value="3">Normal (3)</option>
-                <option value="5">Large (5)</option>
-                <option value="7">Huge (7)</option>
-              </select>
+              <div class="inline-flex items-center gap-1" role="group" aria-label="Font size">
+                    <button type="button" onmousedown="event.preventDefault()" onclick="applyEditorFontSize('createCardBack', 'N')" class="toolbar-btn font-semibold" title="Normal text">N</button>
+                    <button type="button" onmousedown="event.preventDefault()" onclick="applyEditorFontSize('createCardBack', 'L')" class="toolbar-btn font-semibold" title="Large text">L</button>
+                    <button type="button" onmousedown="event.preventDefault()" onclick="applyEditorFontSize('createCardBack', 'XL')" class="toolbar-btn font-semibold" title="Extra large text">XL</button>
+                  </div>
               
 <div class="color-palette-bar flex items-center space-x-1 px-1 bg-slate-900/50 rounded-lg border border-slate-700/60 py-0.5">
                 <button type="button" onmousedown="event.preventDefault()" onclick="applyColor('#000000')" class="w-4 h-4 rounded-full bg-black border border-slate-600 hover:scale-110 transition" title="Black"></button>
@@ -1582,6 +1639,7 @@ body:not(.focus-study-active) #view-study #studyViewMode > .perspective-1000 {
             </div>
             <button type="button" onmousedown="event.preventDefault()" onclick="insertBackClozeField('createCardBack')" class="toolbar-btn mb-1" title="Insert a numbered cloze field"><i class="fa-solid fa-square-plus"></i> Add Cloze Field</button>
 <button type="button" onmousedown="event.preventDefault()" onclick="toggleClozeTogether('createCardBack')" class="toolbar-btn mb-1" title="Link this cloze to the preceding cloze so both reveal together"><i class="fa-solid fa-link"></i> Reveal Together</button>
+<button type="button" onmousedown="event.preventDefault()" onclick="openImageClozeModal('createCardBack')" class="toolbar-btn mb-1" title="Draw reversible, numbered masks on an image; reveal them with Space"><i class="fa-solid fa-masks-theater"></i> Image Cloze</button>
             <div id="createCardBack" contenteditable="true" class="editor-canvas"></div>
           </div>
 
@@ -1619,7 +1677,7 @@ body:not(.focus-study-active) #view-study #studyViewMode > .perspective-1000 {
           </div>
 
           <div class="border-2 border-dashed border-slate-700 rounded-2xl p-6 text-center hover:border-indigo-500 transition cursor-pointer relative" id="dropZone">
-            <input type="file" id="ankiFileInput" accept=".apkg,.colpkg" onchange="handleAnkiFileUpload(event)" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
+            <input type="file" id="ankiFileInput" accept=".apkg,.colpkg,.anki,.anki2,.anki21" onchange="handleAnkiFileUpload(event)" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
             <i class="fa-solid fa-cloud-arrow-up text-3xl text-slate-500 mb-2"></i>
             <p class="text-sm font-semibold text-slate-300">Click or Drag Anki file here</p>
             <p class="text-xs text-slate-500 mt-1">.apkg or .colpkg files</p>
@@ -1700,13 +1758,11 @@ body:not(.focus-study-active) #view-study #studyViewMode > .perspective-1000 {
             <button type="button" onclick="execCmd('italic', 'modalCardFront')" class="toolbar-btn" title="Italic"><i class="fa-solid fa-italic"></i></button>
             <button type="button" onclick="execCmd('underline', 'modalCardFront')" class="toolbar-btn" title="Underline"><i class="fa-solid fa-underline"></i></button>
             <span class="w-[1px] bg-slate-700 my-1 mx-0.5"></span>
-            <select onchange="execCmd('fontSize', 'modalCardFront', this.value); this.selectedIndex=0;" class="bg-slate-900 border border-slate-700 text-[11px] rounded px-1 text-slate-300 outline-none h-7">
-              <option value="" disabled selected>Size</option>
-              <option value="1">Small (1)</option>
-              <option value="3">Normal (3)</option>
-              <option value="5">Large (5)</option>
-              <option value="7">Huge (7)</option>
-            </select>
+            <div class="inline-flex items-center gap-1" role="group" aria-label="Font size">
+                    <button type="button" onmousedown="event.preventDefault()" onclick="applyEditorFontSize('modalCardFront', 'N')" class="toolbar-btn font-semibold" title="Normal text">N</button>
+                    <button type="button" onmousedown="event.preventDefault()" onclick="applyEditorFontSize('modalCardFront', 'L')" class="toolbar-btn font-semibold" title="Large text">L</button>
+                    <button type="button" onmousedown="event.preventDefault()" onclick="applyEditorFontSize('modalCardFront', 'XL')" class="toolbar-btn font-semibold" title="Extra large text">XL</button>
+                  </div>
             
 <div class="color-palette-bar flex items-center space-x-1 px-1 bg-slate-900/50 rounded-lg border border-slate-700/60 py-0.5">
                 <button type="button" onmousedown="event.preventDefault()" onclick="applyColor('#000000')" class="w-4 h-4 rounded-full bg-black border border-slate-600 hover:scale-110 transition" title="Black"></button>
@@ -1739,6 +1795,7 @@ body:not(.focus-study-active) #view-study #studyViewMode > .perspective-1000 {
           </div>
 <button type="button" onmousedown="event.preventDefault()" onclick="insertBackClozeField('modalCardFront')" class="toolbar-btn mb-1" title="Convert selected front text to a cloze, or insert a new cloze field"><i class="fa-solid fa-square-plus"></i> Add Cloze Field</button>
 <button type="button" onmousedown="event.preventDefault()" onclick="toggleClozeTogether('modalCardFront')" class="toolbar-btn mb-1" title="Link this cloze to the preceding cloze so both reveal together"><i class="fa-solid fa-link"></i> Reveal Together</button>
+<button type="button" onmousedown="event.preventDefault()" onclick="openImageClozeModal('modalCardFront')" class="toolbar-btn mb-1" title="Draw reversible, numbered masks on an image; reveal them with Space"><i class="fa-solid fa-masks-theater"></i> Image Cloze</button>
                 <div id="modalCardFront" contenteditable="true" class="editor-canvas !min-h-[80px]" style="font-weight: bold;"></div>
         </div>
 
@@ -1771,13 +1828,11 @@ body:not(.focus-study-active) #view-study #studyViewMode > .perspective-1000 {
             <button type="button" onclick="execCmd('italic', 'modalCardBack')" class="toolbar-btn" title="Italic"><i class="fa-solid fa-italic"></i></button>
             <button type="button" onclick="execCmd('underline', 'modalCardBack')" class="toolbar-btn" title="Underline"><i class="fa-solid fa-underline"></i></button>
             <span class="w-[1px] bg-slate-700 my-1 mx-0.5"></span>
-            <select onchange="execCmd('fontSize', 'modalCardBack', this.value); this.selectedIndex=0;" class="bg-slate-900 border border-slate-700 text-[11px] rounded px-1 text-slate-300 outline-none h-7">
-              <option value="" disabled selected>Size</option>
-              <option value="1">Small (1)</option>
-              <option value="3">Normal (3)</option>
-              <option value="5">Large (5)</option>
-              <option value="7">Huge (7)</option>
-            </select>
+            <div class="inline-flex items-center gap-1" role="group" aria-label="Font size">
+                    <button type="button" onmousedown="event.preventDefault()" onclick="applyEditorFontSize('modalCardBack', 'N')" class="toolbar-btn font-semibold" title="Normal text">N</button>
+                    <button type="button" onmousedown="event.preventDefault()" onclick="applyEditorFontSize('modalCardBack', 'L')" class="toolbar-btn font-semibold" title="Large text">L</button>
+                    <button type="button" onmousedown="event.preventDefault()" onclick="applyEditorFontSize('modalCardBack', 'XL')" class="toolbar-btn font-semibold" title="Extra large text">XL</button>
+                  </div>
             
 <div class="color-palette-bar flex items-center space-x-1 px-1 bg-slate-900/50 rounded-lg border border-slate-700/60 py-0.5">
                 <button type="button" onmousedown="event.preventDefault()" onclick="applyColor('#000000')" class="w-4 h-4 rounded-full bg-black border border-slate-600 hover:scale-110 transition" title="Black"></button>
@@ -1811,6 +1866,7 @@ body:not(.focus-study-active) #view-study #studyViewMode > .perspective-1000 {
           </div>
           <button type="button" onmousedown="event.preventDefault()" onclick="insertBackClozeField('modalCardBack')" class="toolbar-btn mb-1" title="Insert a numbered cloze field"><i class="fa-solid fa-square-plus"></i> Add Cloze Field</button>
 <button type="button" onmousedown="event.preventDefault()" onclick="toggleClozeTogether('modalCardBack')" class="toolbar-btn mb-1" title="Link this cloze to the preceding cloze so both reveal together"><i class="fa-solid fa-link"></i> Reveal Together</button>
+<button type="button" onmousedown="event.preventDefault()" onclick="openImageClozeModal('modalCardBack')" class="toolbar-btn mb-1" title="Draw reversible, numbered masks on an image; reveal them with Space"><i class="fa-solid fa-masks-theater"></i> Image Cloze</button>
           <div id="modalCardBack" contenteditable="true" class="editor-canvas !min-h-[80px]"></div>
         </div>
       </div>
@@ -1873,7 +1929,37 @@ body:not(.focus-study-active) #view-study #studyViewMode > .perspective-1000 {
     </div>
   </div>
 
-  <!-- SESSION SUMMARY MODAL -->
+  
+  <!-- Image Cloze: a small self-contained modal; does not alter the existing sketch editor. -->
+  <div id="imageClozeModal" class="hidden fixed inset-0 z-[90] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-3 md:p-6" role="dialog" aria-modal="true" aria-label="Image cloze mask editor">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-5xl max-h-[96vh] overflow-y-auto p-4 md:p-6 shadow-2xl space-y-3">
+      <div class="flex flex-wrap justify-between items-center gap-2">
+        <h3 class="font-bold text-indigo-300 text-lg"><i class="fa-solid fa-masks-theater"></i> Image Cloze</h3>
+        <button type="button" onclick="closeImageClozeModal()" class="toolbar-btn"><i class="fa-solid fa-xmark"></i> Cancel</button>
+      </div>
+      <p class="text-xs text-slate-300">Drag across the image to add a mask. Click an existing mask to change its cloze number or hint. The original image stays unchanged. Use a matching number to reveal with a text cloze.</p>
+      <div class="rounded-xl bg-slate-950 p-3 overflow-auto text-center" id="imageClozeViewport">
+        <div id="imageClozeImageHolder" class="anki-image-cloze-editor"><img id="imageClozePreview" alt="Image to mask"><div id="imageClozeDrawingArea"></div></div>
+      </div>
+      <div class="flex items-center flex-wrap gap-3 rounded-xl border border-slate-700 bg-slate-900/70 p-3">
+        <label class="text-xs text-slate-300 font-semibold">Selected mask / Next mask #
+          <input id="imageClozeNumber" type="number" min="1" max="9999" step="1" class="block w-24 bg-slate-800 border border-slate-600 rounded-lg p-2 text-sm mt-1" oninput="updateSelectedImageCloze()"></label>
+        <label class="text-xs text-slate-300 font-semibold flex-1 min-w-[165px]">Optional hint (visible while hidden)
+          <input id="imageClozeHint" type="text" maxlength="100" placeholder="e.g. LV or c1" class="block w-full bg-slate-800 border border-slate-600 rounded-lg p-2 text-sm mt-1" oninput="updateSelectedImageCloze()"></label>
+        <button type="button" onclick="deleteSelectedImageCloze()" class="toolbar-btn mt-3 text-rose-300" title="Remove selected mask"><i class="fa-solid fa-trash"></i> Delete selected</button>
+        <button type="button" onclick="clearAllImageClozeMasks()" class="toolbar-btn mt-3" title="Remove all masks from this image">Clear masks</button>
+      </div>
+      <div class="flex items-center justify-between gap-3 flex-wrap">
+        <span id="imageClozeMaskCount" class="text-xs text-slate-400">0 masks</span>
+        <div class="flex gap-2">
+          <button type="button" onclick="closeImageClozeModal()" class="toolbar-btn px-4">Cancel</button>
+          <button type="button" onclick="saveImageClozeMasks()" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-semibold"><i class="fa-solid fa-floppy-disk"></i> Save image masks</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<!-- SESSION SUMMARY MODAL -->
   <div id="sessionSummaryModal" class="hidden fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="bg-slate-800 border border-slate-700 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-5">
       <div class="text-center space-y-1 border-b border-slate-700 pb-4">
@@ -1942,6 +2028,26 @@ body:not(.focus-study-active) #view-study #studyViewMode > .perspective-1000 {
         <button onclick="document.getElementById('sessionSummaryModal').classList.add('hidden'); exitStudy();" class="w-full py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-xl text-xs font-semibold transition">
           Return to Decks Hub
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Movable Edit Card button. Drag its grip; click to edit the current card. -->
+  <button id="floatingEditCardButton" type="button" class="hidden anki-floating-edit-button" aria-label="Edit current card; drag to move" title="Click to edit card · drag to reposition">
+    <i class="fa-solid fa-grip-vertical opacity-70" aria-hidden="true"></i>
+    <i class="fa-solid fa-pen-to-square" aria-hidden="true"></i>
+    <span>Edit Card</span>
+  </button>
+
+  <!-- Confirm destructive reset for a single deck -->
+  <div id="ankiHardResetModal" class="hidden fixed inset-0 z-[110] bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="ankiHardResetTitle">
+    <div class="bg-slate-800 border border-rose-500/50 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <h3 id="ankiHardResetTitle" class="font-bold text-lg text-rose-300"><i class="fa-solid fa-triangle-exclamation"></i> Hard Reset Deck?</h3>
+      <p class="text-sm text-slate-200">This permanently clears all study progress, review ratings and future due dates for <strong id="ankiHardResetDeckName"></strong>. Cards, text, images, and deck hierarchy will be kept.</p>
+      <p class="text-xs text-amber-300">This cannot be undone unless you have a backup. This action only affects the selected deck in this browser until you export or sync it.</p>
+      <div class="flex gap-3 justify-end">
+        <button type="button" onclick="closeAnkiHardReset()" class="px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-100 rounded-xl text-sm font-semibold">Cancel</button>
+        <button type="button" onclick="confirmAnkiHardReset()" class="px-4 py-2.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-sm font-semibold">Yes, Clear Progress</button>
       </div>
     </div>
   </div>
@@ -2987,6 +3093,7 @@ const content = await zip.generateAsync({ type: "blob" });
 
       if (tabId === 'organizer') populateOrganizerDropdowns();
       if (tabId === 'create') populateCreateDropdown();
+      syncFloatingEditButton(tabId);
     }
 
     function refreshAnkiImportDeckOptions() {
@@ -3005,13 +3112,20 @@ const content = await zip.generateAsync({ type: "blob" });
 
     function renderCategories() {
       const container = document.getElementById('categoryFilterContainer');
-      let html = `<button onclick="filterCategory('ALL')" class="cat-filter-btn px-3.5 py-1.5 rounded-xl text-xs font-semibold ${appState.selectedCategory === 'ALL' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-700/60 text-slate-300 hover:bg-slate-700'} transition">All Decks</button>`;
-      
-      appState.categories.forEach(cat => {
+      // A deck with children is displayed as a +/- expandable deck, not as an extra group.
+      const visibleCategories = (appState.categories || []).filter(cat => !ankiIsImplicitDeckFolder(cat));
+      if (appState.selectedCategory !== 'ALL' && !visibleCategories.includes(appState.selectedCategory)) {
+        appState.selectedCategory = 'ALL';
+      }
+      let html = `<button onclick="filterCategory('ALL')" class="cat-filter-btn px-3.5 py-1.5 rounded-xl text-xs font-semibold ${appState.selectedCategory === 'ALL' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-700/60 text-slate-300 hover:bg-slate-700'} transition shrink-0">All Decks</button>`;
+      visibleCategories.forEach(cat => {
         const active = appState.selectedCategory === cat;
-        html += `<button onclick="filterCategory('${cat}')" class="cat-filter-btn px-3.5 py-1.5 rounded-xl text-xs font-semibold ${active ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-700/60 text-slate-300 hover:bg-slate-700'} transition">${cat}</button>`;
+        const safeArg = encodeURIComponent(cat).replace(/'/g, '%27');
+        html += `<span class="inline-flex shrink-0 items-center rounded-xl overflow-hidden border ${active ? 'border-indigo-400/50' : 'border-slate-600/50'}">
+          <button type="button" onclick="filterCategory(decodeURIComponent('${safeArg}'))" class="cat-filter-btn px-3 py-1.5 text-xs font-semibold ${active ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-700/60 text-slate-300 hover:bg-slate-700'} transition">${ankiOrganizerEscapeHtml(cat)}</button>
+          <button type="button" onclick="deleteAnkiOrganizerFolder(decodeURIComponent('${safeArg}'))" class="px-2 py-1.5 text-rose-300 bg-slate-800 hover:bg-rose-900/40 text-xs" aria-label="Delete group ${ankiOrganizerEscapeHtml(cat)}" title="Delete this group (keep all decks)"><i class="fa-solid fa-trash-can" aria-hidden="true"></i></button>
+        </span>`;
       });
-
       container.innerHTML = html;
     }
 
@@ -3050,27 +3164,33 @@ const content = await zip.generateAsync({ type: "blob" });
 
         // Build the dropdown options dynamically from appState.categories
         let categoryOptions = '';
-        appState.categories.forEach(cat => {
+        (appState.categories || []).filter(cat => !ankiIsImplicitDeckFolder(cat)).forEach(cat => {
           const selected = (deck.category === cat) ? 'selected' : '';
-          categoryOptions += `<option value="${cat}" ${selected}>${cat}</option>`;
+          categoryOptions += `<option value="${ankiOrganizerEscapeHtml(cat)}" ${selected}>${ankiOrganizerEscapeHtml(cat)}</option>`;
         });
+        if (!categoryOptions || !(appState.categories || []).some(cat => cat === deck.category && !ankiIsImplicitDeckFolder(cat))) {
+          const parentDeck = Object.values(appState.decks).find(other => other.id !== deck.id && ankiDeckVirtualPath(other) === deck.category);
+          const displayCategory = parentDeck ? `↳ Under ${parentDeck.name}` : (deck.category || 'Uncategorized');
+          categoryOptions = `<option value="${ankiOrganizerEscapeHtml(deck.category || '')}" selected>${ankiOrganizerEscapeHtml(displayCategory)}</option>` + categoryOptions;
+        }
 
         const cardEl = document.createElement('div');
         cardEl.className = "bg-slate-800 p-5 rounded-3xl border border-slate-700 shadow-lg flex flex-col justify-between hover:border-slate-600 transition space-y-4";
         cardEl.innerHTML = `
           <div class="space-y-2">
-            <div class="flex items-center justify-between">
-              <select onchange="updateDeckCategory('${deck.id}', this.value)" class="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-slate-900 text-indigo-400 border border-slate-700/80 outline-none cursor-pointer">
+            <div class="flex items-center justify-between gap-2">
+              <select onchange="updateDeckCategory('${deck.id}', this.value)" class="min-w-0 max-w-[calc(100%-36px)] text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-slate-900 text-indigo-400 border border-slate-700/80 outline-none cursor-pointer" aria-label="Deck category">
                 ${categoryOptions}
               </select>
-              <div class="flex items-center gap-2">
-                <button type="button" onclick="resetStudyDeck('${deck.id}')" class="text-xs font-bold px-2 py-1 rounded-lg bg-indigo-500/15 border border-indigo-500/40 text-indigo-400 hover:bg-indigo-500/25" title="Practice every card from the beginning without changing saved review progress or due dates">Reset</button>
-              <button onclick="deleteDeck('${deck.id}')" class="text-slate-500 hover:text-rose-400 transition text-xs p-1">
+              <button onclick="deleteDeck('${deck.id}')" class="text-slate-500 hover:text-rose-400 transition text-xs p-1 shrink-0" title="Delete deck" aria-label="Delete deck">
                 <i class="fa-solid fa-trash"></i>
               </button>
-              </div>
             </div>
-            <h3 class="font-bold text-slate-100 text-base leading-snug line-clamp-2">${deck.name}</h3>
+            <div class="anki-deck-reset-buttons pt-1">
+              <button type="button" onclick="resetStudyDeck('${deck.id}')" class="text-[11px] font-bold px-2 py-2 rounded-lg bg-indigo-500/15 border border-indigo-500/40 text-indigo-300 hover:bg-indigo-500/25" title="Show all cards without changing progress or due dates"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i><span>Soft Reset</span></button>
+              <button type="button" onclick="requestAnkiHardReset('${deck.id}')" class="text-[11px] font-bold px-2 py-2 rounded-lg bg-rose-500/10 border border-rose-500/40 text-rose-300 hover:bg-rose-500/20" title="Clear this deck's study progress after confirmation"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><span>Hard Reset</span></button>
+            </div>
+            <h3 class="font-bold text-slate-100 text-base leading-snug line-clamp-2">${ankiOrganizerEscapeHtml(deck.name)}</h3>
 
 
 
@@ -3814,9 +3934,231 @@ function openAddCardModal() {
     let clozeRevealCount = 0;
     let backClozeRevealCount = 0;
 
+
+    // Image occlusion masks are saved with the image in card HTML. Coordinates
+    // are percentages, so masks stay aligned when cards resize on mobile.
+    let imageClozeSession = null;
+    const imageClozeClass = 'anki-image-cloze';
+
+    function readImageClozeMasks(wrapper) {
+      if (!wrapper) return [];
+      try {
+        const masks = JSON.parse(decodeURIComponent(wrapper.getAttribute('data-anki-image-cloze') || '%5B%5D'));
+        return Array.isArray(masks) ? masks.filter(m => m && Number(m.n) > 0 && [m.x,m.y,m.w,m.h].every(v => Number.isFinite(Number(v)))) : [];
+      } catch (e) { return []; }
+    }
+
+    function setImageClozeMasks(wrapper, masks) {
+      wrapper.setAttribute('data-anki-image-cloze', encodeURIComponent(JSON.stringify(masks.map(m => ({
+        n: Math.max(1, Math.floor(Number(m.n) || 1)),
+        x: Math.max(0, Math.min(100, Number(m.x))),
+        y: Math.max(0, Math.min(100, Number(m.y))),
+        w: Math.max(0, Math.min(100, Number(m.w))),
+        h: Math.max(0, Math.min(100, Number(m.h))),
+        hint: String(m.hint || '').slice(0, 100)
+      })))));
+    }
+
+    function imageClozeGroups(source) {
+      const host = document.createElement('div');
+      host.innerHTML = String(source || '');
+      return [...host.querySelectorAll('[data-anki-image-cloze]')].flatMap(w => readImageClozeMasks(w).map(m => Number(m.n)));
+    }
+
+    function openImageClozeModal(editorId) {
+      const editor = document.getElementById(editorId);
+      if (!editor) return;
+      const images = [...editor.querySelectorAll('img')];
+      if (!images.length) { showToast('Insert an image in this field first.'); return; }
+      let imageIndex = 0;
+      if (images.length > 1) {
+        const chosen = prompt(`This field contains ${images.length} images. Which image would you like to mask (1-${images.length})?`, '1');
+        if (chosen === null) return;
+        imageIndex = Number(chosen) - 1;
+        if (!Number.isInteger(imageIndex) || imageIndex < 0 || imageIndex >= images.length) { showToast('Invalid image number.'); return; }
+      }
+      const img = images[imageIndex];
+      const wrapper = img.closest('.anki-image-cloze');
+      const masks = readImageClozeMasks(wrapper).map(m => ({...m}));
+      const allNumbers = getClozeNumbers(editor.innerHTML);
+      const nextNumber = Math.max(0, ...allNumbers) + 1;
+      imageClozeSession = { editor, img, wrapper, masks, selected: -1, nextNumber };
+      const preview = document.getElementById('imageClozePreview');
+      preview.src = img.getAttribute('src') || img.src;
+      document.getElementById('imageClozeModal').classList.remove('hidden');
+      updateImageClozeFields();
+      drawImageClozeEditor();
+    }
+
+    function closeImageClozeModal() {
+      document.getElementById('imageClozeModal').classList.add('hidden');
+      imageClozeSession = null;
+      document.getElementById('imageClozeDrawingArea').replaceChildren();
+    }
+
+    function updateImageClozeFields() {
+      const state = imageClozeSession;
+      if (!state) return;
+      const current = state.masks[state.selected];
+      const numberEl = document.getElementById('imageClozeNumber');
+      const hintEl = document.getElementById('imageClozeHint');
+      numberEl.value = current ? current.n : state.nextNumber;
+      hintEl.value = current ? (current.hint || '') : '';
+      document.getElementById('imageClozeMaskCount').textContent = `${state.masks.length} mask(s) — c${numberEl.value} ${current ? 'selected' : 'for next new mask'}`;
+    }
+
+    function drawImageClozeEditor() {
+      const state = imageClozeSession;
+      if (!state) return;
+      const layer = document.getElementById('imageClozeDrawingArea');
+      layer.replaceChildren();
+      state.masks.forEach((m, i) => {
+        const cover = document.createElement('div');
+        cover.className = 'anki-image-mask' + (state.selected === i ? ' selected' : '');
+        Object.assign(cover.style, {left:m.x+'%', top:m.y+'%', width:m.w+'%', height:m.h+'%'});
+        const label = document.createElement('span');
+        label.className = 'anki-image-mask-label';
+        label.textContent = m.hint || `c${m.n}`;
+        cover.appendChild(label);
+        cover.addEventListener('pointerdown', ev => {
+          ev.stopPropagation(); ev.preventDefault();
+          state.selected = i;
+          updateImageClozeFields(); drawImageClozeEditor();
+        });
+        layer.appendChild(cover);
+      });
+    }
+
+    function updateSelectedImageCloze() {
+      const state = imageClozeSession;
+      if (!state) return;
+      const n = Math.max(1, Math.floor(Number(document.getElementById('imageClozeNumber').value) || 1));
+      const hint = document.getElementById('imageClozeHint').value.slice(0, 100);
+      if (state.selected >= 0 && state.masks[state.selected]) {
+        state.masks[state.selected].n = n;
+        state.masks[state.selected].hint = hint;
+        drawImageClozeEditor();
+      } else state.nextNumber = n;
+    }
+
+    function deleteSelectedImageCloze() {
+      const state = imageClozeSession;
+      if (!state || state.selected < 0) return;
+      state.masks.splice(state.selected, 1);
+      state.selected = -1;
+      updateImageClozeFields(); drawImageClozeEditor();
+    }
+
+    function clearAllImageClozeMasks() {
+      const state = imageClozeSession;
+      if (!state) return;
+      state.masks = [];
+      state.selected = -1;
+      updateImageClozeFields(); drawImageClozeEditor();
+    }
+
+    function saveImageClozeMasks() {
+      const state = imageClozeSession;
+      if (!state || !state.img.isConnected) { closeImageClozeModal(); return; }
+      // Keep the original image intact and only add metadata to a wrapper.
+      if (state.masks.length) {
+        let wrapper = state.img.closest('.anki-image-cloze');
+        if (!wrapper) {
+          wrapper = document.createElement('span');
+          wrapper.className = imageClozeClass;
+          wrapper.setAttribute('contenteditable', 'false');
+          state.img.parentNode.insertBefore(wrapper, state.img);
+          wrapper.appendChild(state.img);
+        }
+        setImageClozeMasks(wrapper, state.masks);
+      } else if (state.wrapper && state.wrapper.isConnected) {
+        state.wrapper.replaceWith(state.img);
+      }
+      showToast(`${state.masks.length} image cloze mask(s) saved in editor. Save the flashcard to keep them.`);
+      closeImageClozeModal();
+    }
+
+    function renderImageClozeMasks(container, revealCount, numbers) {
+      container.querySelectorAll('.anki-image-cloze').forEach(wrapper => {
+        // A re-render starts from persisted card HTML (without temporary overlays).
+        wrapper.querySelectorAll('.anki-image-mask').forEach(mask => mask.remove());
+        for (const m of readImageClozeMasks(wrapper)) {
+          if (numbers.indexOf(Number(m.n)) < revealCount) continue;
+          const cover = document.createElement('span');
+          cover.className = 'anki-image-mask';
+          Object.assign(cover.style, {left:m.x+'%', top:m.y+'%', width:m.w+'%', height:m.h+'%'});
+          const label = document.createElement('span');
+          label.className = 'anki-image-mask-label';
+          label.textContent = m.hint || `c${m.n}`;
+          cover.appendChild(label);
+          wrapper.appendChild(cover);
+        }
+      });
+    }
+
+    // Pointer support for mouse, Apple Pencil, and touch. This listener is
+    // bound once and does not interfere with the existing sketch canvas.
+    document.addEventListener('pointerdown', function(ev) {
+      const layer = ev.target.closest?.('#imageClozeDrawingArea');
+      const state = imageClozeSession;
+      if (!layer || !state || ev.target.closest('.anki-image-mask')) return;
+      if (ev.button !== 0 && ev.pointerType === 'mouse') return;
+      ev.preventDefault();
+      state.selected = -1;
+      const bounds = layer.getBoundingClientRect();
+      if (bounds.width < 2 || bounds.height < 2) return;
+      const at = e => ({
+        x: Math.max(0, Math.min(100, (e.clientX-bounds.left) / bounds.width * 100)),
+        y: Math.max(0, Math.min(100, (e.clientY-bounds.top) / bounds.height * 100))
+      });
+      const begin = at(ev);
+      const mask = document.createElement('div');
+      mask.id = 'imageClozeDraft';
+      layer.appendChild(mask);
+      layer.setPointerCapture(ev.pointerId);
+      const move = e => {
+        const end = at(e);
+        Object.assign(mask.style, { left:Math.min(begin.x,end.x)+'%', top:Math.min(begin.y,end.y)+'%',
+          width:Math.abs(begin.x-end.x)+'%', height:Math.abs(begin.y-end.y)+'%' });
+      };
+      const finish = e => {
+        move(e);
+        layer.removeEventListener('pointermove', move);
+        layer.removeEventListener('pointerup', finish);
+        layer.removeEventListener('pointercancel', cancel);
+        try { layer.releasePointerCapture(e.pointerId); } catch (_) {}
+        mask.remove();
+        const end = at(e);
+        const w = Math.abs(begin.x-end.x), h = Math.abs(begin.y-end.y);
+        if (w >= 1 && h >= 1) {
+          const num = Math.max(1, Math.floor(Number(document.getElementById('imageClozeNumber').value) || state.nextNumber));
+          const hint = document.getElementById('imageClozeHint').value.slice(0,100);
+          state.masks.push({n:num, x:Math.min(begin.x,end.x), y:Math.min(begin.y,end.y), w, h, hint});
+          state.selected = state.masks.length - 1;
+          state.nextNumber = num + 1;
+          updateImageClozeFields();
+          state.selected = -1;
+          updateImageClozeFields();
+          drawImageClozeEditor();
+        }
+      };
+      const cancel = e => {
+        layer.removeEventListener('pointermove', move);
+        layer.removeEventListener('pointerup', finish);
+        layer.removeEventListener('pointercancel', cancel);
+        mask.remove();
+      };
+      layer.addEventListener('pointermove', move);
+      layer.addEventListener('pointerup', finish);
+      layer.addEventListener('pointercancel', cancel);
+    });
+
     function getClozeNumbers(source) {
-      const matches = [...String(source || '').matchAll(/\{\{c(\d+)::/g)];
-      return [...new Set(matches.map(match => Number(match[1])))].sort((a, b) => a - b);
+      const html = String(source || '');
+      const host = document.createElement('div');
+      host.innerHTML = html;
+      const textMatches = [...host.textContent.matchAll(/\{\{c(\d+)::/g)].map(m => Number(m[1]));
+      return [...new Set([...textMatches, ...imageClozeGroups(html)])].sort((a, b) => a - b);
     }
 
     function renderClozeText(source, revealCount = 0) {
@@ -3855,7 +4197,7 @@ function openAddCardModal() {
       const container = document.createElement('div');
       container.innerHTML = source;
       const plain = container.textContent;
-      const numbers = getClozeNumbers(plain);
+      const numbers = getClozeNumbers(source);
       const pattern = /\{\{c(\d+)::([\s\S]*?)(?:::(.*?))?\}\}/g;
       const matches = [...plain.matchAll(pattern)];
       // Process from right to left, so earlier text positions remain valid.
@@ -3894,7 +4236,7 @@ function openAddCardModal() {
       const card = appState.studyQueue[appState.studyIndex];
       if (!card) return;
       const rendered = renderInlineBackCloze(combinedBackClozeHtml(card), backClozeRevealCount);
-      document.getElementById('backContent').innerHTML = wrapImagesWithControls(rendered, 'back');
+      document.getElementById('backContent').innerHTML = wrapImagesWithControls(rendered, 'back', backClozeRevealCount, getClozeNumbers(combinedBackClozeHtml(card)));
     }
 
     function revealNextBackCloze() {
@@ -3902,7 +4244,7 @@ function openAddCardModal() {
       if (!card || !document.getElementById('studyCard').classList.contains('card-flipped')) return false;
       const temp = document.createElement('div');
       temp.innerHTML = combinedBackClozeHtml(card);
-      const count = getClozeNumbers(temp.textContent).length;
+      const count = getClozeNumbers(combinedBackClozeHtml(card)).length;
       if (backClozeRevealCount >= count) return false;
       backClozeRevealCount++;
       updateClozeBack();
@@ -3918,7 +4260,7 @@ function openAddCardModal() {
       const front = document.getElementById('frontContent');
       if (!front) return;
       front.innerHTML = wrapImagesWithControls(
-        renderInlineBackCloze(card.front || '', clozeRevealCount), 'front'
+        renderInlineBackCloze(card.front || '', clozeRevealCount), 'front', clozeRevealCount, getClozeNumbers(card.front || '')
       );
     }
 
@@ -3928,7 +4270,7 @@ function openAddCardModal() {
       if (!card || !studyCard || studyCard.classList.contains('card-flipped')) return false;
       const parsed = document.createElement('div');
       parsed.innerHTML = card.front || '';
-      const total = getClozeNumbers(parsed.textContent).length;
+      const total = getClozeNumbers(card.front || '').length;
       if (clozeRevealCount >= total) return false;
       clozeRevealCount++;
       updateClozeFront();
@@ -3962,17 +4304,18 @@ function openAddCardModal() {
       if (revealed) e.preventDefault();
     });
 
-    function wrapImagesWithControls(html, side) {
+    function wrapImagesWithControls(html, side, revealCount = 0, allGroups = null) {
       if (!html) return '';
       const temp = document.createElement('div');
       temp.innerHTML = html;
 
       const imgs = temp.querySelectorAll('img');
       imgs.forEach((img, idx) => {
+        const imageUnit = img.closest('.anki-image-cloze') || img;
         const wrapper = document.createElement('div');
         wrapper.className = 'image-wrapper';
-        img.parentNode.insertBefore(wrapper, img);
-        wrapper.appendChild(img);
+        imageUnit.parentNode.insertBefore(wrapper, imageUnit);
+        wrapper.appendChild(imageUnit);
 
         const actions = document.createElement('div');
         actions.className = 'image-actions';
@@ -3988,6 +4331,7 @@ function openAddCardModal() {
         wrapper.appendChild(actions);
       });
 
+      renderImageClozeMasks(temp, revealCount, allGroups || getClozeNumbers(html));
       return temp.innerHTML;
     }
 
@@ -4035,7 +4379,8 @@ function openAddCardModal() {
       const imgs = temp.querySelectorAll('img');
       
       if (imgs[imgIndex]) {
-        imgs[imgIndex].remove();
+        const unit = imgs[imgIndex].closest('.anki-image-cloze') || imgs[imgIndex];
+        unit.remove();
         card[side] = temp.innerHTML;
 
         const deck = appState.decks[appState.activeStudyDeckId];
@@ -4509,7 +4854,7 @@ function renumberClozeEditors(frontEditorId, backEditorId) {
     if (!editor) continue;
     const source = editor.textContent || '';
     const matches = [...source.matchAll(/\{\{c(\d+)::[\s\S]*?(?:::[\s\S]*?)?\}\}/g)];
-    const updates = [];
+    const events = [];
     for (const match of matches) {
       const range = clozeTextRange(editor, match.index + 3,
                                    match.index + 3 + match[1].length);
@@ -4518,15 +4863,44 @@ function renumberClozeEditors(frontEditorId, backEditorId) {
       const parent = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
       const token = parent?.closest?.('.anki-inline-cloze-token');
       const linked = token?.getAttribute('data-cloze-with-previous') === 'true';
-      const number = linked && previousNumber !== null ? previousNumber : nextNumber++;
+      const sortRange = range.cloneRange();
+      events.push({kind:'text', range, sortRange, old:Number(match[1]), linked});
+    }
+    for (const wrapper of editor.querySelectorAll('.anki-image-cloze')) {
+      const imageRange = document.createRange();
+      imageRange.selectNode(wrapper);
+      for (const group of [...new Set(readImageClozeMasks(wrapper).map(m => Number(m.n)))]) {
+        events.push({kind:'image', wrapper, sortRange:imageRange, old:group, linked:false});
+      }
+    }
+    events.sort((a,b) => a.sortRange.compareBoundaryPoints(Range.START_TO_START, b.sortRange));
+    const numbered = new Map();
+    const maskGroupNumbers = new Set(events.filter(item => item.kind === 'image').map(item => item.old));
+    const changes = [];
+    const maskMappings = new Map();
+    for (const item of events) {
+      let number;
+      if (item.linked && previousNumber !== null) number = previousNumber;
+      else if (numbered.has(item.old) && (item.kind === 'image' || maskGroupNumbers.has(item.old))) number = numbered.get(item.old);
+      else number = nextNumber++;
+      // Keep original text-only automatic renumbering; groups shared with
+      // an image are intentionally linked when they use the same c-number.
+      if (!numbered.has(item.old) || !maskGroupNumbers.has(item.old)) numbered.set(item.old, number);
       previousNumber = number;
-      updates.push({range, number});
+      if (item.kind === 'text') changes.push({range:item.range, number});
+      else {
+        if (!maskMappings.has(item.wrapper)) maskMappings.set(item.wrapper, new Map());
+        maskMappings.get(item.wrapper).set(item.old, number);
+      }
     }
-    // Reverse replacements keep offsets of earlier text stable.
-    for (const item of updates.reverse()) {
-      item.range.deleteContents();
-      item.range.insertNode(document.createTextNode(String(item.number)));
+    // Replace text from right to left, leaving original rich HTML in answers.
+    for (const change of changes.reverse()) {
+      change.range.deleteContents();
+      change.range.insertNode(document.createTextNode(String(change.number)));
     }
+    maskMappings.forEach((mapping, wrapper) => {
+      setImageClozeMasks(wrapper, readImageClozeMasks(wrapper).map(m => ({...m, n:mapping.get(Number(m.n)) || m.n})));
+    });
   }
 }
 
@@ -4591,8 +4965,7 @@ async function insertBackClozeField(editorId) {
     }
   }
 
-  const used = [...editor.textContent.matchAll(/\{\{c(\d+)::/g)]
-    .map(match => Number(match[1]));
+  const used = getClozeNumbers(editor.innerHTML);
   let number = 1;
   while (used.includes(number)) number++;
 
@@ -5018,45 +5391,223 @@ function saveCardEdits() {
       showToast('Subject created. Assign a deck to it using the group dropdown.');
     }
 
+    // Existing portable manifests use category paths for nested decks. A path that
+    // equals "parent category / parent deck name" is an implicit deck node, not a
+    // visible folder. This renderer preserves that data and avoids duplicate folders.
+    function ankiDeckVirtualPath(deck) {
+      return [deck.category || '', deck.name || 'Untitled'].filter(Boolean).join(' / ');
+    }
+    function ankiIsImplicitDeckFolder(path) {
+      return !!path && Object.values(appState.decks || {}).some(deck => ankiDeckVirtualPath(deck) === path);
+    }
+    const ankiCollapsedTreeNodes = (() => {
+      try {
+        const saved = JSON.parse(localStorage.getItem('anki_organizer_collapsed_v2') || '[]');
+        return new Set(Array.isArray(saved) ? saved : []);
+      } catch (e) { return new Set(); }
+    })();
+    function toggleAnkiOrganizerCollapse(kind, id) {
+      const key = kind + ':' + id;
+      if (ankiCollapsedTreeNodes.has(key)) ankiCollapsedTreeNodes.delete(key);
+      else ankiCollapsedTreeNodes.add(key);
+      try { localStorage.setItem('anki_organizer_collapsed_v2', JSON.stringify([...ankiCollapsedTreeNodes])); } catch (e) {}
+      renderNestedSubjects();
+    }
+    function deleteAnkiOrganizerFolder(path) {
+      if (!path || ankiIsImplicitDeckFolder(path)) return;
+      if (!appState.categories.includes(path) && !Object.values(appState.decks).some(d => d.category === path || d.category?.startsWith(path+' / '))) return;
+      const label = path.split(' / ').at(-1);
+      if (!window.confirm(`Delete group/folder "${label}"?\n\nAny decks and subfolders inside it will be moved up one level. No cards or review progress will be deleted.`)) return;
+      const pieces = path.split(' / ');
+      pieces.pop();
+      const parent = pieces.join(' / ');
+      const prefix = path + ' / ';
+      const moveUp = value => {
+        const v = String(value || '');
+        if (v === path) return parent;
+        if (v.startsWith(prefix)) return [parent, v.slice(prefix.length)].filter(Boolean).join(' / ');
+        return v;
+      };
+      appState.categories = [...new Set(appState.categories.filter(v => v !== path).map(moveUp).filter(Boolean))];
+      for (const deck of Object.values(appState.decks)) deck.category = moveUp(deck.category);
+      if (appState.selectedCategory === path || appState.selectedCategory.startsWith(prefix)) appState.selectedCategory = 'ALL';
+      ankiCollapsedTreeNodes.delete('folder:'+path);
+      saveLocalState();
+      renderCategories(); renderDecks(); renderNestedSubjects();
+      ankiOrganizerStatus('Folder/group removed; its decks were preserved. Use Save Hierarchy As... to update the manifest.');
+      showToast('Folder/group deleted; all contained decks and cards were kept.');
+    }
+    const ankiOrganizerSelectedDeckIds = new Set();
+    function updateAnkiOrganizerSelectionCount() {
+      const status = document.getElementById('ankiOrganizerSelectionCount');
+      if (status) {
+        const n = ankiOrganizerSelectedDeckIds.size;
+        status.textContent = `${n} deck${n === 1 ? '' : 's'} selected`;
+      }
+    }
+    function toggleAnkiOrganizerDeckSelection(deckId, checked) {
+      if (!appState.decks[deckId]) return;
+      if (checked) ankiOrganizerSelectedDeckIds.add(deckId);
+      else ankiOrganizerSelectedDeckIds.delete(deckId);
+      renderNestedSubjects();
+    }
+    function selectVisibleAnkiOrganizerDecks() {
+      document.querySelectorAll('#organizerSubjectTree [data-kind="deck"][data-id]').forEach(row => {
+        if (appState.decks[row.dataset.id]) ankiOrganizerSelectedDeckIds.add(row.dataset.id);
+      });
+      renderNestedSubjects();
+    }
+    function clearAnkiOrganizerDeckSelection() {
+      ankiOrganizerSelectedDeckIds.clear();
+      renderNestedSubjects();
+    }
     function renderNestedSubjects() {
       const tree = document.getElementById('organizerSubjectTree');
       const select = document.getElementById('organizerParentSubject');
       if (!tree || !select) return;
       const old = select.value;
+      // Discard removed decks from the selection without touching saved cards.
+      for (const id of ankiOrganizerSelectedDeckIds) {
+        if (!appState.decks[id]) ankiOrganizerSelectedDeckIds.delete(id);
+      }
+      updateAnkiOrganizerSelectionCount();
       select.replaceChildren(new Option('Top level (specialty)', ''));
       tree.replaceChildren();
-      const paths = new Set(appState.categories || []);
-      for (const deck of Object.values(appState.decks)) {
-        if (deck.category) paths.add(deck.category);
+
+      // Include ancestor paths for older saved collections and nested Anki files.
+      const allPaths = new Set((appState.categories || []).filter(Boolean));
+      Object.values(appState.decks).forEach(deck => { if (deck.category) allPaths.add(deck.category); });
+      for (const path of [...allPaths]) {
+        const segments = path.split(' / ');
+        for (let i=1; i<segments.length; i++) allPaths.add(segments.slice(0,i).join(' / '));
       }
-      // Include intermediate parents even if they haven't been added explicitly.
-      for (const path of [...paths]) {
-        const parts = path.split(' / ');
-        for (let i = 1; i < parts.length; i++) paths.add(parts.slice(0, i).join(' / '));
+      // Hide a deck's implicit category path: the parent deck itself is the tree node.
+      const realFolders = [...allPaths].filter(path => !ankiIsImplicitDeckFolder(path));
+      realFolders.sort((a,b)=>a.localeCompare(b));
+      for (const path of realFolders) {
+        const depth = path.split(' / ').length-1;
+        select.add(new Option('  '.repeat(depth)+path.split(' / ').at(-1),path));
       }
-      const sorted = [...paths].sort((a,b) => a.localeCompare(b));
-      for (const path of sorted) {
-        const depth = path.split(' / ').length - 1;
-        const title = path.split(' / ').at(-1);
-        const option = new Option(`${'  '.repeat(depth)}${title}`, path);
-        select.add(option);
-        const count = Object.values(appState.decks).filter(deck =>
-          deck.category === path || deck.category?.startsWith(path + ' / ')).length;
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'block text-left w-full rounded-lg py-1.5 px-2 hover:bg-slate-700/70 text-slate-300';
-        button.style.paddingLeft = `${8 + depth * 18}px`;
-        button.textContent = `${depth ? '↳ ' : '▸ '}${title} (${count} deck${count===1?'':'s'})`;
-        button.title = `Show decks in ${path} and its subsubjects`;
-        button.onclick = () => {
-          appState.selectedCategory = path;
-          renderCategories();
-          renderDecks();
-          switchTab('decks');
-        };
-        tree.appendChild(button);
+
+      const folderChildren = new Map(), deckChildren = new Map();
+      const parentPath = p => p.includes(' / ') ? p.slice(0,p.lastIndexOf(' / ')) : '';
+      const add = (map,key,value) => {
+        if (!map.has(key)) map.set(key,[]);
+        map.get(key).push(value);
+      };
+      realFolders.forEach(folder => add(folderChildren,parentPath(folder),folder));
+      Object.values(appState.decks).forEach(deck => add(deckChildren,deck.category || '',deck));
+      for (const list of folderChildren.values()) list.sort((a,b)=>a.localeCompare(b));
+      for (const list of deckChildren.values()) list.sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+      const hasChildren = path => !!((folderChildren.get(path)||[]).length || (deckChildren.get(path)||[]).length);
+      const folderCount = path => Object.values(appState.decks).filter(deck => deck.category===path || deck.category?.startsWith(path+' / ')).length;
+      const visitedDecks = new Set(), visitedFolders = new Set();
+
+      function appendRow(kind,id,title,depth,count,expandable) {
+        const row = document.createElement('div');
+        row.className='anki-organizer-row';
+        row.style.paddingLeft = `${9 + depth*17}px`;
+        row.draggable=true;
+        if (kind === 'deck' && ankiOrganizerSelectedDeckIds.has(id)) row.classList.add('anki-selected');
+        row.dataset.kind=kind;
+        row.dataset.id=id;
+        row.title = kind==='folder' ? 'Drag folders or decks here; click its name to filter' : 'Drag this Anki deck onto a folder or another deck';
+        const isRoot = kind==='folder' && !id;
+        const key=kind+':'+id;
+        if (!isRoot && expandable) {
+          const toggle=document.createElement('button');
+          toggle.type='button'; toggle.className='anki-organizer-toggle';
+          const collapsed=ankiCollapsedTreeNodes.has(key);
+          toggle.title=collapsed?'Expand':'Collapse';
+          toggle.setAttribute('aria-label',`${collapsed?'Expand':'Collapse'} ${title}`);
+          toggle.setAttribute('aria-expanded',String(!collapsed));
+          toggle.innerHTML=`<i class="fa-solid ${collapsed?'fa-plus':'fa-minus'} text-[10px]" aria-hidden="true"></i>`;
+          toggle.addEventListener('click',event=>{event.stopPropagation();toggleAnkiOrganizerCollapse(kind,id);});
+          row.appendChild(toggle);
+        } else {
+          const spacer=document.createElement('span');
+          spacer.className='anki-organizer-toggle-placeholder';
+          row.appendChild(spacer);
+        }
+        if (kind === 'deck') {
+          const checkbox = document.createElement('input');
+          checkbox.type='checkbox';
+          checkbox.className='anki-organizer-checkbox';
+          checkbox.checked=ankiOrganizerSelectedDeckIds.has(id);
+          checkbox.setAttribute('aria-label', `Select ${title} for group move`);
+          checkbox.title='Select this deck for a group drag-and-drop move';
+          checkbox.addEventListener('click',event=>event.stopPropagation());
+          checkbox.addEventListener('change',event=>{
+            event.stopPropagation();
+            toggleAnkiOrganizerDeckSelection(id,checkbox.checked);
+          });
+          row.appendChild(checkbox);
+        }
+        const symbol=document.createElement('i');
+        symbol.className=kind==='folder' ? 'fa-solid fa-folder text-amber-400' : 'fa-solid fa-file-zipper text-indigo-400';
+        const label=document.createElement(kind==='folder'?'button':'span');
+        label.className='anki-organizer-label text-left flex-1';
+        label.textContent=title;
+        if (kind==='folder') {
+          label.type='button';
+          label.onclick=()=>{appState.selectedCategory=id||'ALL';renderCategories();renderDecks();switchTab('decks');};
+        }
+        const countNode=document.createElement('span');
+        countNode.className='text-[10px] text-slate-500 shrink-0';
+        countNode.textContent=kind==='folder' ? `${count} deck${count===1?'':'s'}` : `${count} cards`;
+        row.append(symbol,label,countNode);
+        if(kind==='folder' && !isRoot) {
+          const remove=document.createElement('button');
+          remove.type='button';remove.className='anki-organizer-delete';
+          remove.title='Delete folder; keep all decks';
+          remove.setAttribute('aria-label',`Delete folder ${title}`);
+          remove.innerHTML='<i class="fa-solid fa-trash-can" aria-hidden="true"></i>';
+          remove.addEventListener('click',e=>{e.stopPropagation();deleteAnkiOrganizerFolder(id);});
+          row.appendChild(remove);
+        }
+        row.addEventListener('dragstart',e=>{
+          e.dataTransfer.effectAllowed='move';
+          // Dragging one of the checked decks moves all checked decks together.
+          // Dragging an unchecked deck still moves only that deck.
+          const payload=kind==='deck'
+            ? {kind:'decks',ids:ankiOrganizerSelectedDeckIds.has(id)
+                ? [...ankiOrganizerSelectedDeckIds] : [id]}
+            : {kind,id};
+          e.dataTransfer.setData('text/plain',JSON.stringify(payload));
+        });
+        row.addEventListener('dragover',e=>{e.preventDefault();e.stopPropagation();e.dataTransfer.dropEffect='move';row.classList.add('anki-drop-target');});
+        row.addEventListener('dragleave',e=>{if (!row.contains(e.relatedTarget)) row.classList.remove('anki-drop-target');});
+        row.addEventListener('drop',e=>{
+          e.preventDefault();e.stopPropagation();row.classList.remove('anki-drop-target');
+          try {
+            const payload=JSON.parse(e.dataTransfer.getData('text/plain'));
+            if (payload.kind==='decks') moveAnkiOrganizerDeckBatch(payload.ids,kind,id);
+            else moveAnkiOrganizerNode(payload,kind,id);
+          } catch(error) {showToast(error.message||'Could not move item.');}
+        });
+        tree.appendChild(row);
       }
-      if ([...select.options].some(opt => opt.value === old)) select.value = old;
+      appendRow('folder','','Top level (drop here)',0,Object.keys(appState.decks).length,true);
+      function branch(path,depth) {
+        for(const folder of folderChildren.get(path)||[]) {
+          if (visitedFolders.has(folder)) continue;
+          visitedFolders.add(folder);
+          const title=folder.split(' / ').at(-1);
+          const expandable=hasChildren(folder);
+          appendRow('folder',folder,title,depth,folderCount(folder),expandable);
+          if(expandable && !ankiCollapsedTreeNodes.has('folder:'+folder)) branch(folder,depth+1);
+        }
+        for(const deck of deckChildren.get(path)||[]) {
+          if(visitedDecks.has(deck.id)) continue;
+          visitedDecks.add(deck.id);
+          const virtual=ankiDeckVirtualPath(deck);
+          const expandable=hasChildren(virtual);
+          appendRow('deck',deck.id,deck.name||'Untitled',depth,(deck.cards||[]).length,expandable);
+          if(expandable && !ankiCollapsedTreeNodes.has('deck:'+deck.id)) branch(virtual,depth+1);
+        }
+      }
+      branch('',1);
+      if([...select.options].some(opt=>opt.value===old)) select.value=old;
     }
 
     function populateOrganizerDropdowns() {
@@ -5068,8 +5619,8 @@ function saveCardEdits() {
 
       Object.keys(appState.decks).forEach(id => {
         const deck = appState.decks[id];
-        sourceSelect.innerHTML += `<option value="${id}">${deck.name}</option>`;
-        targetSelect.innerHTML += `<option value="${id}">${deck.name}</option>`;
+        sourceSelect.add(new Option(deck.name, id));
+        targetSelect.add(new Option(deck.name, id));
       });
 
       renderOrganizerCards();
@@ -5156,7 +5707,7 @@ function saveCardEdits() {
       const select = document.getElementById('createCardDeck');
       select.innerHTML = '';
       Object.keys(appState.decks).forEach(id => {
-        select.innerHTML += `<option value="${id}">${appState.decks[id].name}</option>`;
+        select.add(new Option(appState.decks[id].name, id));
       });
     }
 
@@ -5194,12 +5745,13 @@ function saveCardEdits() {
     } // <-- THIS CLOSING BRACE WAS MISSING AND BROKE THE SCRIPT
 
     // --- ANKI IMPORT ENGINE ---
-    async function handleAnkiFileUpload(event) {
+    async function handleAnkiFileUpload(event, options = {}) {
+      const folderBatch = !!options.folderBatch;
       const selectedFiles = Array.from(event.target.files || []);
       const file = selectedFiles[0];
       if (!file) return;
-      if (selectedFiles.length !== 1 || !/\.(apkg|colpkg)$/i.test(file.name)) {
-        alert('Please select exactly one .apkg or .colpkg file.');
+      if (selectedFiles.length !== 1 || !/\.(apkg|colpkg|anki|anki2|anki21)$/i.test(file.name)) {
+        if (!folderBatch) alert('Please select exactly one .apkg, .colpkg, or compatible Anki SQLite file.');
         event.target.value = '';
         return;
       }
@@ -5215,7 +5767,8 @@ function saveCardEdits() {
       percentText.innerText = "10%";
 
       try {
-        const zip = await JSZip.loadAsync(file);
+        const isRawAnkiDatabase = /\.(anki|anki2|anki21)$/i.test(file.name);
+        const zip = isRawAnkiDatabase ? {files:{}, file:() => null} : await JSZip.loadAsync(file);
         progressBar.style.width = '30%';
         statusText.innerText = "Processing media files into IndexedDB storage...";
         percentText.innerText = "30%";
@@ -5287,7 +5840,11 @@ function saveCardEdits() {
         percentText.innerText = "60%";
 
         let dbBuffer = null;
-        if (zip.file("collection.anki21b")) {
+        if (isRawAnkiDatabase) {
+          dbBuffer = new Uint8Array(await file.arrayBuffer());
+          const magic = new TextDecoder().decode(dbBuffer.slice(0, 15));
+          if (magic !== 'SQLite format 3') throw new Error('This .anki/.anki2 file is not a supported SQLite collection. Export it as .apkg first.');
+        } else if (zip.file("collection.anki21b")) {
           const compressed = await zip.file("collection.anki21b").async("uint8array");
           dbBuffer = fzstd.decompress(compressed);
         } else if (zip.file("collection.anki21")) {
@@ -5476,7 +6033,7 @@ function saveCardEdits() {
           name.toLowerCase().split('::').pop() === packageStem
         );
         const autoChoice = matchingDecks.length === 1 ? matchingDecks[0] : null;
-        const selectedDecks = await new Promise((resolve) => {
+        const selectedDecks = folderBatch ? deckNames : await new Promise((resolve) => {
           if (deckNames.length === 1) {
             resolve(deckNames);
             return;
@@ -5539,7 +6096,40 @@ function saveCardEdits() {
 
 
 
-        if (selectedDecks.length > 0) {
+        if (selectedDecks.length > 0 && folderBatch) {
+          const sourceFilePath = String(options.relativePath || file.name).replace(/\\/g, '/').replace(/^\/+/, '');
+          const importedName = file.name.replace(/\.(apkg|colpkg|anki|anki2|anki21)$/i, '').trim();
+          // Namespace card IDs by source file to prevent two packages with
+          // overlapping Anki note IDs from mixing cards across decks.
+          let hash = 2166136261;
+          for (const char of sourceFilePath) { hash ^= char.charCodeAt(0); hash = Math.imul(hash, 16777619); }
+          const sourceNamespace = (hash >>> 0).toString(36);
+          const allCards = selectedDecks.flatMap(name => importedCardsByDeck[name] || [])
+            .map(card => ({...card, id: `file_${sourceNamespace}_${card.id}`}));
+          let existing = Object.values(appState.decks).find(deck => deck.sourceFilePath === sourceFilePath);
+          if (existing) {
+            const ids = new Set((existing.cards || []).map(c => String(c.id)));
+            for (const card of allCards) {
+              if (!ids.has(String(card.id))) { existing.cards.push(card); ids.add(String(card.id)); }
+            }
+          } else {
+            const deckId = 'deck_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
+            const parentPath = sourceFilePath.split('/').slice(0,-1).filter(Boolean).join(' / ');
+            const fallbackCategory = parentPath || 'General';
+            existing = appState.decks[deckId] = {
+              id:deckId, name:importedName || file.name, category:fallbackCategory,
+              sourceFilePath, sourceFileName:file.name,
+              cards:allCards,
+              lastIndex:Math.min(Math.max(...selectedDecks.map(name => importedLastIndexByDeck[name] || 0),0), Math.max(0,allCards.length-1))
+            };
+          }
+          existing.sourceFilePath = sourceFilePath;
+          existing.sourceFileName = file.name;
+          const category = findAnkiOrganizerManifestCategory(sourceFilePath);
+          if (category !== null) existing.category = category;
+          ensureAnkiCategoryPath(existing.category);
+          saveLocalState();
+        } else if (selectedDecks.length > 0) {
           // For a single selected deck imported as a NEW deck, display the
           // actual .apkg filename rather than the embedded Anki deck name.
           // Preserve the internal name as the lookup key for portable progress.
@@ -5600,6 +6190,10 @@ function saveCardEdits() {
         statusText.innerText = "Import Complete!";
         percentText.innerText = "100%";
         
+        if (folderBatch) {
+          progressContainer.classList.add('hidden');
+          return {name:file.name, deckCount:1};
+        }
         setTimeout(() => {
           progressContainer.classList.add('hidden');
           switchTab('decks');
@@ -5610,8 +6204,9 @@ function saveCardEdits() {
 
       } catch (err) {
         console.error(err);
-        alert("Error importing Anki deck: " + err.message);
         progressContainer.classList.add('hidden');
+        if (folderBatch) throw err;
+        alert("Error importing Anki deck: " + err.message);
       }
     }
 
@@ -5719,6 +6314,433 @@ function updateDeckCategory(deckId, newCategory) {
     showToast("Deck group updated successfully!");
   }
 }
+
+
+    // --- Focused enhancements: folder organizer, resets, floating edit and size buttons ---
+    function ankiOrganizerEscapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+    const ANKI_ORGANIZER_MANIFEST = 'AnkiSync-Organizer.json';
+    let ankiOrganizerFolderHandle = null;
+    let ankiOrganizerLoadedManifest = null;
+    let ankiOrganizerFolderBusy = false;
+    let pendingAnkiHardResetDeckId = null;
+    let ankiFloatingDrag = null;
+    let ankiFloatingSuppressClick = false;
+
+    function applyEditorFontSize(editorId, preset) {
+      const editor = document.getElementById(editorId);
+      if (!editor) return;
+      const size = {N:'3',L:'5',XL:'6'}[preset];
+      if (!size) return;
+      const selection=window.getSelection();
+      let range=selection.rangeCount ? selection.getRangeAt(0).cloneRange() : null;
+      const within = r => r && editor.contains(r.commonAncestorContainer);
+      if (!within(range) && within(savedRange)) range=savedRange.cloneRange();
+      editor.focus();
+      if (within(range)) { selection.removeAllRanges(); selection.addRange(range); }
+      document.execCommand('fontSize',false,size);
+      if (selection.rangeCount) savedRange=selection.getRangeAt(0).cloneRange();
+      activeEditorId=editorId;
+      editor.dispatchEvent(new Event('input',{bubbles:true}));
+    }
+
+    function syncFloatingEditButton(tabId) {
+      const button=document.getElementById('floatingEditCardButton');
+      if (!button) return;
+      const studyVisible=tabId==='study' && !!appState.studyQueue.length;
+      button.classList.toggle('hidden',!studyVisible);
+    }
+
+    function setupFloatingEditButton() {
+      const button=document.getElementById('floatingEditCardButton');
+      if (!button) return;
+      try {
+        const pos=JSON.parse(localStorage.getItem('anki_floating_edit_pos')||'null');
+        if (pos && Number.isFinite(pos.x) && Number.isFinite(pos.y)) {
+          button.style.left=Math.max(0,Math.min(window.innerWidth-115,pos.x))+'px';
+          button.style.top=Math.max(0,Math.min(window.innerHeight-40,pos.y))+'px';
+          button.style.right='auto';
+        }
+      } catch(e) {}
+      button.addEventListener('pointerdown',e=>{
+        if(e.button!==0) return;
+        const rect=button.getBoundingClientRect();
+        ankiFloatingDrag={id:e.pointerId,x:e.clientX,y:e.clientY,left:rect.left,top:rect.top,moved:false};
+        button.setPointerCapture(e.pointerId);
+      });
+      button.addEventListener('pointermove',e=>{
+        if (!ankiFloatingDrag || ankiFloatingDrag.id!==e.pointerId) return;
+        const dx=e.clientX-ankiFloatingDrag.x,dy=e.clientY-ankiFloatingDrag.y;
+        if(!ankiFloatingDrag.moved && Math.hypot(dx,dy)>5) ankiFloatingDrag.moved=true;
+        if(!ankiFloatingDrag.moved) return;
+        e.preventDefault();
+        button.classList.add('anki-dragging');
+        const left=Math.max(0,Math.min(window.innerWidth-button.offsetWidth,ankiFloatingDrag.left+dx));
+        const top=Math.max(0,Math.min(window.innerHeight-button.offsetHeight,ankiFloatingDrag.top+dy));
+        button.style.left=left+'px'; button.style.top=top+'px'; button.style.right='auto';
+      });
+      const finish=e=>{
+        if(!ankiFloatingDrag || ankiFloatingDrag.id!==e.pointerId) return;
+        if(ankiFloatingDrag.moved) {
+          ankiFloatingSuppressClick=true;
+          localStorage.setItem('anki_floating_edit_pos',JSON.stringify({x:button.offsetLeft,y:button.offsetTop}));
+        }
+        ankiFloatingDrag=null;
+        button.classList.remove('anki-dragging');
+      };
+      button.addEventListener('pointerup',finish);
+      button.addEventListener('pointercancel',finish);
+      button.addEventListener('click',e=>{
+        e.stopPropagation();
+        if(ankiFloatingSuppressClick) {ankiFloatingSuppressClick=false;return;}
+        if(appState.studyQueue.length) toggleEditCurrentCard();
+      });
+    }
+
+    function requestAnkiHardReset(deckId) {
+      const deck=appState.decks[deckId];
+      if(!deck) return;
+      pendingAnkiHardResetDeckId=deckId;
+      document.getElementById('ankiHardResetDeckName').textContent=deck.name||'this deck';
+      document.getElementById('ankiHardResetModal').classList.remove('hidden');
+    }
+    function closeAnkiHardReset() {
+      pendingAnkiHardResetDeckId=null;
+      document.getElementById('ankiHardResetModal').classList.add('hidden');
+    }
+    function confirmAnkiHardReset() {
+      const deckId=pendingAnkiHardResetDeckId;
+      const deck=appState.decks[deckId];
+      closeAnkiHardReset();
+      if(!deck) return;
+      for (const card of deck.cards||[]) delete card.reviewData;
+      deck.lastIndex=0;
+      deck.lastCardId=null;
+      saveLocalState();
+      renderDecks();
+      if(appState.activeStudyDeckId===deckId && !document.getElementById('view-study').classList.contains('hidden')) startStudy(deckId,false);
+      showToast(`Hard Reset complete for ${deck.name}. All cards are available again.`);
+    }
+
+    function ensureAnkiCategoryPath(path) {
+      if (!path) return;
+      const pieces=String(path).split(' / ').map(x=>x.trim()).filter(Boolean);
+      for (let n=1;n<=pieces.length;n++) {
+        const p=pieces.slice(0,n).join(' / ');
+        if(!appState.categories.includes(p)) appState.categories.push(p);
+      }
+    }
+    function findAnkiOrganizerManifestCategory(filePath) {
+      const entries=ankiOrganizerLoadedManifest?.decks;
+      if(!Array.isArray(entries)) return null;
+      const path=String(filePath||'').replace(/\\/g,'/');
+      const item=entries.find(e=>e && e.path===path);
+      if(item) return typeof item.category === 'string' ? item.category : '';
+      const sameName=entries.filter(e=>e && String(e.path||'').split('/').at(-1)===path.split('/').at(-1));
+      return sameName.length===1 ? (sameName[0].category ?? '') : null;
+    }
+    function organizerPathForFile(file) {
+      const path=(file.webkitRelativePath||file.name).replace(/\\/g,'/');
+      const parts=path.split('/');
+      // webkitdirectory adds the selected folder's name at the start.
+      return file.webkitRelativePath && parts.length>1 ? parts.slice(1).join('/') : path;
+    }
+    function validateAnkiOrganizerManifest(data) {
+      return data && data.format==='AnkiSyncOrganizer' && data.version===1 && Array.isArray(data.decks);
+    }
+    function applyAnkiOrganizerManifest(data) {
+      if(!validateAnkiOrganizerManifest(data)) throw new Error('Invalid AnkiSync organizer manifest.');
+      ankiOrganizerLoadedManifest=data;
+      // Treat the saved folder/category tree as authoritative, including deleted
+      // groups. Retain unrelated local decks by preserving their own paths.
+      if (Array.isArray(data.categories)) {
+        appState.categories = [...new Set(data.categories.filter(c => typeof c === 'string' && c.trim()))];
+      }
+      let updated=0;
+      for (const deck of Object.values(appState.decks)) {
+        const category = deck.sourceFilePath ? findAnkiOrganizerManifestCategory(deck.sourceFilePath) : null;
+        if(category !== null) { deck.category=category;updated++; }
+        ensureAnkiCategoryPath(deck.category);
+      }
+      saveLocalState();renderCategories();renderDecks();renderNestedSubjects();
+      return updated;
+    }
+    function ankiOrganizerStatus(message,isError=false) {
+      const el=document.getElementById('ankiOrganizerFolderStatus');
+      if(el) {el.textContent=message;el.className='text-xs '+(isError?'text-rose-300':'text-slate-400');}
+    }
+    async function pickAnkiOrganizerFolder() {
+      if (ankiOrganizerFolderBusy) return;
+      if (typeof window.showDirectoryPicker === 'function') {
+        try {
+          const handle=await window.showDirectoryPicker({mode:'readwrite'});
+          ankiOrganizerFolderHandle=handle;
+          const files=[];
+          async function walk(folder,prefix='') {
+            for await (const [name,item] of folder.entries()) {
+              const path=prefix ? prefix+'/'+name : name;
+              if(item.kind==='directory') await walk(item,path);
+              else if(/\.(apkg|colpkg|anki|anki2|anki21)$/i.test(name) || name===ANKI_ORGANIZER_MANIFEST) {
+                files.push({file:await item.getFile(),path});
+              }
+            }
+          }
+          await walk(handle);
+          await importAnkiOrganizerItems(files);
+          return;
+        } catch(error) {
+          if(error.name==='AbortError') return;
+          ankiOrganizerStatus('Folder access unavailable; use Select Files / Manifest or the fallback folder picker. '+error.message,true);
+        }
+      }
+      document.getElementById('ankiOrganizerFolderInput')?.click();
+    }
+    async function importAnkiOrganizerFileSelection(event,isFolder) {
+      const selected=[...(event.target.files||[])];
+      event.target.value='';
+      if(!selected.length) return;
+      if(isFolder) ankiOrganizerFolderHandle=null; // Browser file inputs cannot grant write permission.
+      await importAnkiOrganizerItems(selected.map(file=>({file,path:organizerPathForFile(file)})));
+    }
+    async function importAnkiOrganizerItems(items) {
+      if(ankiOrganizerFolderBusy) return;
+      ankiOrganizerFolderBusy=true;
+      const packages=items.filter(v=>/\.(apkg|colpkg|anki|anki2|anki21)$/i.test(v.file.name));
+      const manifestFile=items.find(v=>v.path.split('/').at(-1)===ANKI_ORGANIZER_MANIFEST);
+      let successes=0;const failed=[];
+      try {
+        if(manifestFile) {
+          const json=JSON.parse(await manifestFile.file.text());
+          applyAnkiOrganizerManifest(json);
+        }
+        if (!packages.length) {
+          ankiOrganizerStatus(manifestFile ? 'Hierarchy manifest loaded. Select .apkg files to load their cards.' : 'No supported Anki package files found.',!manifestFile);
+          return;
+        }
+        for(let index=0;index<packages.length;index++) {
+          const {file,path}=packages[index];
+          ankiOrganizerStatus(`Importing ${index+1} of ${packages.length}: ${path}…`);
+          try {
+            await handleAnkiFileUpload({target:{files:[file],value:''}},{folderBatch:true,relativePath:path});
+            successes++;
+          } catch(error) {
+            failed.push(`${path}: ${error.message}`);
+          }
+        }
+        // Use the original folder's subfolders as the default hierarchy if no manifest exists.
+        // A previously assigned hierarchy and review progress always take precedence on reimport.
+        saveLocalState();renderCategories();renderDecks();populateOrganizerDropdowns();
+        ankiOrganizerStatus(`${successes}/${packages.length} files loaded. Drag decks in the tree, then use Save Hierarchy As....${failed.length?' Failed: '+failed.slice(0,2).join(' · '):''}`,!!failed.length);
+        if(failed.length) console.warn('Anki folder import errors:',failed);
+      } catch(error) {
+        console.error(error);
+        ankiOrganizerStatus('Could not read organizer: '+error.message,true);
+      } finally {
+        ankiOrganizerFolderBusy=false;
+      }
+    }
+
+    // Move multiple decks as one operation. Selected parent decks carry their
+    // descendants, preventing double-moves when both parent and child are checked.
+    function moveAnkiOrganizerDeckBatch(ids,targetKind,targetId) {
+      const selected=[...new Set(Array.isArray(ids) ? ids : [])].filter(id=>appState.decks[id]);
+      if(!selected.length) return;
+      if(selected.length===1) {
+        moveAnkiOrganizerNode({kind:'deck',id:selected[0]},targetKind,targetId);
+        ankiOrganizerSelectedDeckIds.clear();
+        renderNestedSubjects();
+        return;
+      }
+      if(targetKind!=='deck' && targetKind!=='folder') return;
+      const targetDeck=targetKind==='deck' ? appState.decks[targetId] : null;
+      if(targetKind==='deck' && !targetDeck) return;
+      if(targetKind==='deck' && selected.includes(targetId)) {
+        showToast('Uncheck the destination deck before moving the selection into it.');return;
+      }
+      const targetFolder=targetKind==='folder' ? String(targetId || '') : ankiDeckVirtualPath(targetDeck);
+      const roots=selected.filter(id=>{
+        const path=String(appState.decks[id].category || '');
+        return !selected.some(other=>other!==id && path.startsWith(ankiDeckVirtualPath(appState.decks[other])+' / '))
+          && !selected.some(other=>other!==id && path===ankiDeckVirtualPath(appState.decks[other]));
+      });
+      if(!roots.length) {showToast('Could not identify a movable deck selection.');return;}
+      const changes=[];
+      for(const id of roots) {
+        const deck=appState.decks[id];
+        const oldPath=ankiDeckVirtualPath(deck);
+        const newPath=[targetFolder,deck.name].filter(Boolean).join(' / ');
+        if(targetFolder===oldPath || targetFolder.startsWith(oldPath+' / ')) {
+          showToast('Cannot move a parent deck inside itself or one of its children.');return;
+        }
+        if(deck.category!==targetFolder) changes.push({id,oldPath,newPath});
+      }
+      if(!changes.length) {showToast('Those decks are already in that location.');return;}
+      // Reject ambiguous new virtual folders before mutating anything.
+      const newPaths=changes.map(c=>c.newPath);
+      if(new Set(newPaths).size!==newPaths.length) {
+        showToast('Two selected decks have the same name at the destination. Move them separately.');return;
+      }
+      const changingIds=new Set(changes.map(c=>c.id));
+      if(Object.values(appState.decks).some(d=> !changingIds.has(d.id) &&
+          newPaths.includes(ankiDeckVirtualPath(d)) &&
+          !changes.some(c=>ankiDeckVirtualPath(d).startsWith(c.oldPath+' / ')))) {
+        showToast('A deck with that name already exists at the destination.');return;
+      }
+      const replacePath=value=>{
+        const path=String(value||'');
+        const match=changes.find(c=>path===c.oldPath || path.startsWith(c.oldPath+' / '));
+        return match ? match.newPath+path.slice(match.oldPath.length) : path;
+      };
+      // Compute from the original hierarchy so successive moves cannot disturb
+      // each other's source paths; commit only after all checks have passed.
+      const categories=[...new Set(appState.categories.map(replacePath))];
+      const updatedCategories=new Map(Object.values(appState.decks).map(deck=>[
+        deck.id, changes.some(c=>c.id===deck.id) ? targetFolder : replacePath(deck.category)
+      ]));
+      appState.categories=categories;
+      for(const deck of Object.values(appState.decks)) deck.category=updatedCategories.get(deck.id);
+      ensureAnkiCategoryPath(targetFolder);
+      for(const c of changes) {
+        if(Object.values(appState.decks).some(d=>d.category===c.newPath || d.category?.startsWith(c.newPath+' / '))) {
+          ensureAnkiCategoryPath(c.newPath);
+        }
+      }
+      ankiOrganizerSelectedDeckIds.clear();
+      saveLocalState();renderCategories();renderDecks();renderNestedSubjects();
+      ankiOrganizerStatus(`${changes.length} deck${changes.length === 1 ? '' : 's'} moved (including any nested decks). Use Save Hierarchy As... to save their new positions.`);
+      showToast(`${changes.length} deck${changes.length === 1 ? '' : 's'} moved together.`);
+    }
+
+    function moveAnkiOrganizerNode(source,targetKind,targetId) {
+      if(!source || !['deck','folder'].includes(source.kind)) return;
+      if(source.kind===targetKind && source.id===targetId) return;
+      const destination=targetKind==='folder' ? targetId : appState.decks[targetId];
+      if(destination===undefined && targetKind==='deck') return;
+      const targetFolder=targetKind==='folder' ? targetId :
+        [destination.category,destination.name].filter(Boolean).join(' / ');
+      if(source.kind==='folder') {
+        const oldPath=source.id;
+        if(!oldPath || !appState.categories.includes(oldPath)) return;
+        if(targetFolder===oldPath || targetFolder.startsWith(oldPath+' / ')) {showToast('A folder cannot be moved inside itself.');return;}
+        const title=oldPath.split(' / ').at(-1);
+        const newPath=targetFolder ? targetFolder+' / '+title : title;
+        if(newPath===oldPath) return;
+        if(appState.categories.includes(newPath)) {showToast('A folder with that name already exists at the destination.');return;}
+        const replacePath=path=>path===oldPath ? newPath : path.startsWith(oldPath+' / ') ? newPath+path.slice(oldPath.length) : path;
+        appState.categories=[...new Set(appState.categories.map(replacePath))];
+        for(const deck of Object.values(appState.decks)) deck.category=replacePath(deck.category||'');
+        ensureAnkiCategoryPath(targetFolder);
+        ensureAnkiCategoryPath(newPath);
+      } else {
+        const deck=appState.decks[source.id];
+        if(!deck) return;
+        const oldFolder=[deck.category,deck.name].filter(Boolean).join(' / ');
+        const newFolder=[targetFolder,deck.name].filter(Boolean).join(' / ');
+        if(targetFolder===oldFolder || targetFolder.startsWith(oldFolder+' / ')) {showToast('A deck cannot be nested under itself.');return;}
+        const followChildren=path=>path===oldFolder ? newFolder : path.startsWith(oldFolder+' / ') ? newFolder+path.slice(oldFolder.length) : path;
+        appState.categories=[...new Set(appState.categories.map(followChildren))];
+        for(const child of Object.values(appState.decks)) {
+          if(child.id!==deck.id) child.category=followChildren(child.category||'');
+        }
+        // Dropping onto Top level means root, not an automatically created General folder.
+        deck.category=targetFolder;
+        ensureAnkiCategoryPath(deck.category);
+        if(Object.values(appState.decks).some(child=>child.category?.startsWith(newFolder+' / '))) ensureAnkiCategoryPath(newFolder);
+      }
+      saveLocalState();renderCategories();renderDecks();renderNestedSubjects();
+      ankiOrganizerStatus('Hierarchy updated locally. Click Save Hierarchy As... to make it portable to your iPhone.');
+    }
+
+    function buildAnkiOrganizerManifest() {
+      return {
+        format:'AnkiSyncOrganizer',version:1,
+        exportedAt:new Date().toISOString(),
+        categories:[...new Set(appState.categories)],
+        decks:Object.values(appState.decks).filter(deck=>deck.sourceFilePath).map(deck=>({
+          path:deck.sourceFilePath, name:deck.name, category:deck.category ?? ''
+        })).sort((a,b)=>a.path.localeCompare(b.path))
+      };
+    }
+    function downloadAnkiOrganizerManifest(textData) {
+      const blob=new Blob([textData],{type:'application/json'});
+      const link=document.createElement('a');link.href=URL.createObjectURL(blob);
+      link.download=ANKI_ORGANIZER_MANIFEST;document.body.appendChild(link);link.click();link.remove();
+      setTimeout(()=>URL.revokeObjectURL(link.href),2000);
+    }
+    async function saveAnkiOrganizerHierarchy() {
+      const data=buildAnkiOrganizerManifest();
+      if(!data.decks.length) {
+        ankiOrganizerStatus('No folder-imported Anki packages to save yet. Open a folder and arrange its decks.',true);
+        return;
+      }
+      const json=JSON.stringify(data,null,2);
+      // Chromium desktop exposes a real Save As dialog with a starting file name.
+      // Re-select the existing AnkiSync-Organizer.json to replace its content.
+      if(typeof window.showSaveFilePicker==='function') {
+        try {
+          const options={
+            id:'ankisync-organizer-json',
+            suggestedName:ANKI_ORGANIZER_MANIFEST,
+            types:[{description:'AnkiSync Organizer Manifest',accept:{'application/json':['.json']}}]
+          };
+          if(ankiOrganizerFolderHandle) options.startIn=ankiOrganizerFolderHandle;
+          let handle;
+          try { handle=await window.showSaveFilePicker(options); }
+          catch(e) {
+            // Some browser builds reject the startIn hint; keep Save As available.
+            if(e instanceof TypeError && options.startIn) {
+              delete options.startIn;
+              handle=await window.showSaveFilePicker(options);
+            } else throw e;
+          }
+          if(handle.name!==ANKI_ORGANIZER_MANIFEST) {
+            ankiOrganizerStatus(`Please save using the exact fixed name ${ANKI_ORGANIZER_MANIFEST}. The hierarchy was not written.`,true);
+            showToast('Use the fixed file name '+ANKI_ORGANIZER_MANIFEST);
+            return;
+          }
+          const writable=await handle.createWritable();
+          await writable.write(json);
+          await writable.close();
+          ankiOrganizerLoadedManifest=data;
+          ankiOrganizerStatus(`Saved ${ANKI_ORGANIZER_MANIFEST} in your chosen folder. Choose that same file next time to replace the old hierarchy.`);
+          showToast('Hierarchy saved successfully.');
+          return;
+        } catch(error) {
+          if(error?.name==='AbortError') {
+            ankiOrganizerStatus('Save As canceled. Your local hierarchy is unchanged.');
+            return;
+          }
+          console.warn('Native Save As unavailable:',error);
+          ankiOrganizerStatus('Native Save As was unavailable. Using the browser file-save option instead.',true);
+        }
+      }
+      // Safari/iPhone do not expose showSaveFilePicker. Where supported, the
+      // Share sheet offers Save to Files; otherwise the browser handles a download.
+      if(typeof navigator.share==='function' && typeof navigator.canShare==='function') {
+        try {
+          const file=new File([json],ANKI_ORGANIZER_MANIFEST,{type:'application/json'});
+          if(navigator.canShare({files:[file]})) {
+            await navigator.share({files:[file],title:ANKI_ORGANIZER_MANIFEST});
+            ankiOrganizerLoadedManifest=data;
+            ankiOrganizerStatus('Hierarchy shared. To save it on iPhone, choose Save to Files and replace the previous manifest if prompted.');
+            return;
+          }
+        } catch(error) {
+          if(error?.name==='AbortError') {
+            ankiOrganizerStatus('File sharing canceled. Your local hierarchy is unchanged.');
+            return;
+          }
+          console.warn('File sharing unavailable:',error);
+        }
+      }
+      downloadAnkiOrganizerManifest(json);
+      ankiOrganizerLoadedManifest=data;
+      ankiOrganizerStatus(`Downloaded ${ANKI_ORGANIZER_MANIFEST}. Choose your destination if your browser asks; otherwise move it from Downloads to the Anki folder and replace the old file there.`);
+      showToast('Hierarchy file downloaded with its fixed name.');
+    }
+
+    window.addEventListener('DOMContentLoaded',setupFloatingEditButton);
 
   </script>
 </body>
