@@ -1441,6 +1441,15 @@ body.light-mode .anki-organizer-row.anki-selected { background:#e0e7ff; border-c
             <input id="ankiOrganizerSelectedFiles" type="file" multiple accept=".apkg,.colpkg,.anki,.anki2,.anki21,.json" class="hidden" onchange="importAnkiOrganizerFileSelection(event, false)">
             <input id="ankiOrganizerManifestOnly" type="file" accept=".json,application/json" class="hidden" onchange="ankiOrganizerApplySelectedManifest(event)">
           </div>
+          <details id="ankiOrganizerIphoneSaveHelp" class="hidden text-xs text-slate-300 rounded-lg border border-slate-700/50 p-2">
+            <summary class="cursor-pointer text-indigo-300 font-semibold select-none">iPhone: saving or replacing hierarchy in iCloud Drive</summary>
+            <div class="pt-2 space-y-1">
+              <p>Tap <strong>Save Hierarchy As...</strong>, then choose <strong>Save to Files</strong> from the iPhone sharing menu. In Files, tap <strong>Browse → iCloud Drive → Anki</strong>, keep the filename <strong>AnkiSync-Organizer.json</strong>, and tap Save.</p>
+              <p>When iOS offers a replacement prompt, choose Replace. Safari cannot force this prompt, select the old file for writing, or guarantee an overwrite. If iOS creates a numbered copy, use the Files app to replace the old file.</p>
+              <p>For reliable repeated overwrites, you can create an iPhone Shortcut that accepts a file from the Share Sheet and uses <strong>Save File</strong> with <strong>Ask Where to Save: Off</strong>, destination <strong>iCloud Drive/Anki</strong>, and <strong>Overwrite If File Exists: On</strong>. Then choose that Shortcut in the same sharing menu.</p>
+              <p>If the sharing menu does not appear, open this app as an HTTPS website in Safari; a Files preview or nonsecure page might not support sharing.</p>
+            </div>
+          </details>
           <details id="ankiOrganizerDesktopOptions" class="text-xs text-slate-300 rounded-lg border border-slate-700/50 p-2">
             <summary class="cursor-pointer text-indigo-300 font-semibold select-none">PC linked-folder options</summary>
             <div class="flex flex-wrap items-center gap-3 pt-2">
@@ -7445,19 +7454,67 @@ function updateDeckCategory(deckId, newCategory) {
       link.download=ANKI_ORGANIZER_MANIFEST;document.body.appendChild(link);link.click();link.remove();
       setTimeout(()=>URL.revokeObjectURL(link.href),2000);
     }
+    // Create a portable hierarchy file and let the device control its destination.
+    // iPhone Safari cannot use showSaveFilePicker or write to a previously selected file.
+    // Sharing a real File lets users pick Save to Files (or a Shortcut configured to overwrite).
+    function ankiOrganizerIsIphoneLike() {
+      return /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    }
+
+    async function ankiOrganizerShareManifestOnIphone(json, data) {
+      if (typeof navigator.share !== 'function') return false;
+      // Safari versions may accept different MIME types for the same .json file.
+      // Keep the filename fixed even if the share provider requires a text type.
+      let file = null;
+      for (const mime of ['application/json', 'text/plain', 'application/octet-stream']) {
+        const candidate = new File([json], ANKI_ORGANIZER_MANIFEST, {type: mime});
+        if (typeof navigator.canShare !== 'function' || navigator.canShare({files:[candidate]})) {
+          file = candidate;
+          break;
+        }
+      }
+      if (!file) return false;
+      try {
+        // This must be reached from the Save button's original user gesture.
+        await navigator.share({files:[file], title:ANKI_ORGANIZER_MANIFEST});
+        ankiOrganizerLoadedManifest = data;
+        ankiOrganizerStatus('iPhone share completed. If you chose Save to Files, check iCloud Drive → Anki for AnkiSync-Organizer.json. If Files did not replace the old file, use Files to replace it or an overwrite-enabled Shortcut. AnkiSync cannot confirm an iCloud overwrite.');
+        return true;
+      } catch(error) {
+        if (error?.name === 'AbortError') {
+          ankiOrganizerStatus('Save to Files canceled. The existing iCloud hierarchy was not changed.');
+          return true; // A cancellation must not trigger an unwanted download.
+        }
+        console.warn('iPhone file sharing failed:', error);
+        return false;
+      }
+    }
+
     async function saveAnkiOrganizerHierarchy() {
       const data=buildAnkiOrganizerManifest();
       if(!data.decks.length) {
         ankiOrganizerStatus('No folder-imported Anki packages to save yet. Open a folder and arrange its decks.',true);
         return;
       }
-      if(!ankiOrganizerInventoryComplete) {
+      const isIphone=ankiOrganizerIsIphoneLike();
+      if(!ankiOrganizerInventoryComplete && !isIphone) {
         const proceed=window.confirm('The entire Anki folder has not been scanned in this session (iPhone file selection may be partial). Unselected packages will be preserved in the JSON, not assumed deleted. To remove nonexistent entries, perform a full folder scan on PC. Save this hierarchy anyway?');
         if(!proceed) return;
       }
+      // Do not show an intermediate confirm on iPhone: it can consume the
+      // transient user activation required by the native share sheet.
       const json=JSON.stringify(data,null,2);
-      // Chromium desktop exposes a real Save As dialog with a starting file name.
-      // Re-select the existing AnkiSync-Organizer.json to replace its content.
+      if(isIphone) {
+        if(await ankiOrganizerShareManifestOnIphone(json,data)) return;
+        // Fallback for Files previews or other contexts without native sharing.
+        downloadAnkiOrganizerManifest(json);
+        ankiOrganizerLoadedManifest=data;
+        ankiOrganizerStatus('The iPhone sharing menu is unavailable in this browser context. AnkiSync downloaded AnkiSync-Organizer.json instead. Open Files → Downloads, then move it to iCloud Drive → Anki and replace the older copy manually. No existing file was automatically overwritten.',true);
+        showToast('Downloaded hierarchy; move it into iCloud Drive/Anki using Files.');
+        return;
+      }
+      // Chromium desktop: select the old AnkiSync-Organizer.json in Save As to overwrite.
       if(typeof window.showSaveFilePicker==='function') {
         try {
           const options={
@@ -7469,7 +7526,6 @@ function updateDeckCategory(deckId, newCategory) {
           let handle;
           try { handle=await window.showSaveFilePicker(options); }
           catch(e) {
-            // Some browser builds reject the startIn hint; keep Save As available.
             if(e instanceof TypeError && options.startIn) {
               delete options.startIn;
               handle=await window.showSaveFilePicker(options);
@@ -7496,15 +7552,14 @@ function updateDeckCategory(deckId, newCategory) {
           ankiOrganizerStatus('Native Save As was unavailable. Using the browser file-save option instead.',true);
         }
       }
-      // Safari/iPhone do not expose showSaveFilePicker. Where supported, the
-      // Share sheet offers Save to Files; otherwise the browser handles a download.
+      // Non-iPhone browsers without a native picker may offer system sharing.
       if(typeof navigator.share==='function' && typeof navigator.canShare==='function') {
         try {
           const file=new File([json],ANKI_ORGANIZER_MANIFEST,{type:'application/json'});
           if(navigator.canShare({files:[file]})) {
             await navigator.share({files:[file],title:ANKI_ORGANIZER_MANIFEST});
             ankiOrganizerLoadedManifest=data;
-            ankiOrganizerStatus('Hierarchy shared. To save it on iPhone, choose Save to Files and replace the previous manifest if prompted.');
+            ankiOrganizerStatus('Hierarchy shared. Check that the destination contains AnkiSync-Organizer.json; replacement is controlled by the destination app.');
             return;
           }
         } catch(error) {
@@ -7524,6 +7579,8 @@ function updateDeckCategory(deckId, newCategory) {
     window.addEventListener('DOMContentLoaded',()=>{
       setupFloatingEditButton();
       ankiOrganizerUpdateFolderControls();
+      const iphoneSaveHelp=document.getElementById('ankiOrganizerIphoneSaveHelp');
+      if(iphoneSaveHelp && ankiOrganizerIsIphoneLike()) iphoneSaveHelp.classList.remove('hidden');
       // Some iOS Files pickers grey out .apkg/.colpkg when an accept filter
       // contains unknown extensions. The importer still validates filenames.
       if (/iPhone|iPad|iPod/i.test(navigator.userAgent) ||
