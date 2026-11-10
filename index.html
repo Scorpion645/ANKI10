@@ -18,6 +18,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage-compat.js"></script>
 
   <style>
 .anki-content {
@@ -1742,12 +1743,12 @@ body.light-mode .anki-organizer-row.anki-selected { background:#e0e7ff; border-c
             </div>
             <div>
               <h3 class="font-bold text-white">Cross-Device Synchronization</h3>
-              <p class="text-xs text-slate-400">Secure Firebase sign-in · Review progress &amp; hierarchy (Phase 1)</p>
+              <p class="text-xs text-slate-400">Secure Firebase sign-in · Reviews, hierarchy &amp; cloud deck library (Phase 2)</p>
             </div>
           </div>
           <div class="space-y-3">
             <label for="ankiCloudConfig" class="block text-xs font-semibold text-slate-400">Firebase Web App Configuration (paste once on each device)</label>
-            <textarea id="ankiCloudConfig" rows="4" spellcheck="false" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500" placeholder='{"apiKey":"...","authDomain":"...firebaseapp.com","projectId":"...","appId":"..."}'></textarea>
+            <textarea id="ankiCloudConfig" rows="4" spellcheck="false" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500" placeholder='{"apiKey":"...","authDomain":"...firebaseapp.com","projectId":"...","storageBucket":"...firebasestorage.app","appId":"..."}'></textarea>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <input id="ankiCloudEmail" type="email" autocomplete="username" placeholder="Firebase account email" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500" />
               <input id="ankiCloudPassword" type="password" autocomplete="current-password" placeholder="Password (not saved)" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500" />
@@ -1762,7 +1763,18 @@ body.light-mode .anki-organizer-row.anki-selected { background:#e0e7ff; border-c
             <p id="ankiCloudAccount" class="text-xs text-emerald-300">Not signed in</p>
             <p id="ankiCloudMessage" role="status" class="text-[11px] text-slate-400 leading-relaxed">Paste your Firebase configuration and sign in with the same account on both devices.</p>
             <p id="ankiCloudDiagnostics" class="text-[11px] text-slate-400 leading-relaxed border border-slate-700 rounded-lg px-3 py-2" aria-live="polite">Cloud diagnostics appear here after sign-in.</p>
-            <p class="text-[11px] text-slate-500 leading-relaxed">Synchronizes card ratings, due dates, hard resets, and deck hierarchy. Your .apkg packages, images, and full card edits do not sync yet. Use the same imported packages on both devices. A hosted HTTPS page is strongly recommended for iPhone Safari.</p>
+            <div class="border-t border-slate-700 pt-3 space-y-2">
+              <div class="flex flex-wrap gap-2 items-center justify-between">
+                <span class="text-xs font-bold text-emerald-300"><i class="fa-solid fa-box-archive mr-1"></i>Cloud Deck Library</span>
+                <label class="text-[11px] text-slate-300 inline-flex gap-1.5 items-center cursor-pointer"><input id="ankiCloudAutoDecks" type="checkbox" checked onchange="ankiCloudPackagesSetAuto(this.checked)" class="accent-indigo-500" />Auto-transfer decks</label>
+              </div>
+              <div class="flex flex-wrap items-center gap-2">
+                <button type="button" onclick="ankiCloudPackagesPublishLocal()" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs rounded-xl">Upload My Decks</button>
+                <button type="button" onclick="ankiCloudPackagesRestore(true)" class="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold text-xs rounded-xl">Restore Cloud Decks</button>
+              </div>
+              <p id="ankiCloudPackagesStatus" role="status" aria-live="polite" class="text-[11px] text-slate-400 leading-relaxed">Cloud deck transfer will start after sign-in, Firebase Storage setup, and server confirmation.</p>
+              <p class="text-[11px] text-slate-500 leading-relaxed">Deck contents, cloze images and edits transfer through private Firebase Storage. Reviews and due dates still sync via Firestore. Original .apkg files in iCloud are not rewritten. A linked PC folder is checked while this website is open; iPhone Safari cannot silently browse iCloud Drive. Storage requires the Firebase Blaze billing plan.</p>
+            </div>
           </div>
         </div>
 
@@ -2440,6 +2452,7 @@ function promptCreateDeck() {
       // is still granted; never trigger a hidden permission prompt on iPhone.
       await ankiOrganizerRestoreHandle();
       ankiCloudBoot();
+      ankiCloudPackagesStartFolderWatch();
 
       // Listen for clipboard or deck changes from other browser tabs
       window.addEventListener('storage', (e) => {
@@ -2489,6 +2502,7 @@ function promptCreateDeck() {
         }
       }
       ankiCloudOnLocalSave();
+      ankiCloudPackagesOnLocalSave();
     }
 
     // Apply progress embedded in this HTML. Embedded data takes precedence over device-local storage,
@@ -6951,6 +6965,7 @@ function updateDeckCategory(deckId, newCategory) {
     // The Decks view keeps locally saved cards accessible. A complete physical
     // scan may hide packages absent from the selected folder without erasing data.
     function ankiOrganizerIsVerifiedDeck(deck) {
+      if(deck?.ankiCloudSyncedPackage) return true;
       if(!ankiOrganizerInventoryComplete || !ankiOrganizerVerifiedFiles || !deck?.sourceFilePath) return true;
       return ankiOrganizerPhysicalDeckPresent(deck);
     }
@@ -6964,6 +6979,7 @@ function updateDeckCategory(deckId, newCategory) {
       // A verified physical package not described by the JSON is a genuine new
       // file. The importer labels it Unassigned, so it can be organized safely.
       return Object.values(appState.decks).filter(deck =>
+        deck.ankiCloudSyncedPackage ||
         (ids.has(deck.id) && ankiOrganizerIsVerifiedDeck(deck)) ||
         // Only a fresh, complete folder inventory can establish that a file
         // absent from the JSON is a genuine additional package.
@@ -8054,6 +8070,7 @@ function updateDeckCategory(deckId, newCategory) {
       }
     }
     function ankiCloudDetach() {
+      ankiCloudPackagesDetach();
       ankiCloud.unsubscribeReviews?.();ankiCloud.unsubscribeHierarchy?.();
       ankiCloud.unsubscribeReviews=null;ankiCloud.unsubscribeHierarchy=null;
       ankiCloud.uid=null;ankiCloud.reviewsReady=false;ankiCloud.hierarchyReady=false;
@@ -8075,6 +8092,7 @@ function updateDeckCategory(deckId, newCategory) {
       }
       try{localStorage.setItem('anki_cloud_bound_uid',user.uid);}catch(e){}
       ankiCloud.uid=user.uid;
+      ankiCloudPackagesAttach(user.uid);
       await ankiCloudLoadPending(user.uid);
       ankiCloud.signature=ankiCloudHierarchySignature(ankiCloudHierarchyData());
       ankiCloudUpdateUI();
@@ -8146,9 +8164,12 @@ function updateDeckCategory(deckId, newCategory) {
         throw new Error('Firebase libraries did not load. Check your internet connection.');
       if(ankiCloud.app && ankiCloud.app.options.projectId!==config.projectId)
         throw new Error('This page is connected to another Firebase project. Reload before switching projects.');
+      if(ankiCloud.app && (ankiCloud.app.options.storageBucket||'')!==(config.storageBucket||''))
+        throw new Error('Storage bucket setting changed. The new config was saved; reload the website and sign in again.');
       ankiCloud.app=ankiCloud.app||firebase.initializeApp(config,'ankisync-cloud');
       ankiCloud.auth=ankiCloud.app.auth();
       ankiCloud.db=ankiCloud.app.firestore();
+      ankiCloud.storage=(typeof firebase.storage==='function' && config.storageBucket) ? ankiCloud.app.storage() : null;
       if(!ankiCloud.authObserver) {
         ankiCloud.authObserver=ankiCloud.auth.onAuthStateChanged(user=>{
           ankiCloudAttach(user).catch(err=>ankiCloudStatus(err.message,true));
@@ -8183,6 +8204,7 @@ function updateDeckCategory(deckId, newCategory) {
       ankiCloudStatus('Checking Firestore server and queued updates…');
       ankiCloudReconcileReviews();
       ankiCloudFlush();
+      ankiCloudPackagesRestore().catch(error=>ankiCloudPackagesStatus('Cloud deck restore failed: '+error.message,true));
       try {
         const root=ankiCloud.db.collection('users').doc(ankiCloud.uid);
         // source:server makes this a genuine server test instead of a cached reply.
@@ -8243,6 +8265,364 @@ function updateDeckCategory(deckId, newCategory) {
         ankiCloudStatus('Not connected. Set up Firebase to enable cloud progress sync.');
       }
     }
+
+    // === AnkiSync Phase 2: private cloud deck snapshots + automatic restoration ===
+    // Content snapshots intentionally EXCLUDE reviewData, which stays in Firestore.
+    // Cloud decks are never deleted when a user deletes the local browser copy.
+    const ankiCloudPackages = {
+      uid:null, unsubscribe:null, catalog:new Map(), serverReady:false,
+      auto:true, scanning:false, scanTimer:null, applying:false,
+      uploading:new Set(), downloading:new Set(), digestBaseline:new Map(),
+      error:'', activity:'', conflicts:new Set(), watchTimer:null, lastFolderInventory:null
+    };
+    function ankiCloudPackagesStatus(message, isError=false) {
+      ankiCloudPackages.activity=message;
+      ankiCloudPackages.error=isError?message:'';
+      const el=document.getElementById('ankiCloudPackagesStatus');
+      if(el) {
+        el.className='text-[11px] leading-relaxed '+(isError?'text-rose-300':'text-slate-400');
+        el.textContent=message;
+      }
+    }
+    function ankiCloudPackagesSetAuto(value) {
+      ankiCloudPackages.auto=!!value;
+      try{localStorage.setItem('anki_cloud_auto_packages_v2',String(ankiCloudPackages.auto));}catch(e){}
+      if(value) ankiCloudPackagesRestore();
+      else ankiCloudPackagesStatus('Automatic deck transfer paused. Review synchronization remains enabled.');
+    }
+    function ankiCloudPackagesDeckPayload(deck) {
+      // Avoid storing local filesystem paths or redundant review progress in Storage.
+      return {
+        format:'AnkiSyncCloudDeck',version:1,ankiCloudKey:ankiCloudDeckKey(deck),
+        name:String(deck.name||'Untitled'),
+        sourceFileName:String(deck.sourceFileName||''),
+        sourceFilePath:String(deck.sourceFilePath||'').replace(/\\/g,'/').split('/').pop(),
+        sourceFingerprint:String(deck.sourceFingerprint||''),
+        cards:(deck.cards||[]).map(card=>{
+          const plain={...card};delete plain.reviewData;
+          return plain;
+        })
+      };
+    }
+    function ankiCloudPackagesPayloadString(deck) {
+      return JSON.stringify(ankiCloudPackagesDeckPayload(deck));
+    }
+    async function ankiCloudPackagesDigest(source) {
+      const hash=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(source));
+      return [...new Uint8Array(hash)].map(v=>v.toString(16).padStart(2,'0')).join('');
+    }
+    function ankiCloudPackagesFind(key,meta=null) {
+      const exact=Object.values(appState.decks).find(deck=>ankiCloudDeckKey(deck)===key);
+      if(exact) return exact;
+      const norm=ankiCloudNormalize(meta?.sourceFileName || meta?.name || '');
+      if(!norm) return null;
+      return Object.values(appState.decks).find(deck=>
+        ankiCloudNormalize(deck.sourceFileName||deck.name)===norm) || null;
+    }
+    function ankiCloudPackagesApplyCategory(key, name, fallback='Medical') {
+      const remote=(ankiCloud.remoteHierarchy?.decks||[]).find(d=>d.key===key ||
+        ankiCloudNormalize(d.name)===ankiCloudNormalize(name));
+      return ankiMedicalCategory(remote?.category||fallback);
+    }
+    function ankiCloudPackagesDetach() {
+      ankiCloudPackages.unsubscribe?.();
+      ankiCloudPackages.unsubscribe=null;
+      ankiCloudPackages.uid=null;
+      ankiCloudPackages.catalog.clear();
+      ankiCloudPackages.serverReady=false;
+      ankiCloudPackages.conflicts.clear();
+      ankiCloudPackages.digestBaseline.clear();
+      clearTimeout(ankiCloudPackages.scanTimer);
+      ankiCloudPackagesStatus('Sign in to synchronize full deck contents.');
+    }
+    function ankiCloudPackagesAttach(uid) {
+      if(!ankiCloud.db||!ankiCloud.storage) {
+        ankiCloudPackagesStatus('Cloud deck transfer is not configured. Enable Firebase Storage (Blaze plan) and include storageBucket in the Firebase web configuration. Review sync can still work.',true);
+        return;
+      }
+      ankiCloudPackages.uid=uid;
+      const checkbox=document.getElementById('ankiCloudAutoDecks');
+      try{ankiCloudPackages.auto=localStorage.getItem('anki_cloud_auto_packages_v2')!=='false';}catch(e){}
+      if(checkbox) checkbox.checked=ankiCloudPackages.auto;
+      ankiCloudPackagesStatus('Connecting to your private cloud deck catalog…');
+      const ref=ankiCloud.db.collection('users').doc(uid).collection('ankiSyncDecks');
+      ankiCloudPackages.unsubscribe=ref.onSnapshot({includeMetadataChanges:true},snap=>{
+        if(ankiCloudPackages.uid!==uid) return;
+        const next=new Map();
+        snap.forEach(doc=>{
+          const data=doc.data();
+          if(data && data.version===1 && data.storagePath && data.contentHash)
+            next.set(doc.id,data);
+        });
+        ankiCloudPackages.catalog=next;
+        ankiCloudPackages.serverReady=!snap.metadata.fromCache;
+        ankiCloudPackagesStatus('Cloud catalog: '+next.size+' deck(s); '+
+          Object.keys(appState.decks).length+' local deck(s). '+
+          (snap.metadata.fromCache?'Waiting for server confirmation.':'Server confirmed.'));
+        if(ankiCloudPackages.auto && ankiCloudPackages.serverReady) ankiCloudPackagesRestore();
+      },err=>ankiCloudPackagesStatus('Cloud deck catalog error: '+err.message,true));
+    }
+    function ankiCloudPackagesOnLocalSave() {
+      if(!ankiCloudPackages.uid||!ankiCloudPackages.auto||ankiCloudPackages.applying||ankiCloud.applying) return;
+      ankiCloudPackagesScheduleScan();
+    }
+    function ankiCloudPackagesScheduleScan(delay=4500) {
+      if(!ankiCloudPackages.uid||!ankiCloudPackages.auto||!ankiCloudPackages.serverReady) return;
+      clearTimeout(ankiCloudPackages.scanTimer);
+      ankiCloudPackages.scanTimer=setTimeout(()=>ankiCloudPackagesScanLocal(false).catch(e=>
+        ankiCloudPackagesStatus('Deck upload scan failed: '+e.message,true)),delay);
+    }
+    async function ankiCloudPackagesZip(payload) {
+      if(typeof JSZip==='undefined') throw new Error('JSZip was not loaded.');
+      const zip=new JSZip();zip.file('deck.json',payload);
+      return zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:5}});
+    }
+    async function ankiCloudPackagesUpload(deck, payload, contentHash, remote, force=false) {
+      const uid=ankiCloudPackages.uid;
+      const key=ankiCloudDeckKey(deck);
+      if(!uid || ankiCloudPackages.uploading.has(key)) return;
+      if(!ankiCloud.storage) throw new Error('Firebase Storage is not configured.');
+      ankiCloudPackages.uploading.add(key);
+      try {
+        const blob=await ankiCloudPackagesZip(payload);
+        if(blob.size>80*1024*1024) throw new Error('Deck '+deck.name+' exceeds the 80 MB compressed size limit. Please split it.');
+        const path='users/'+uid+'/ankiSyncDecks/'+key+'/'+contentHash+'.zip';
+        const object=ankiCloud.storage.ref(path);
+        // Immutable content-addressed files keep prior revisions retrievable.
+        try {await object.getMetadata();}
+        catch(err) {
+          if(err?.code!=='storage/object-not-found') throw err;
+          await object.put(blob,{contentType:'application/zip',customMetadata:{format:'AnkiSyncCloudDeck',version:'1'}});
+        }
+        // Avoid silent lost updates if two devices edited this deck concurrently.
+        const doc=ankiCloud.db.collection('users').doc(uid).collection('ankiSyncDecks').doc(key);
+        await ankiCloud.db.runTransaction(async tx=>{
+          const current=await tx.get(doc);
+          const currentHash=current.exists?String(current.data().contentHash||''):'';
+          const expected=remote?.contentHash||'';
+          if(!force && currentHash!==expected) throw new Error('This deck changed in the cloud on another device. Download or explicitly choose to publish the local version.');
+          tx.set(doc,{version:1,deckKey:key,name:String(deck.name||''),sourceFileName:String(deck.sourceFileName||''),
+            sourceFingerprint:String(deck.sourceFingerprint||''),cardCount:(deck.cards||[]).length,
+            storagePath:path,contentHash,updatedAt:Date.now(),deviceId:ankiCloud.deviceId,
+            serverUpdatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+        });
+        if(ankiCloudPackages.uid!==uid) return;
+        deck.ankiCloudContentHash=contentHash;
+        deck.ankiCloudSyncedPackage=true;
+        ankiCloudPackages.digestBaseline.set(key,contentHash);
+        ankiCloudPackages.conflicts.delete(key);
+        ankiCloudPackagesStatus('Uploaded '+deck.name+' ('+(deck.cards||[]).length+' cards). Cloud catalog will update shortly.');
+        ankiCloudPackages.applying=true;
+        try{saveLocalState();}finally{ankiCloudPackages.applying=false;}
+      } finally {ankiCloudPackages.uploading.delete(key);}
+    }
+    async function ankiCloudPackagesScanLocal(force=false) {
+      if(ankiCloudPackages.scanning||!ankiCloudPackages.uid||!ankiCloudPackages.serverReady) return;
+      ankiCloudPackages.scanning=true;
+      let sent=0,conflicts=0;
+      try {
+        for(const deck of Object.values(appState.decks)) {
+          if(!Array.isArray(deck.cards)||!deck.cards.length) continue;
+          const key=ankiCloudDeckKey(deck);
+          if(ankiCloudPackages.uploading.has(key)||ankiCloudPackages.downloading.has(key)) continue;
+          const payload=ankiCloudPackagesPayloadString(deck);
+          const hash=await ankiCloudPackagesDigest(payload);
+          const remote=ankiCloudPackages.catalog.get(key);
+          const baseline=ankiCloudPackages.digestBaseline.get(key);
+          // The first look at a deck from an existing cloud library is not
+          // evidence that its local copy is newer. Don't overwrite it.
+          if(!remote) {
+            try{await ankiCloudPackagesUpload(deck,payload,hash,null,false);sent++;}
+            catch(e){ankiCloudPackagesStatus('Upload failed for '+deck.name+': '+e.message,true);}
+            continue;
+          }
+          if(remote.contentHash===hash) {
+            deck.ankiCloudContentHash=hash;
+            deck.ankiCloudSyncedPackage=true;
+            ankiCloudPackages.digestBaseline.set(key,hash);
+            ankiCloudPackages.conflicts.delete(key);
+            continue;
+          }
+          if(deck.ankiCloudContentHash===remote.contentHash ||
+             (baseline && baseline===remote.contentHash)) {
+            // A content edit since the last successfully synchronized revision.
+            try{await ankiCloudPackagesUpload(deck,payload,hash,remote,force);sent++;}
+            catch(e){ankiCloudPackagesStatus('Upload blocked for '+deck.name+': '+e.message,true);}
+            continue;
+          }
+          // Pre-existing local copies and conflicting edits need explicit choice.
+          ankiCloudPackages.conflicts.add(key);conflicts++;
+        }
+      }finally {ankiCloudPackages.scanning=false;}
+      if(!ankiCloudPackages.error) ankiCloudPackagesStatus('Cloud decks: '+ankiCloudPackages.catalog.size+
+        ' published; '+sent+' uploaded; '+conflicts+' content conflict(s). '+
+        (conflicts?'Use Upload My Decks or Restore Cloud Decks to choose a version.':'Automatic sync active.'));
+    }
+    async function ankiCloudPackagesDownload(info, replace=false) {
+      const key=info.deckKey;
+      if(!ankiCloudPackages.uid || !ankiCloud.storage || ankiCloudPackages.downloading.has(key)) return false;
+      const old=ankiCloudPackagesFind(key,info);
+      if(old && !replace) return false;
+      ankiCloudPackages.downloading.add(key);
+      try {
+        if(!String(info.storagePath).startsWith('users/'+ankiCloudPackages.uid+'/ankiSyncDecks/'+key+'/'))
+          throw new Error('Unexpected cloud Storage path.');
+        const url=await ankiCloud.storage.ref(info.storagePath).getDownloadURL();
+        const resp=await fetch(url);
+        if(!resp.ok) throw new Error('Download failed (HTTP '+resp.status+').');
+        const array=await resp.arrayBuffer();
+        const zip=await JSZip.loadAsync(array);
+        const entry=zip.file('deck.json');
+        if(!entry) throw new Error('Invalid cloud deck snapshot.');
+        const source=await entry.async('string');
+        const digest=await ankiCloudPackagesDigest(source);
+        if(digest!==info.contentHash) throw new Error('Cloud deck checksum mismatch.');
+        const payload=JSON.parse(source);
+        if(payload.format!=='AnkiSyncCloudDeck' || payload.version!==1 ||
+           payload.ankiCloudKey!==key || !Array.isArray(payload.cards))
+          throw new Error('Invalid cloud deck contents.');
+        // Keep locally stored review progress when replacing edited card content.
+        const existing=ankiCloudPackagesFind(key,info);
+        const reviewMap=new Map((existing?.cards||[]).filter(c=>c.reviewData)
+          .map(c=>[ankiCloudCardKey(c),c.reviewData]));
+        const cards=payload.cards.map(c=>{
+          const item={...c};
+          const history=reviewMap.get(ankiCloudCardKey(item));
+          if(history) item.reviewData=history;
+          return item;
+        });
+        const id=existing?.id || 'deck_cloud_'+ankiCloudHash(key);
+        const deck={...(existing||{}),id,ankiCloudKey:key,
+          name:String(payload.name||info.name||'Cloud Deck'),
+          category:ankiCloudPackagesApplyCategory(key,payload.name,payload.category),
+          sourceFileName:String(payload.sourceFileName||info.sourceFileName||''),
+          sourceFilePath:String(payload.sourceFilePath ?? payload.sourceFileName ?? info.sourceFileName ?? ''),
+          sourceFingerprint:String(payload.sourceFingerprint||info.sourceFingerprint||''),
+          cards,ankiCloudContentHash:info.contentHash,ankiCloudSyncedPackage:true};
+        if(!ankiCloudPackages.uid) return false;
+        ankiCloudPackages.applying=true;
+        ankiCloud.applying=true;
+        try {
+          appState.decks[id]=deck;
+          ensureAnkiCategoryPath(deck.category);
+          ankiCloudPackages.digestBaseline.set(key,info.contentHash);
+          ankiCloudPackages.conflicts.delete(key);
+          saveLocalState();renderCategories();renderDecks();renderNestedSubjects();refreshAnkiImportDeckOptions();
+        } finally {ankiCloud.applying=false;ankiCloudPackages.applying=false;}
+        if(ankiCloud.reviewsReady) ankiCloudReconcileReviews();
+        ankiCloudPackagesStatus('Restored '+deck.name+' ('+cards.length+' cards and embedded media).');
+        return true;
+      }finally {ankiCloudPackages.downloading.delete(key);}
+    }
+    async function ankiCloudPackagesRestore(interactive=false) {
+      if(!ankiCloudPackages.uid||!ankiCloud.storage) {
+        ankiCloudPackagesStatus('Sign in and configure Firebase Storage before restoring decks.',true);return;
+      }
+      if(!ankiCloudPackages.serverReady) {
+        ankiCloudPackagesStatus('Waiting for a server-confirmed deck catalog.');return;
+      }
+      let downloaded=0,failed=0;
+      let replaceConflicts=false;
+      if(interactive) {
+        const differing=[];
+        for(const [key,info] of ankiCloudPackages.catalog) {
+          const local=ankiCloudPackagesFind(key,info);
+          if(local && await ankiCloudPackagesDigest(ankiCloudPackagesPayloadString(local))!==info.contentHash)
+            differing.push(local.name);
+        }
+        if(differing.length) {
+          replaceConflicts=window.confirm('Cloud copies differ from '+differing.length+
+            ' local deck(s). Replace those local card contents with the cloud versions? Review progress is preserved, but unpublished card edits can be lost. Back up your local library first. Cancel to restore only missing decks.');
+        }
+      }
+      for(const [key,info] of ankiCloudPackages.catalog) {
+        const existing=ankiCloudPackagesFind(key,info);
+        if(!existing) {
+          try{if(await ankiCloudPackagesDownload(info,false)) downloaded++;}
+          catch(error){failed++;ankiCloudPackagesStatus('Restore failed for '+info.name+': '+error.message,true);}
+        } else if(replaceConflicts) {
+          try{if(await ankiCloudPackagesDownload(info,true)) downloaded++;}
+          catch(error){failed++;ankiCloudPackagesStatus('Replace failed for '+info.name+': '+error.message,true);}
+        } else if(existing.ankiCloudContentHash===info.contentHash) {
+          ankiCloudPackages.digestBaseline.set(key,info.contentHash);
+        } else if(existing.ankiCloudContentHash &&
+                 existing.ankiCloudContentHash!==info.contentHash) {
+          // Download only if local content has not changed since last synced.
+          const localHash=await ankiCloudPackagesDigest(ankiCloudPackagesPayloadString(existing));
+          if(localHash===existing.ankiCloudContentHash) {
+            try{if(await ankiCloudPackagesDownload(info,true)) downloaded++;}
+            catch(error){failed++;ankiCloudPackagesStatus('Update failed for '+info.name+': '+error.message,true);}
+          } else ankiCloudPackages.conflicts.add(key);
+        } else {
+          const localHash=await ankiCloudPackagesDigest(ankiCloudPackagesPayloadString(existing));
+          if(localHash===info.contentHash) {
+            existing.ankiCloudContentHash=localHash;
+            existing.ankiCloudSyncedPackage=true;
+            ankiCloudPackages.digestBaseline.set(key,localHash);
+            ankiCloudPackages.applying=true;
+            try{saveLocalState();}finally{ankiCloudPackages.applying=false;}
+          } else ankiCloudPackages.conflicts.add(key);
+        }
+      }
+      if(ankiCloudPackages.auto) ankiCloudPackagesScheduleScan(600);
+      if(!failed) ankiCloudPackagesStatus('Cloud catalog '+ankiCloudPackages.catalog.size+': '+
+        downloaded+' deck(s) downloaded; '+ankiCloudPackages.conflicts.size+
+        ' content conflict(s). '+(ankiCloudPackages.conflicts.size?
+        'Use Upload My Decks to publish local changes, or Restore Cloud Decks after resolving conflicts.':'Review sync remains active.'));
+    }
+    async function ankiCloudPackagesPublishLocal() {
+      if(!ankiCloudPackages.uid||!ankiCloud.storage||!ankiCloudPackages.serverReady) {
+        ankiCloudPackagesStatus('Cloud deck catalog is not ready. Check Storage setup and sign-in.',true);return;
+      }
+      if(ankiCloudPackages.scanning) return;
+      // Prompt only if publishing would replace a different cloud version.
+      let conflicts=0;
+      for(const deck of Object.values(appState.decks)) {
+        const remote=ankiCloudPackages.catalog.get(ankiCloudDeckKey(deck));
+        if(remote && remote.contentHash!==await ankiCloudPackagesDigest(ankiCloudPackagesPayloadString(deck))) conflicts++;
+      }
+      const force=conflicts ? window.confirm('There are '+conflicts+' deck(s) whose local contents differ from the cloud. Publish the local version to replace the cloud version? Remote reviews are stored separately. Cancel to keep the cloud versions unchanged.') : false;
+      if(conflicts && !force) return;
+      ankiCloudPackages.scanning=true;
+      let uploaded=0;
+      try {
+        for(const deck of Object.values(appState.decks)) {
+          if(!deck.cards?.length) continue;
+          const json=ankiCloudPackagesPayloadString(deck);
+          const digest=await ankiCloudPackagesDigest(json);
+          const remote=ankiCloudPackages.catalog.get(ankiCloudDeckKey(deck));
+          if(remote?.contentHash===digest) continue;
+          try{await ankiCloudPackagesUpload(deck,json,digest,remote,force);uploaded++;}
+          catch(err){ankiCloudPackagesStatus('Upload error: '+err.message,true);}
+        }
+      }finally{ankiCloudPackages.scanning=false;}
+      ankiCloudPackagesStatus('Published '+uploaded+' local deck(s). Other devices will download new snapshots when online.');
+    }
+    function ankiCloudPackagesStartFolderWatch() {
+      if(ankiCloudPackages.watchTimer) return;
+      // Only a running desktop website with a previously granted directory
+      // handle can detect external additions to an iCloud-synced folder.
+      ankiCloudPackages.watchTimer=setInterval(async ()=>{
+        const handle=ankiOrganizerFolderHandle;
+        if(!handle||ankiOrganizerFolderBusy||document.hidden) return;
+        try {
+          if(await handle.queryPermission({mode:'read'})!=='granted') return;
+          const items=await ankiOrganizerCollectFolderFiles(handle);
+          const signature=items.filter(i=>/\.(apkg|colpkg|anki|anki2|anki21)$/i.test(i.file.name))
+            .map(i=>i.path+'|'+i.file.size+'|'+i.file.lastModified).sort().join('\n');
+          if(ankiCloudPackages.lastFolderInventory===null) {
+            ankiCloudPackages.lastFolderInventory=signature;
+            return;
+          }
+          if(signature!==ankiCloudPackages.lastFolderInventory) {
+            ankiCloudPackages.lastFolderInventory=signature;
+            await importAnkiOrganizerItems(items,{complete:true});
+            ankiCloudPackagesScheduleScan(600);
+          }
+        }catch(e){console.warn('Linked iCloud folder scan unavailable:',e);}
+      },60000);
+    }
+    // === End Phase 2 cloud deck module ===
     // === End cloud module ===
 
   </script>
