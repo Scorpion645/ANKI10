@@ -17,6 +17,7 @@
   <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 
   <style>
 .anki-content {
@@ -1017,6 +1018,13 @@ body.light-mode .anki-organizer-delete { color:#be123c; }
 body.light-mode .anki-organizer-row.anki-selected { background:#e0e7ff; border-color:#a5b4fc; }
 .anki-organizer-checkbox { flex:0 0 15px; width:15px; height:15px; accent-color:#6366f1; cursor:pointer; }
 #ankiOrganizerMoveSelectedBtn:disabled { opacity:.45; cursor:not-allowed; }
+  /* Let the existing header controls wrap onto a second row on small iPhones. */
+  @media (max-width: 640px) {
+    #appHeader > div { height: auto; min-height: 64px; flex-wrap: wrap; gap: 8px; padding-top: 8px; padding-bottom: 8px; }
+    #appHeader > div > div:last-child { width: 100%; gap: 6px; justify-content: flex-start; overflow-x: auto; scrollbar-width: thin; }
+    #appHeader > div > div:last-child > * { flex-shrink: 0; }
+    #appHeader > div > div:last-child > button { padding-left: 9px; padding-right: 9px; }
+  }
 </style>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col font-sans antialiased selection:bg-indigo-500 selection:text-white">
@@ -1042,6 +1050,12 @@ body.light-mode .anki-organizer-row.anki-selected { background:#e0e7ff; border-c
         <button onclick="saveAllDecksToFile()" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition shadow" title="Export decks with AnkiSync review progress as an .apkg package">
           <i class="fa-solid fa-download"></i>
           <span>Save As...</span>
+        </button>
+
+        <!-- Reuse the existing Organizer package picker/importer on PC and iPhone. -->
+        <button type="button" onclick="switchTab('organizer'); document.getElementById('ankiOrganizerSelectedFiles').click()" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition shadow" title="Open Anki .apkg files from this device, iCloud Drive, or another Files provider (multiple files supported)">
+          <i class="fa-solid fa-folder-open"></i>
+          <span>Open</span>
         </button>
 
         <div id="syncStatus" class="flex items-center space-x-2 px-3 py-1.5 rounded-full text-xs font-medium bg-slate-700/50 border border-slate-600 text-slate-300">
@@ -1088,10 +1102,6 @@ body.light-mode .anki-organizer-row.anki-selected { background:#e0e7ff; border-c
           <button onclick="promptCreateDeck()" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition flex items-center space-x-1.5 shadow-sm">
             <i class="fa-solid fa-plus"></i>
             <span>New Deck</span>
-          </button>
-          <button onclick="promptCreateCategory()" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-700 hover:bg-slate-600 text-indigo-300 border border-slate-600 transition flex items-center space-x-1.5">
-            <i class="fa-solid fa-folder-plus"></i>
-            <span>New Group</span>
           </button>
         </div>
       </div>
@@ -1727,28 +1737,32 @@ body.light-mode .anki-organizer-row.anki-selected { background:#e0e7ff; border-c
 
         <div class="bg-slate-800 p-6 rounded-3xl border border-slate-700 shadow-xl space-y-4">
           <div class="flex items-center space-x-3">
-            <div class="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-              <i class="fa-solid fa-arrows-rotate text-lg"></i>
+            <div class="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center">
+              <i class="fa-solid fa-cloud-arrow-up text-lg"></i>
             </div>
             <div>
               <h3 class="font-bold text-white">Cross-Device Synchronization</h3>
-              <p class="text-xs text-slate-400">Connect Firebase for instant sync between PC & iPhone</p>
+              <p class="text-xs text-slate-400">Secure Firebase sign-in · Review progress &amp; hierarchy (Phase 1)</p>
             </div>
           </div>
-
           <div class="space-y-3">
-            <div>
-              <label class="block text-xs font-semibold text-slate-400 mb-1">Sync Group Code / User Key</label>
-              <div class="flex space-x-2">
-                <input type="text" id="syncUserKey" placeholder="e.g. my-anki-deck-sync-123" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500" />
-                <button onclick="connectFirebaseSync()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs rounded-xl transition shadow-lg shadow-emerald-600/20">
-                  Connect
-                </button>
-              </div>
+            <label for="ankiCloudConfig" class="block text-xs font-semibold text-slate-400">Firebase Web App Configuration (paste once on each device)</label>
+            <textarea id="ankiCloudConfig" rows="4" spellcheck="false" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500" placeholder='{"apiKey":"...","authDomain":"...firebaseapp.com","projectId":"...","appId":"..."}'></textarea>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <input id="ankiCloudEmail" type="email" autocomplete="username" placeholder="Firebase account email" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500" />
+              <input id="ankiCloudPassword" type="password" autocomplete="current-password" placeholder="Password (not saved)" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500" />
             </div>
-            <p class="text-[11px] text-slate-500 leading-relaxed">
-              Enter the exact same Sync Group Code on your PC and iPhone to share decks, review history, and images instantly.
-            </p>
+            <div class="flex flex-wrap items-center gap-2">
+              <button type="button" onclick="ankiCloudConnect(false)" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs rounded-xl">Sign In &amp; Sync</button>
+              <button type="button" onclick="ankiCloudConnect(true)" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs rounded-xl">Create Account</button>
+              <button type="button" onclick="ankiCloudForceReconcile()" class="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold text-xs rounded-xl">Sync Now</button>
+              <button type="button" onclick="ankiCloudTestWriteRead()" class="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold text-xs rounded-xl" title="Test authenticated Firestore server write, read and cleanup">Test Cloud</button>
+              <button id="ankiCloudSignOut" type="button" onclick="ankiCloudSignOut()" class="hidden px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold text-xs rounded-xl">Sign Out</button>
+            </div>
+            <p id="ankiCloudAccount" class="text-xs text-emerald-300">Not signed in</p>
+            <p id="ankiCloudMessage" role="status" class="text-[11px] text-slate-400 leading-relaxed">Paste your Firebase configuration and sign in with the same account on both devices.</p>
+            <p id="ankiCloudDiagnostics" class="text-[11px] text-slate-400 leading-relaxed border border-slate-700 rounded-lg px-3 py-2" aria-live="polite">Cloud diagnostics appear here after sign-in.</p>
+            <p class="text-[11px] text-slate-500 leading-relaxed">Synchronizes card ratings, due dates, hard resets, and deck hierarchy. Your .apkg packages, images, and full card edits do not sync yet. Use the same imported packages on both devices. A hosted HTTPS page is strongly recommended for iPhone Safari.</p>
           </div>
         </div>
 
@@ -2075,7 +2089,7 @@ body.light-mode .anki-organizer-row.anki-selected { background:#e0e7ff; border-c
     <div class="bg-slate-800 border border-rose-500/50 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
       <h3 id="ankiHardResetTitle" class="font-bold text-lg text-rose-300"><i class="fa-solid fa-triangle-exclamation"></i> Hard Reset Deck?</h3>
       <p class="text-sm text-slate-200">This permanently clears all study progress, review ratings and future due dates for <strong id="ankiHardResetDeckName"></strong>. Cards, text, images, and deck hierarchy will be kept.</p>
-      <p class="text-xs text-amber-300">This cannot be undone unless you have a backup. This action only affects the selected deck in this browser until you export or sync it.</p>
+      <p class="text-xs text-amber-300">This cannot be undone unless you have a backup. When cloud sync is enabled, this reset also synchronizes to your other signed-in devices.</p>
       <div class="flex gap-3 justify-end">
         <button type="button" onclick="closeAnkiHardReset()" class="px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-100 rounded-xl text-sm font-semibold">Cancel</button>
         <button type="button" onclick="confirmAnkiHardReset()" class="px-4 py-2.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-sm font-semibold">Yes, Clear Progress</button>
@@ -2276,22 +2290,87 @@ function execCmd(command, editorId = null, value = null) {
 }
 
 
+// Preserve nested specialty folders but enforce a single Medical group everywhere:
+// older browser storage, individual imports, folder imports and hierarchy JSON.
+function ankiMedicalCategory(path) {
+  const parts=String(path||'').split(/\s*\/\s*/).map(p=>p.trim()).filter(Boolean);
+  if (!parts.length) return 'Medical';
+  const first=parts[0].toLocaleLowerCase();
+  if (first==='medical') return ['Medical',...parts.slice(1)].join(' / ');
+  // Do not keep legacy General/Languages/Unassigned Packages as folders.
+  if (['general','languages','unassigned packages','uncategorized'].includes(first))
+    return ['Medical',...parts.slice(1)].join(' / ');
+  return ['Medical',...parts].join(' / ');
+}
+function ankiEnsureMedicalOnly() {
+  if (!appState || !appState.decks) return;
+  for (const deck of Object.values(appState.decks)) {
+    if (deck && typeof deck==='object') deck.category=ankiMedicalCategory(deck.category);
+  }
+  appState.categories=[...new Set(['Medical',...(appState.categories||[]).map(ankiMedicalCategory),
+    ...Object.values(appState.decks).filter(Boolean).map(d=>ankiMedicalCategory(d.category))])];
+  if (appState.selectedCategory && appState.selectedCategory!=='ALL')
+    appState.selectedCategory=ankiMedicalCategory(appState.selectedCategory);
+}
+function ankiMedicalManifest(data) {
+  if (!validateAnkiOrganizerManifest(data)) return data;
+  return {...data,
+    categories:[...new Set(['Medical',...(Array.isArray(data.categories)?data.categories:[]).map(ankiMedicalCategory)])],
+    decks:data.decks.map(entry=>({...entry,category:ankiMedicalCategory(entry.category)})),
+    collapsed:Array.isArray(data.collapsed)?data.collapsed.map(item=>
+      item?.kind==='folder' ? {...item,path:ankiMedicalCategory(item.path)} : item) : []};
+}
+
+// Treat equivalent filenames and very close spelling variants as duplicates.
+// Do not confuse a short deck such as "TB" with a longer "TB treatment" deck.
+function ankiComparableDeckName(value) {
+  return ankiOrganizerFileStem(String(value||''))
+    .normalize('NFKC').toLocaleLowerCase()
+    .replace(/^copy\s+of\s+/,'').replace(/\s*(?:\(\d+\)|\[\d+\])$/,'')
+    .replace(/(?:\s+copy(?:\s+\d+)?)$/,'')
+    .replace(/[^\p{L}\p{N}]+/gu,' ').replace(/\s+/g,' ').trim();
+}
+function ankiDeckNamesTooSimilar(a,b) {
+  const x=ankiComparableDeckName(a),y=ankiComparableDeckName(b);
+  if (!x||!y) return false;
+  if (x===y) return true;
+  if (Math.min(x.length,y.length)<12) return false;
+  if (Math.abs(x.length-y.length)>4 || x.slice(0,4)!==y.slice(0,4)) return false;
+  const maxEdits=Math.min(4,Math.floor(Math.max(x.length,y.length)*0.10));
+  if (maxEdits<1) return false;
+  // Bounded Levenshtein test, stopping once the edit-distance threshold is exceeded.
+  let previous=Array.from({length:y.length+1},(_,i)=>i);
+  for(let i=1;i<=x.length;i++) {
+    const row=[i]; let best=row[0];
+    for(let j=1;j<=y.length;j++) {
+      const cost=x[i-1]===y[j-1]?0:1;
+      const next=Math.min(previous[j]+1,row[j-1]+1,previous[j-1]+cost);
+      row.push(next); if(next<best) best=next;
+    }
+    if(best>maxEdits) return false;
+    previous=row;
+  }
+  return previous[y.length]<=maxEdits;
+}
+function ankiFindSimilarExistingDeck(name) {
+  return Object.values(appState.decks||{}).find(deck=>deck &&
+    [deck.name,deck.sourceFileName,deck.sourceFilePath].some(candidate=>
+      candidate && ankiDeckNamesTooSimilar(name,candidate)));
+}
+function ankiDuplicateImportMessage(name,existing) {
+  return `Import skipped: "${name}" is the same as or too similar to existing deck "${existing.name}". No cards or review history were changed.`;
+}
+
 function promptCreateDeck() {
   const deckName = prompt("Enter new deck name:");
   if (!deckName || !deckName.trim()) return;
-
-  // Build a list of available groups/categories for the prompt
-  const categoriesList = appState.categories.join(", ");
-  const groupName = prompt(`Enter group (category) name for this deck.\nAvailable groups: ${categoriesList}`, appState.categories[0] || "General");
-  
-  if (groupName === null) return; // User cancelled
-
-  const trimmedGroup = groupName.trim() || "General";
-
-  // Automatically add the group if it doesn't exist yet
-  if (!appState.categories.includes(trimmedGroup)) {
-    appState.categories.push(trimmedGroup);
+  const duplicate=ankiFindSimilarExistingDeck(deckName);
+  if (duplicate) {
+    showToast(ankiDuplicateImportMessage(deckName,duplicate));
+    return;
   }
+  // Medical is the only group; nested subjects are managed in Organizer.
+  const trimmedGroup='Medical';
 
   // Create the new blank deck object
   const deckId = 'deck_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
@@ -2310,7 +2389,7 @@ function promptCreateDeck() {
 
     let appState = {
       decks: {},
-      categories: ['General', 'Medical', 'Languages'],
+      categories: ['Medical'],
       selectedCategory: 'ALL',
       activeStudyDeckId: null,
       studyQueue: [],
@@ -2342,6 +2421,7 @@ function promptCreateDeck() {
         ankiOrganizerStatus('Browser storage is unavailable in this viewing mode. A JSON can be read, but cards may disappear after closing the page. Open AnkiSync as a persistent Safari website (HTTPS), not in Files/Quick Look preview.',true);
       }
       loadEmbeddedStudyBackup();
+      ankiEnsureMedicalOnly();
       // Browser-local categories can be stale after a reload. Reapply the last
       // imported hierarchy guide before showing either the deck or tree view.
       if(validateAnkiOrganizerManifest(ankiOrganizerLoadedManifest))
@@ -2349,6 +2429,8 @@ function promptCreateDeck() {
       // On a hosted page, a same-directory AnkiSync-Organizer.json can also be
       // loaded automatically. Local file:// and iCloud Files remain permission-gated.
       await ankiOrganizerLoadAdjacentManifest();
+      ankiEnsureMedicalOnly();
+      saveLocalState();
       renderCategories();
       renderDecks();
       refreshAnkiImportDeckOptions();
@@ -2357,6 +2439,7 @@ function promptCreateDeck() {
       // Reopen previously authorized desktop iCloud folder only if permission
       // is still granted; never trigger a hidden permission prompt on iPhone.
       await ankiOrganizerRestoreHandle();
+      ankiCloudBoot();
 
       // Listen for clipboard or deck changes from other browser tabs
       window.addEventListener('storage', (e) => {
@@ -2390,6 +2473,7 @@ function promptCreateDeck() {
     }
 
     function saveLocalState() {
+      ankiEnsureMedicalOnly();
       if (idbDB) {
         try {
           const tx = idbDB.transaction('state', 'readwrite');
@@ -2404,6 +2488,7 @@ function promptCreateDeck() {
           console.error("IndexedDB save error:", e);
         }
       }
+      ankiCloudOnLocalSave();
     }
 
     // Apply progress embedded in this HTML. Embedded data takes precedence over device-local storage,
@@ -2579,6 +2664,7 @@ function promptCreateDeck() {
         appState.decks = backup.decks;
         appState.categories = backup.categories;
         appState.selectedCategory = backup.selectedCategory || 'ALL';
+        ankiEnsureMedicalOnly();
         appState.activeStudyDeckId = null;
         appState.studyQueue = [];
         appState.studyIndex = 0;
@@ -3234,9 +3320,10 @@ const content = await zip.generateAsync({ type: "blob" });
     }
 
     function renderCategories() {
+      ankiEnsureMedicalOnly();
       const container = document.getElementById('categoryFilterContainer');
-      // A deck with children is displayed as a +/- expandable deck, not as an extra group.
-      const visibleCategories = (appState.categories || []).filter(cat => !ankiIsImplicitDeckFolder(cat));
+      // Nested paths are folders, not separate top-level group tabs.
+      const visibleCategories = ['Medical'];
       if (appState.selectedCategory !== 'ALL' && !visibleCategories.includes(appState.selectedCategory)) {
         appState.selectedCategory = 'ALL';
       }
@@ -3246,7 +3333,6 @@ const content = await zip.generateAsync({ type: "blob" });
         const safeArg = encodeURIComponent(cat).replace(/'/g, '%27');
         html += `<span class="inline-flex shrink-0 items-center rounded-xl overflow-hidden border ${active ? 'border-indigo-400/50' : 'border-slate-600/50'}">
           <button type="button" onclick="filterCategory(decodeURIComponent('${safeArg}'))" class="cat-filter-btn px-3 py-1.5 text-xs font-semibold ${active ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-700/60 text-slate-300 hover:bg-slate-700'} transition">${ankiOrganizerEscapeHtml(cat)}</button>
-          <button type="button" onclick="deleteAnkiOrganizerFolder(decodeURIComponent('${safeArg}'))" class="px-2 py-1.5 text-rose-300 bg-slate-800 hover:bg-rose-900/40 text-xs" aria-label="Delete group ${ankiOrganizerEscapeHtml(cat)}" title="Delete this group (keep all decks)"><i class="fa-solid fa-trash-can" aria-hidden="true"></i></button>
         </span>`;
       });
       container.innerHTML = html;
@@ -3259,12 +3345,7 @@ const content = await zip.generateAsync({ type: "blob" });
     }
 
     function promptCreateCategory() {
-      const name = prompt("Enter new category/group name:");
-      if (name && !appState.categories.includes(name)) {
-        appState.categories.push(name.trim());
-        saveLocalState();
-        renderCategories();
-      }
+      showToast('Medical is the only group. Create subfolders in Organizer instead.');
     }
 
     function renderDecks() {
@@ -3287,7 +3368,7 @@ const content = await zip.generateAsync({ type: "blob" });
 
         // Build the dropdown options dynamically from appState.categories
         let categoryOptions = '';
-        (appState.categories || []).filter(cat => !ankiIsImplicitDeckFolder(cat)).forEach(cat => {
+        (appState.categories || []).filter(cat => !ankiIsImplicitDeckFolder(cat) && (cat==='Medical' || cat.startsWith('Medical / '))).forEach(cat => {
           const selected = (deck.category === cat) ? 'selected' : '';
           categoryOptions += `<option value="${ankiOrganizerEscapeHtml(cat)}" ${selected}>${ankiOrganizerEscapeHtml(cat)}</option>`;
         });
@@ -5461,6 +5542,9 @@ function saveCardEdits() {
       }
 
       saveLocalState();
+      if (!fullDeckPracticeMode && appState.activeStudyDeckId && appState.decks[appState.activeStudyDeckId]) {
+        ankiCloudQueueReview(appState.decks[appState.activeStudyDeckId], card);
+      }
 
       if (appState.studyIndex >= appState.studyQueue.length - 1) {
         if (isImmersive) toggleImmersiveMode();
@@ -5489,14 +5573,14 @@ function saveCardEdits() {
     // Store folder hierarchy as slash-delimited category paths, so the existing
     // deck grouping, study state, and backup format continue to work unchanged.
     function createNestedSubject() {
-      const parent = document.getElementById('organizerParentSubject')?.value || '';
+      const parent = document.getElementById('organizerParentSubject')?.value || 'Medical';
       const input = document.getElementById('organizerNewSubject');
       const name = input?.value.trim().replace(/\s*\/\s*/g, ' / ');
       if (!name || name.includes('/') || name.length > 80) {
         showToast('Enter one subject name without a slash (up to 80 characters).');
         return;
       }
-      const path = parent ? `${parent} / ${name}` : name;
+      const path = `${ankiMedicalCategory(parent)} / ${name}`;
       if (appState.categories.includes(path)) {
         showToast('That subject already exists.');
         return;
@@ -5534,7 +5618,10 @@ function saveCardEdits() {
       renderNestedSubjects();
     }
     function deleteAnkiOrganizerFolder(path) {
-      if (!path || ankiIsImplicitDeckFolder(path)) return;
+      if (!path || path==='Medical' || ankiIsImplicitDeckFolder(path)) {
+        if(path==='Medical') showToast('The Medical group cannot be deleted.');
+        return;
+      }
       if (!appState.categories.includes(path) && !Object.values(appState.decks).some(d => d.category === path || d.category?.startsWith(path+' / '))) return;
       const label = path.split(' / ').at(-1);
       if (!window.confirm(`Delete group/folder "${label}"?\n\nAny decks and subfolders inside it will be moved up one level. No cards or review progress will be deleted.`)) return;
@@ -5624,6 +5711,7 @@ function saveCardEdits() {
       renderNestedSubjects();
     }
     function renderNestedSubjects() {
+      ankiEnsureMedicalOnly();
       const tree = document.getElementById('organizerSubjectTree');
       const select = document.getElementById('organizerParentSubject');
       if (!tree || !select) return;
@@ -5634,7 +5722,7 @@ function saveCardEdits() {
         if (!appState.decks[id]) ankiOrganizerSelectedDeckIds.delete(id);
       }
       updateAnkiOrganizerSelectionCount();
-      select.replaceChildren(new Option('Top level (specialty)', ''));
+      select.replaceChildren(new Option('Medical (top level)', 'Medical'));
       tree.replaceChildren();
 
       // Include ancestor paths for older saved collections and nested Anki files.
@@ -5761,7 +5849,7 @@ function saveCardEdits() {
         });
         tree.appendChild(row);
       }
-      appendRow('folder','','Top level (drop here)',0,availableDecks.length,true);
+      appendRow('folder','','Medical (top level drop target)',0,availableDecks.length,true);
       function branch(path,depth) {
         for(const folder of folderChildren.get(path)||[]) {
           if (visitedFolders.has(folder)) continue;
@@ -5787,7 +5875,7 @@ function saveCardEdits() {
       const target = document.getElementById('ankiOrganizerMoveTarget');
       if (target) {
         const prior = target.value;
-        target.replaceChildren(new Option('Top level', 'folder:'));
+        target.replaceChildren(new Option('Medical (top level)', 'folder:Medical'));
         for (const path of realFolders) {
           target.add(new Option(`📁 ${path}`, 'folder:' + path));
         }
@@ -5943,6 +6031,17 @@ function saveCardEdits() {
         if (!folderBatch) alert('Please select exactly one .apkg, .colpkg, or compatible Anki SQLite file.');
         event.target.value = '';
         return;
+      }
+      const existingNameCollision=ankiFindSimilarExistingDeck(ankiOrganizerFileStem(file.name));
+      const existingFingerprintCollision=options.sourceFingerprint
+        ? Object.values(appState.decks).find(d=>d.sourceFingerprint && d.sourceFingerprint===options.sourceFingerprint)
+        : null;
+      const existingCollision=existingNameCollision||existingFingerprintCollision;
+      if (existingCollision) {
+        const message=ankiDuplicateImportMessage(file.name,existingCollision);
+        if (!folderBatch) {ankiOrganizerStatus(message,true);showToast(message);}
+        event.target.value='';
+        return {skippedDuplicate:true,message,existingDeckId:existingCollision.id};
       }
 
       const progressContainer = document.getElementById('importProgress');
@@ -6222,7 +6321,7 @@ function saveCardEdits() {
           name.toLowerCase().split('::').pop() === packageStem
         );
         const autoChoice = matchingDecks.length === 1 ? matchingDecks[0] : null;
-        const selectedDecks = folderBatch ? deckNames : await new Promise((resolve) => {
+        let selectedDecks = folderBatch ? deckNames : await new Promise((resolve) => {
           if (deckNames.length === 1) {
             resolve(deckNames);
             return;
@@ -6285,6 +6384,20 @@ function saveCardEdits() {
 
 
 
+        if (!folderBatch && selectedDecks.length>1) {
+          const approved=[],rejected=[];
+          for(const deckName of selectedDecks) {
+            const existing=ankiFindSimilarExistingDeck(deckName);
+            const repeated=approved.find(name=>ankiDeckNamesTooSimilar(deckName,name));
+            if(existing || repeated) rejected.push(`${deckName} (similar to ${existing?.name||repeated})`);
+            else approved.push(deckName);
+          }
+          if(rejected.length) {
+            const message='Duplicate-name deck(s) skipped: '+rejected.join(', ');
+            ankiOrganizerStatus(message,true);showToast(message);
+          }
+          selectedDecks=approved;
+        }
         if (selectedDecks.length > 0 && folderBatch) {
           const sourceFilePath=ankiOrganizerNormalizePath(options.relativePath || file.name);
           const sourceFingerprint=options.sourceFingerprint || await ankiOrganizerFingerprintFile(file);
@@ -6304,7 +6417,7 @@ function saveCardEdits() {
           } else {
             const deckId = 'deck_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
             const parentPath = sourceFilePath.split('/').slice(0,-1).filter(Boolean).join(' / ');
-            const fallbackCategory = parentPath || 'General';
+            const fallbackCategory = ankiMedicalCategory(parentPath);
             existing = appState.decks[deckId] = {
               id:deckId, name:importedName || file.name, category:fallbackCategory,
               sourceFilePath:canonicalPath, sourceFileName:file.name,
@@ -6363,7 +6476,7 @@ function saveCardEdits() {
                 id: deckId,
                 name: selectedDecks.length === 1 && importedFileDeckName
                   ? importedFileDeckName : deckName,
-                category: appState.selectedCategory === 'ALL' ? 'General' : appState.selectedCategory,
+                category: ankiMedicalCategory(appState.selectedCategory === 'ALL' ? '' : appState.selectedCategory),
                 cards: importedCardsByDeck[deckName],
                 lastIndex: Math.min(importedLastIndexByDeck[deckName] || 0, Math.max(0, importedCardsByDeck[deckName].length - 1)),
                 ...(portableProgress && portableProgress.decks.find(d => d.name === deckName)?.lastCardId
@@ -6427,14 +6540,6 @@ function saveCardEdits() {
       });
     }
 
-    function connectFirebaseSync() {
-      const key = document.getElementById('syncUserKey').value;
-      if (key) {
-        localStorage.setItem('anki_sync_key', key);
-        document.getElementById('syncText').innerText = "Connected: " + key;
-        alert("Sync Key Connected successfully!");
-      }
-    }
 
     function toggleAppTheme() {
       const body = document.body;
@@ -6501,7 +6606,7 @@ function saveCardEdits() {
     });
 function updateDeckCategory(deckId, newCategory) {
   if (appState.decks[deckId]) {
-    appState.decks[deckId].category = newCategory;
+    appState.decks[deckId].category = ankiMedicalCategory(newCategory);
     saveLocalState();
     renderDecks();
     showToast("Deck group updated successfully!");
@@ -6618,7 +6723,10 @@ function updateDeckCategory(deckId, newCategory) {
       const deck=appState.decks[deckId];
       closeAnkiHardReset();
       if(!deck) return;
-      for (const card of deck.cards||[]) delete card.reviewData;
+      for (const card of deck.cards||[]) {
+        delete card.reviewData;
+        ankiCloudQueueReview(deck, card, true);
+      }
       deck.lastIndex=0;
       deck.lastCardId=null;
       saveLocalState();
@@ -6628,8 +6736,7 @@ function updateDeckCategory(deckId, newCategory) {
     }
 
     function ensureAnkiCategoryPath(path) {
-      if (!path) return;
-      const pieces=String(path).split(' / ').map(x=>x.trim()).filter(Boolean);
+      const pieces=ankiMedicalCategory(path).split(' / ').map(x=>x.trim()).filter(Boolean);
       for (let n=1;n<=pieces.length;n++) {
         const p=pieces.slice(0,n).join(' / ');
         if(!appState.categories.includes(p)) appState.categories.push(p);
@@ -6909,6 +7016,7 @@ function updateDeckCategory(deckId, newCategory) {
     }
     function applyAnkiOrganizerManifest(data) {
       if(!validateAnkiOrganizerManifest(data)) throw new Error('Invalid AnkiSync organizer manifest.');
+      data=ankiMedicalManifest(data);
       ankiOrganizerLoadedManifest=data;
       // The JSON is a guide to existing decks, not a source of new cards.
       // Clear stale links, then do a one-to-one match using the exact deck name
@@ -7173,7 +7281,7 @@ function updateDeckCategory(deckId, newCategory) {
       // Each picker operation is fresh evidence. Do not carry a deleted file
       // forward from an earlier scan merely because it was selected once.
       const newVerifiedFiles=packages.length ? new Map() : null;
-      let successes=0;const failed=[];
+      let successes=0,skippedDuplicates=0;const failed=[];
       try {
         // Verify JSON CONTENT, not just its name. iCloud and the iPhone Files
         // picker may rename files, or create numbered copies.
@@ -7207,9 +7315,10 @@ function updateDeckCategory(deckId, newCategory) {
           ankiOrganizerStatus(`Importing ${index+1} of ${packages.length}: ${path}…`);
           try {
             const fingerprint=await ankiOrganizerFingerprintFile(file);
-            await handleAnkiFileUpload({target:{files:[file],value:''}},{folderBatch:true,relativePath:path,sourceFingerprint:fingerprint});
+            const result=await handleAnkiFileUpload({target:{files:[file],value:''}},{folderBatch:true,relativePath:path,sourceFingerprint:fingerprint});
             newVerifiedFiles.set(ankiOrganizerNormalizePath(path),{path:ankiOrganizerNormalizePath(path),fingerprint});
-            successes++;
+            if(result?.skippedDuplicate) skippedDuplicates++;
+            else successes++;
           } catch(error) {
             failed.push(`${path}: ${error.message}`);
           }
@@ -7232,7 +7341,7 @@ function updateDeckCategory(deckId, newCategory) {
             if(ankiOrganizerIsInManifest(deck) || !ankiOrganizerPhysicalDeckPresent(deck)) continue;
             // Old placement in TB is not evidence about a newly selected file.
             if(!deck.ankiOrganizerUnlistedMarked){
-              deck.category='Unassigned Packages';
+              deck.category='Medical';
               deck.ankiOrganizerUnlistedMarked=true;
             }
           }
@@ -7242,7 +7351,7 @@ function updateDeckCategory(deckId, newCategory) {
         const hidden=Object.values(appState.decks).filter(deck=>!ankiOrganizerAvailableDecks().includes(deck)).length;
         const coverage=ankiOrganizerInventoryComplete ? 'Complete folder scan' : 'Selected files only (other files were not checked)';
         const jsonNotice=jsonFiles.length && !selectedManifest ? ' IMPORTANT: The selected JSON was not recognized, so no new hierarchy was applied.' : '';
-        ankiOrganizerStatus(`${successes}/${packages.length} package(s) loaded. ${coverage}. ${reconciled.updated} deck(s) positioned by the hierarchy. ${reconciled.removed} duplicate(s) consolidated. ${missing.length ? missing.length+' manifest entry/entries not found in this full scan: '+missing.slice(0,3).map(e=>e.path).join(', ')+'. ':''}${hidden?' '+hidden+' older local package deck(s) hidden (cards preserved).':''}${failed.length?' Failed: '+failed.slice(0,2).join(' · '):''}${jsonNotice}`,!!failed.length||!!jsonNotice);
+        ankiOrganizerStatus(`${successes}/${packages.length} package(s) loaded; ${skippedDuplicates} same/similar-name package(s) skipped. ${coverage}. ${reconciled.updated} deck(s) positioned by the hierarchy. ${reconciled.removed} duplicate(s) consolidated. ${missing.length ? missing.length+' manifest entry/entries not found in this full scan: '+missing.slice(0,3).map(e=>e.path).join(', ')+'. ':''}${hidden?' '+hidden+' older local package deck(s) hidden (cards preserved).':''}${failed.length?' Failed: '+failed.slice(0,2).join(' · '):''}${jsonNotice}`,!!failed.length||!!jsonNotice);
         if(failed.length) console.warn('Anki folder import errors:',failed);
       } catch(error) {
         console.error(error);
@@ -7273,7 +7382,7 @@ function updateDeckCategory(deckId, newCategory) {
         const msg='The destination deck is selected. Uncheck it before moving other decks under it.';
         ankiOrganizerStatus(msg,true);showToast(msg);return;
       }
-      const targetFolder=targetKind==='folder' ? String(targetId || '') : ankiDeckVirtualPath(targetDeck);
+      const targetFolder=targetKind==='folder' ? ankiMedicalCategory(targetId) : ankiDeckVirtualPath(targetDeck);
       const roots=selected.filter(id=>{
         const path=String(appState.decks[id].category || '');
         return !selected.some(other=>other!==id && path.startsWith(ankiDeckVirtualPath(appState.decks[other])+' / '))
@@ -7336,11 +7445,11 @@ function updateDeckCategory(deckId, newCategory) {
       }
       const destination=targetKind==='folder' ? targetId : appState.decks[targetId];
       if(destination===undefined && targetKind==='deck') return;
-      const targetFolder=targetKind==='folder' ? targetId :
+      const targetFolder=targetKind==='folder' ? ankiMedicalCategory(targetId) :
         [destination.category,destination.name].filter(Boolean).join(' / ');
       if(source.kind==='folder') {
         const oldPath=source.id;
-        if(!oldPath || !appState.categories.includes(oldPath)) return;
+        if(!oldPath || oldPath==='Medical' || !appState.categories.includes(oldPath)) return;
         if(targetFolder===oldPath || targetFolder.startsWith(oldPath+' / ')) {showToast('A folder cannot be moved inside itself.');return;}
         const title=oldPath.split(' / ').at(-1);
         const newPath=targetFolder ? targetFolder+' / '+title : title;
@@ -7381,6 +7490,7 @@ function updateDeckCategory(deckId, newCategory) {
     }
 
     function buildAnkiOrganizerManifest() {
+      ankiEnsureMedicalOnly();
       const entries = new Map();
       const verified=ankiOrganizerVerifiedFiles;
       if (verified && ankiOrganizerInventoryComplete) {
@@ -7589,6 +7699,551 @@ function updateDeckCategory(deckId, newCategory) {
         if (picker) picker.removeAttribute('accept');
       }
     });
+
+    // === AnkiSync Cloud Phase 1: authenticated, cross-device review + hierarchy sync ===
+    // Deck packages and embedded media remain local. Cloud data contains metadata
+    // and scheduling only; it never uploads an .apkg or a base64 image.
+    const ankiCloud = {
+      app:null, auth:null, db:null, uid:null, boot:false, applying:false,
+      reviewsReady:false, hierarchyReady:false, reviews:new Map(),
+      pending:new Map(), pendingHierarchy:null, inflight:new Set(),
+      unsubscribeReviews:null, unsubscribeHierarchy:null,
+      signature:'', lastRemoteHierarchyTime:0, remoteHierarchy:null, reviewRefreshTimer:null,
+      hierarchyTimer:null, syncBusy:false,
+      reviewsServer:false,hierarchyServer:false,reviewListenerError:null,hierarchyListenerError:null,
+      lastServerAcknowledgement:0,verifyBusy:false,lastCloudTest:null,
+      deviceId:(()=>{
+        try {
+          let id=localStorage.getItem('anki_cloud_device_v1');
+          if(!id) {id=(crypto.randomUUID?.() || ('device-'+Date.now()+'-'+Math.random().toString(36).slice(2)));
+            localStorage.setItem('anki_cloud_device_v1',id);}
+          return id;
+        }catch(e){return 'device-'+Math.random().toString(36).slice(2);}
+      })()
+    };
+    function ankiCloudMatchCounts() {
+      const localKeys=new Set();
+      let deckCount=0,cardCount=0;
+      for (const deck of Object.values(appState.decks||{})) {
+        deckCount++;
+        const deckKey=ankiCloudDeckKey(deck);
+        for(const card of deck.cards||[]) {
+          cardCount++;
+          localKeys.add(deckKey+'|'+ankiCloudCardKey(card));
+        }
+      }
+      let matched=0;
+      for(const record of ankiCloud.reviews.values()) {
+        if(localKeys.has(record.deckKey+'|'+record.cardKey)) matched++;
+      }
+      return {decks:deckCount,cards:cardCount,matched,unmatched:ankiCloud.reviews.size-matched};
+    }
+    function ankiCloudDiagnostics() {
+      const el=document.getElementById('ankiCloudDiagnostics');
+      if(!el) return;
+      if(!ankiCloud.uid) {
+        el.textContent='Not signed in. Local deck progress is not being uploaded.';
+        return;
+      }
+      const count=ankiCloudMatchCounts();
+      const pending=ankiCloud.pending.size+(ankiCloud.pendingHierarchy?1:0);
+      const server=ankiCloud.reviewsServer&&ankiCloud.hierarchyServer?'confirmed online':
+        (ankiCloud.reviewListenerError||ankiCloud.hierarchyListenerError?'listener error':'not yet confirmed');
+      const last=ankiCloud.lastServerAcknowledgement?
+        new Date(ankiCloud.lastServerAcknowledgement).toLocaleTimeString():'none yet';
+      el.textContent='Project: '+(ankiCloud.app?.options?.projectId||'unknown')+
+        ' | Firestore: '+server+
+        ' | Local: '+count.decks+' decks / '+count.cards+' cards'+
+        ' | Cloud review records: '+ankiCloud.reviews.size+
+        ' | Matched cards: '+count.matched+
+        ' | Unmatched records: '+count.unmatched+
+        ' | Pending uploads: '+pending+
+        ' | Last confirmed write: '+last+
+        ' | Write/read test: '+(ankiCloud.lastCloudTest===null?'not run':ankiCloud.lastCloudTest?'passed':'failed');
+    }
+    function ankiCloudStatus(message, isError=false) {
+      const el=document.getElementById('ankiCloudMessage');
+      if(el) {el.textContent=String(message);el.className='text-[11px] leading-relaxed '+(isError?'text-rose-300':'text-slate-400');}
+      const badge=document.getElementById('syncText');
+      const dot=document.getElementById('syncDot');
+      const connected=ankiCloud.uid && ankiCloud.reviewsServer && ankiCloud.hierarchyServer;
+      const listenerError=ankiCloud.reviewListenerError||ankiCloud.hierarchyListenerError;
+      const pending=ankiCloud.pending.size+(ankiCloud.pendingHierarchy?1:0);
+      let caption='Local Mode',color='bg-amber-400';
+      if(ankiCloud.uid) {
+        if(isError || listenerError) {caption='Cloud Sync Error';color='bg-rose-400';}
+        else if(!connected) {caption='Cloud Connecting';color='bg-amber-400';}
+        else if(pending) {caption='Cloud Pending';color='bg-amber-400';}
+        else {caption='Cloud Verified';color='bg-emerald-400';}
+      }
+      if(badge) badge.textContent=caption;
+      if(dot) dot.className='w-2 h-2 rounded-full '+color;
+      ankiCloudDiagnostics();
+    }
+    function ankiCloudUpdateUI() {
+      const signed=!!ankiCloud.uid;
+      const account=document.getElementById('ankiCloudAccount');
+      const signOut=document.getElementById('ankiCloudSignOut');
+      if(account) account.textContent=signed?('Signed in: '+(ankiCloud.auth?.currentUser?.email||'account')):'Not signed in';
+      if(signOut) signOut.classList.toggle('hidden',!signed);
+    }
+    function ankiCloudNormalize(value) {
+      return String(value||'').normalize('NFKC').toLowerCase()
+        .replace(/\.(apkg|colpkg|anki|anki2|anki21)$/i,'').replace(/[^\p{L}\p{N}]+/gu,'');
+    }
+    function ankiCloudHash(value) {
+      let a=2166136261, b=5381;
+      for(const c of String(value)) {const n=c.charCodeAt(0);a=Math.imul(a^n,16777619);b=Math.imul(b,33)^n;}
+      return (a>>>0).toString(36)+'_'+(b>>>0).toString(36);
+    }
+    function ankiCloudDeckKey(deck) {
+      if(deck.ankiCloudKey) return String(deck.ankiCloudKey);
+      const src=deck.sourceFileName||
+        (deck.sourceFilePath ? String(deck.sourceFilePath).replace(/\\/g,'/').split('/').pop() : '') ||
+        deck.name || deck.id;
+      const key='deck_'+ankiCloudHash(ankiCloudNormalize(src));
+      deck.ankiCloudKey=key; // Stable across renames on this device.
+      return key;
+    }
+    function ankiCloudCardKey(card) {
+      // Folder imports prefix native note IDs with a file namespace; the same
+      // package opened as one file does not. Remove only that added namespace.
+      const id=String(card.id||'');
+      return id.replace(/^file_[a-z0-9]+_/i,'');
+    }
+    function ankiCloudReviewId(deck,card) {
+      return 'review_'+ankiCloudHash(ankiCloudDeckKey(deck)+'|'+ankiCloudCardKey(card));
+    }
+    function ankiCloudReviewed(record) {
+      if(!record||typeof record!=='object') return false;
+      return Number(record.reviewCount||0)>0 || Number(record.dueAt||0)>0 ||
+        Number(record.lastReviewedAt||0)>0;
+    }
+    function ankiCloudTime(record) {
+      return Math.max(0,Number(record?.updatedAt||record?.reviewData?.lastReviewedAt||0)||0);
+    }
+    function ankiCloudRecord(deck,card,now=null,reset=false) {
+      const r=card.reviewData||null;
+      return {deckKey:ankiCloudDeckKey(deck),cardKey:ankiCloudCardKey(card),
+        // Only rating/scheduler fields, never front/back HTML or media.
+        reviewData:reset?null:(r?{
+          reviewCount:Number(r.reviewCount||0),
+          lastRating:r.lastRating||null,
+          lastReviewedAt:Number(r.lastReviewedAt||0)||null,
+          intervalMs:Number(r.intervalMs||0)||0,
+          dueAt:Number(r.dueAt||0)||null,
+          ...(r.importedFromAnki?{importedFromAnki:true}:{})
+        }:null),
+        updatedAt:now===null?(Number(r?.lastReviewedAt||0)||0):now,
+        deviceId:ankiCloud.deviceId};
+    }
+    function ankiCloudFind(deckKey,cardKey) {
+      for(const deck of Object.values(appState.decks)) {
+        if(ankiCloudDeckKey(deck)!==deckKey) continue;
+        const card=(deck.cards||[]).find(c=>ankiCloudCardKey(c)===cardKey);
+        if(card) return {deck,card};
+      }
+      return null;
+    }
+    function ankiCloudIdbGet(key) {
+      return new Promise(resolve=>{
+        if(!idbDB){resolve(null);return;}
+        try {const request=idbDB.transaction('state','readonly').objectStore('state').get(key);
+          request.onsuccess=()=>resolve(request.result||null);
+          request.onerror=()=>resolve(null);
+        }catch(e){resolve(null);}
+      });
+    }
+    function ankiCloudPersistPending() {
+      if(!ankiCloud.uid) return;
+      const state={reviews:[...ankiCloud.pending.entries()],hierarchy:ankiCloud.pendingHierarchy};
+      const key='anki_cloud_pending_v1_'+ankiCloud.uid;
+      if(idbDB) try {
+        idbDB.transaction('state','readwrite').objectStore('state').put(state,key);
+      }catch(error){console.warn('Cloud pending queue storage failed',error);}
+    }
+    async function ankiCloudLoadPending(uid) {
+      const state=await ankiCloudIdbGet('anki_cloud_pending_v1_'+uid);
+      ankiCloud.pending=new Map(Array.isArray(state?.reviews)?state.reviews:[]);
+      ankiCloud.pendingHierarchy=state?.hierarchy||null;
+    }
+    function ankiCloudQueueReview(deck,card,reset=false) {
+      if(!ankiCloud.uid) return;
+      const id=ankiCloudReviewId(deck,card);
+      const record=ankiCloudRecord(deck,card,Date.now(),reset);
+      ankiCloud.pending.set(id,record);
+      ankiCloudPersistPending();
+      ankiCloudStatus('Review queued for cloud synchronization.');
+      ankiCloudFlush();
+    }
+    function ankiCloudFindReviewedLocal() {
+      const found=new Map();
+      for(const deck of Object.values(appState.decks)) for(const card of deck.cards||[]) {
+        const id=ankiCloudReviewId(deck,card);
+        if(ankiCloudReviewed(card.reviewData)) found.set(id,{deck,card});
+      }
+      return found;
+    }
+    function ankiCloudApplyRecord(record,id) {
+      const match=ankiCloudFind(record.deckKey,record.cardKey);
+      if(!match) return false;
+      const {card}=match;
+      const pending=ankiCloud.pending.get(id);
+      const localTime=Number(card.reviewData?.lastReviewedAt||0);
+      const remoteTime=ankiCloudTime(record);
+      if(pending && ankiCloudTime(pending)>=remoteTime) return false;
+      if(ankiCloudReviewed(card.reviewData) && localTime>remoteTime) return false;
+      if(record.reviewData) card.reviewData={...record.reviewData};
+      else delete card.reviewData; // Synced hard reset/tombstone.
+      return true;
+    }
+    function ankiCloudReconcileReviews() {
+      if(!ankiCloud.uid||!ankiCloud.reviewsReady) return;
+      let changed=false;
+      ankiCloud.applying=true;
+      try {
+        // Discard stale offline writes if the cloud already has a newer update;
+        // otherwise a queued old review could overwrite the newer cloud copy.
+        for(const [id,pending] of ankiCloud.pending) {
+          const remote=ankiCloud.reviews.get(id);
+          if(remote && ankiCloudTime(remote)>ankiCloudTime(pending))
+            ankiCloud.pending.delete(id);
+        }
+        // Apply cloud states first, then upload local cards that are genuinely newer
+        // or absent from cloud. Never overwrite newer cloud progress with an old import.
+        for(const [id,record] of ankiCloud.reviews) {
+          if(ankiCloudApplyRecord(record,id)) changed=true;
+        }
+        for(const [id,{deck,card}] of ankiCloudFindReviewedLocal()) {
+          if(ankiCloud.pending.has(id)) continue;
+          const remote=ankiCloud.reviews.get(id);
+          const local=Number(card.reviewData?.lastReviewedAt||0);
+          if(!remote || (local>ankiCloudTime(remote))) {
+            const record=ankiCloudRecord(deck,card,local||0);
+            ankiCloud.pending.set(id,record);
+          }
+        }
+        if(changed) {
+          saveLocalState();renderDecks();
+          if(document.getElementById('view-study')?.classList.contains('hidden')===false)
+            showToast('Cloud review progress updated. Reopen the deck to refresh the due-card list.');
+        }
+      } finally {ankiCloud.applying=false;}
+      ankiCloudPersistPending();
+      ankiCloudFlush();
+    }
+    function ankiCloudScheduleReviewReconcile() {
+      if(!ankiCloud.reviewsReady||ankiCloud.applying) return;
+      clearTimeout(ankiCloud.reviewRefreshTimer);
+      ankiCloud.reviewRefreshTimer=setTimeout(ankiCloudReconcileReviews,400);
+    }
+    function ankiCloudHierarchyData() {
+      const decks=Object.values(appState.decks).map(deck=>({
+        key:ankiCloudDeckKey(deck),name:String(deck.name||''),
+        category:String(deck.category||'Medical'),
+        fileName:String(deck.sourceFileName||''),
+        sourceFilePath:String(deck.sourceFilePath||''),
+        sourceFingerprint:String(deck.sourceFingerprint||'')
+      }));
+      const present=new Set(decks.map(d=>d.key));
+      // An iPhone may have imported only some packages. A hierarchy edit on it
+      // must not erase the other package entries from the shared catalog.
+      for(const remote of ankiCloud.remoteHierarchy?.decks||[]) {
+        if(remote && typeof remote.key==='string' && !present.has(remote.key))
+          decks.push(remote);
+      }
+      decks.sort((a,b)=>a.key.localeCompare(b.key));
+      const categories=[...new Set([...(appState.categories||[]),
+        ...(ankiCloud.remoteHierarchy?.categories||[])].filter(Boolean))].sort();
+      return {version:1,categories,decks};
+    }
+    function ankiCloudHierarchySignature(value) {
+      return JSON.stringify({categories:value.categories,decks:value.decks});
+    }
+    function ankiCloudQueueHierarchy() {
+      if(!ankiCloud.uid||ankiCloud.applying) return;
+      const data=ankiCloudHierarchyData();
+      const signature=ankiCloudHierarchySignature(data);
+      if(signature===ankiCloud.signature) return;
+      ankiCloud.signature=signature;
+      ankiCloud.pendingHierarchy={...data,updatedAt:Date.now(),deviceId:ankiCloud.deviceId};
+      ankiCloudPersistPending();
+      ankiCloudStatus('Hierarchy queued for cloud synchronization.');
+      ankiCloudFlush();
+    }
+    function ankiCloudOnLocalSave() {
+      if(!ankiCloud.boot||ankiCloud.applying||!ankiCloud.uid) return;
+      clearTimeout(ankiCloud.hierarchyTimer);
+      ankiCloud.hierarchyTimer=setTimeout(ankiCloudQueueHierarchy,600);
+      ankiCloudScheduleReviewReconcile();
+    }
+    function ankiCloudApplyHierarchy(data) {
+      if(!data||!Array.isArray(data.decks)||!Array.isArray(data.categories)) return;
+      ankiCloud.applying=true;
+      try {
+        const localByKey=new Map(Object.values(appState.decks).map(deck=>[ankiCloudDeckKey(deck),deck]));
+        const entries=[];
+        const categories=new Set(data.categories.map(c=>ankiMedicalCategory(c)));
+        categories.add('Medical');
+        for(const item of data.decks) {
+          if(!item||typeof item.key!=='string') continue;
+          const deck=localByKey.get(item.key);
+          const category=ankiMedicalCategory(item.category||'Medical');
+          if(item.sourceFilePath||item.fileName) {
+            entries.push({path:item.sourceFilePath||item.fileName,
+              name:item.name||item.fileName||'Deck',category,
+              ...(item.sourceFingerprint?{fingerprint:item.sourceFingerprint}:{})});
+          }
+          if(deck) {
+            deck.category=category;
+            if(item.name) deck.name=String(item.name);
+            ensureAnkiCategoryPath(category);
+          }
+          const parts=category.split(' / ');
+          for(let i=1;i<=parts.length;i++) categories.add(parts.slice(0,i).join(' / '));
+        }
+        appState.categories=[...new Set([...categories,...appState.categories.filter(c=>
+          Object.values(appState.decks).some(deck=>deck.category===c || deck.category?.startsWith(c+' / '))
+        )])];
+        // Preserve a hierarchy guide for cloud-only packages: they can appear as
+        // "Needs .apkg" placeholders, but cloud never fabricates missing cards.
+        if(entries.length) {
+          ankiOrganizerLoadedManifest={format:'AnkiSyncOrganizer',version:1,
+            exportedAt:new Date().toISOString(),categories:[...categories],collapsed:[],decks:entries};
+        }
+        ankiEnsureMedicalOnly();
+        ankiCloud.signature=ankiCloudHierarchySignature(ankiCloudHierarchyData());
+        saveLocalState();renderCategories();renderDecks();renderNestedSubjects();
+      }finally{ankiCloud.applying=false;}
+    }
+    function ankiCloudFlush() {
+      if(!ankiCloud.uid||!ankiCloud.db) return;
+      const uid=ankiCloud.uid;
+      if(ankiCloud.reviewsReady) {
+        for(const [id,record] of ankiCloud.pending) {
+          if(ankiCloud.inflight.has(id)) continue;
+          ankiCloud.inflight.add(id);
+          const writeRecord={...record,serverUpdatedAt:firebase.firestore.FieldValue.serverTimestamp()};
+          ankiCloud.db.collection('users').doc(uid).collection('ankiSyncReviews').doc(id)
+            .set(writeRecord).then(()=>{
+              // Do not drop a newer local rating that arrived during this write.
+              if(ankiCloud.pending.get(id)===record) ankiCloud.pending.delete(id);
+              ankiCloud.lastServerAcknowledgement=Date.now();
+              ankiCloudPersistPending();
+              ankiCloudStatus('Review update acknowledged by Firestore.');
+            }).catch(err=>{ankiCloudStatus('Cloud write failed: '+(err?.message||err),true);})
+            .finally(()=>{ankiCloud.inflight.delete(id);if(ankiCloud.pending.has(id) &&
+              ankiCloud.pending.get(id)!==record) ankiCloudFlush();});
+        }
+      }
+      if(ankiCloud.hierarchyReady && ankiCloud.pendingHierarchy && !ankiCloud.syncBusy) {
+        const payload=ankiCloud.pendingHierarchy;
+        ankiCloud.syncBusy=true;
+        ankiCloud.db.collection('users').doc(uid).collection('ankiSyncMeta').doc('hierarchy')
+          .set({...payload,serverUpdatedAt:firebase.firestore.FieldValue.serverTimestamp()})
+          .then(()=>{
+            if(ankiCloud.pendingHierarchy===payload) ankiCloud.pendingHierarchy=null;
+            ankiCloud.lastServerAcknowledgement=Date.now();
+            ankiCloudPersistPending();
+            ankiCloudStatus('Hierarchy update acknowledged by Firestore.');
+          }).catch(err=>{ankiCloudStatus('Hierarchy cloud write failed: '+(err?.message||err),true);})
+          .finally(()=>{
+            ankiCloud.syncBusy=false;
+            if(ankiCloud.pendingHierarchy && ankiCloud.pendingHierarchy!==payload) ankiCloudFlush();
+          });
+      }
+    }
+    function ankiCloudDetach() {
+      ankiCloud.unsubscribeReviews?.();ankiCloud.unsubscribeHierarchy?.();
+      ankiCloud.unsubscribeReviews=null;ankiCloud.unsubscribeHierarchy=null;
+      ankiCloud.uid=null;ankiCloud.reviewsReady=false;ankiCloud.hierarchyReady=false;
+      ankiCloud.reviews.clear();ankiCloud.pending.clear();ankiCloud.pendingHierarchy=null;
+      ankiCloud.inflight.clear();ankiCloud.syncBusy=false;ankiCloud.remoteHierarchy=null;
+      ankiCloud.reviewsServer=false;ankiCloud.hierarchyServer=false;
+      ankiCloud.reviewListenerError=null;ankiCloud.hierarchyListenerError=null;
+      ankiCloud.lastServerAcknowledgement=0;ankiCloud.lastCloudTest=null;
+      ankiCloudUpdateUI();
+    }
+    async function ankiCloudAttach(user) {
+      ankiCloudDetach();
+      if(!user) {ankiCloudStatus('Local mode. Sign in to synchronize review progress.');return;}
+      // Prevent a different account from silently receiving this browser's library.
+      let bound='';try{bound=localStorage.getItem('anki_cloud_bound_uid')||'';}catch(e){}
+      if(bound && bound!==user.uid) {
+        const approved=confirm('This browser was synchronized with a different account. Connect this local library to the newly signed-in account? This may merge your local review progress into that account.');
+        if(!approved) {await ankiCloud.auth.signOut();return;}
+      }
+      try{localStorage.setItem('anki_cloud_bound_uid',user.uid);}catch(e){}
+      ankiCloud.uid=user.uid;
+      await ankiCloudLoadPending(user.uid);
+      ankiCloud.signature=ankiCloudHierarchySignature(ankiCloudHierarchyData());
+      ankiCloudUpdateUI();
+      ankiCloudStatus('Connected. Comparing this device with cloud progress…');
+      const ownUid=user.uid;
+      const owner=ankiCloud.db.collection('users').doc(ownUid);
+      ankiCloud.unsubscribeReviews=owner.collection('ankiSyncReviews').onSnapshot({includeMetadataChanges:true},snap=>{
+        if(ankiCloud.uid!==ownUid) return;
+        ankiCloud.reviewsServer=!snap.metadata.fromCache;
+        ankiCloud.reviewListenerError=null;
+        const next=new Map();
+        snap.forEach(doc=>{
+          const value=doc.data();
+          if(value && typeof value.deckKey==='string' && typeof value.cardKey==='string')
+            next.set(doc.id,value);
+        });
+        ankiCloud.reviews=next;
+        ankiCloud.reviewsReady=true;
+        ankiCloudReconcileReviews();
+        const count=ankiCloudMatchCounts();
+        ankiCloudStatus('Firestore review listener active: '+next.size+' records, '+count.matched+
+          ' matched locally'+(snap.metadata.fromCache?' (cached, server not confirmed).':'.'));
+      },err=>{ankiCloud.reviewListenerError=String(err?.message||err);
+        ankiCloudStatus('Review sync failed: '+ankiCloud.reviewListenerError,true);});
+      ankiCloud.unsubscribeHierarchy=owner.collection('ankiSyncMeta').doc('hierarchy').onSnapshot({includeMetadataChanges:true},snap=>{
+        if(ankiCloud.uid!==ownUid) return;
+        ankiCloud.hierarchyServer=!snap.metadata.fromCache;
+        ankiCloud.hierarchyListenerError=null;
+        const data=snap.exists?snap.data():null;
+        const remoteTime=Number(data?.updatedAt||0);
+        const localPending=ankiCloud.pendingHierarchy;
+        if(data && Array.isArray(data.decks)) {
+          ankiCloud.remoteHierarchy=data;
+          if(!localPending || remoteTime>Number(localPending.updatedAt||0)) {
+            ankiCloudApplyHierarchy(data);
+            ankiCloud.lastRemoteHierarchyTime=remoteTime;
+            if(localPending && remoteTime>Number(localPending.updatedAt||0)) {
+              ankiCloud.pendingHierarchy=null;ankiCloudPersistPending();
+            }
+          }
+        } else if(!localPending) {
+          // New cloud account: publish existing folder layout once.
+          const current=ankiCloudHierarchyData();
+          if(current.decks.length) ankiCloud.pendingHierarchy={...current,
+            updatedAt:Date.now(),deviceId:ankiCloud.deviceId};
+        }
+        ankiCloud.hierarchyReady=true;ankiCloudFlush();
+        ankiCloudStatus(snap.metadata.fromCache?'Hierarchy loaded from cache; waiting for server.':
+          'Firestore hierarchy listener connected to server.');
+      },err=>{ankiCloud.hierarchyListenerError=String(err?.message||err);
+        ankiCloudStatus('Hierarchy sync failed: '+ankiCloud.hierarchyListenerError,true);});
+    }
+    function ankiCloudParseConfig(input) {
+      let str=String(input||'').trim();
+      // Accept both Firebase console JSON and a pasted "const firebaseConfig = {...};" block.
+      if(!str.startsWith('{')) {
+        const i=str.indexOf('{'), j=str.lastIndexOf('}');
+        if(i<0||j<i) throw new Error('Paste the Firebase web app configuration object.');
+        str=str.slice(i,j+1);
+        str=str.replace(/([\{,]\s*)([A-Za-z_$][\w$]*)\s*:/g,'$1"$2":').replace(/'([^']*)'/g,'"$1"').replace(/,\s*([}\]])/g,'$1');
+      }
+      const config=JSON.parse(str);
+      if(!config.apiKey||!config.projectId||!config.authDomain||!config.appId)
+        throw new Error('Configuration must include apiKey, projectId, authDomain, and appId.');
+      return config;
+    }
+    function ankiCloudInitFirebase(config) {
+      if(typeof firebase==='undefined'||typeof firebase.auth!=='function'||typeof firebase.firestore!=='function')
+        throw new Error('Firebase libraries did not load. Check your internet connection.');
+      if(ankiCloud.app && ankiCloud.app.options.projectId!==config.projectId)
+        throw new Error('This page is connected to another Firebase project. Reload before switching projects.');
+      ankiCloud.app=ankiCloud.app||firebase.initializeApp(config,'ankisync-cloud');
+      ankiCloud.auth=ankiCloud.app.auth();
+      ankiCloud.db=ankiCloud.app.firestore();
+      if(!ankiCloud.authObserver) {
+        ankiCloud.authObserver=ankiCloud.auth.onAuthStateChanged(user=>{
+          ankiCloudAttach(user).catch(err=>ankiCloudStatus(err.message,true));
+        });
+      }
+      return true;
+    }
+    async function ankiCloudConnect(register=false) {
+      const configText=document.getElementById('ankiCloudConfig')?.value||'';
+      const email=(document.getElementById('ankiCloudEmail')?.value||'').trim();
+      const password=document.getElementById('ankiCloudPassword')?.value||'';
+      try {
+        const config=ankiCloudParseConfig(configText);
+        try{localStorage.setItem('anki_cloud_firebase_config_v1',JSON.stringify(config));}catch(e){}
+        ankiCloudInitFirebase(config);
+        if(!email || !password) throw new Error('Enter your Firebase account email and password.');
+        if(register) await ankiCloud.auth.createUserWithEmailAndPassword(email,password);
+        else await ankiCloud.auth.signInWithEmailAndPassword(email,password);
+        document.getElementById('ankiCloudPassword').value='';
+        ankiCloudStatus('Signed in. Synchronizing your review progress…');
+      }catch(error){ankiCloudStatus('Cannot connect: '+(error?.message||error),true);}
+    }
+    async function ankiCloudSignOut() {
+      try {
+        if(ankiCloud.auth) await ankiCloud.auth.signOut();
+        ankiCloudDetach();
+        ankiCloudStatus('Signed out. Local decks and review data are still on this device.');
+      }catch(error){ankiCloudStatus(error.message,true);}
+    }
+    async function ankiCloudForceReconcile() {
+      if(!ankiCloud.uid){ankiCloudStatus('Sign in before syncing.',true);return;}
+      ankiCloudStatus('Checking Firestore server and queued updates…');
+      ankiCloudReconcileReviews();
+      ankiCloudFlush();
+      try {
+        const root=ankiCloud.db.collection('users').doc(ankiCloud.uid);
+        // source:server makes this a genuine server test instead of a cached reply.
+        const [reviewsSnap,hierarchySnap]=await Promise.all([
+          root.collection('ankiSyncReviews').get({source:'server'}),
+          root.collection('ankiSyncMeta').doc('hierarchy').get({source:'server'})
+        ]);
+        ankiCloud.reviewsServer=true;ankiCloud.hierarchyServer=true;
+        ankiCloud.reviewListenerError=null;ankiCloud.hierarchyListenerError=null;
+        const next=new Map();
+        reviewsSnap.forEach(doc=>{const record=doc.data();
+          if(record && typeof record.deckKey==='string' && typeof record.cardKey==='string')
+            next.set(doc.id,record);});
+        ankiCloud.reviews=next;ankiCloud.reviewsReady=true;
+        ankiCloudReconcileReviews();
+        const counts=ankiCloudMatchCounts();
+        ankiCloudStatus('Server confirmed: '+reviewsSnap.size+' review records; '+
+          counts.matched+' match cards on this device, '+counts.unmatched+' unmatched.'+
+          (hierarchySnap.exists?' Hierarchy found.':' No hierarchy uploaded yet.'));
+      }catch(err) {
+        ankiCloudStatus('Cannot verify Firestore server: '+(err?.message||err),true);
+      }
+    }
+    async function ankiCloudTestWriteRead() {
+      if(!ankiCloud.uid || !ankiCloud.db) {ankiCloudStatus('Sign in before testing the cloud.',true);return;}
+      if(ankiCloud.verifyBusy) return;
+      ankiCloud.verifyBusy=true;
+      const uid=ankiCloud.uid;
+      const id='diagnostic_'+ankiCloudHash(ankiCloud.deviceId);
+      const ref=ankiCloud.db.collection('users').doc(uid).collection('ankiSyncMeta').doc(id);
+      const nonce=Date.now()+'-'+Math.random().toString(36).slice(2);
+      ankiCloudStatus('Testing a real Firestore write and server read…');
+      try {
+        await ref.set({testOnly:true,nonce,deviceId:ankiCloud.deviceId,
+          updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+        const doc=await ref.get({source:'server'});
+        if(!doc.exists || doc.data()?.nonce!==nonce)
+          throw new Error('Server did not return the expected test record.');
+        await ref.delete();
+        ankiCloud.lastServerAcknowledgement=Date.now();
+        ankiCloud.lastCloudTest=true;
+        ankiCloudStatus('Cloud test PASSED: Firestore accepted a write, returned it from the server, and deleted the temporary record. Card-to-card matching still needs checking.');
+      }catch(err) {
+        ankiCloud.lastCloudTest=false;
+        ankiCloudStatus('Cloud test FAILED: '+(err?.message||err),true);
+      }finally {ankiCloud.verifyBusy=false;}
+    }
+    function ankiCloudBoot() {
+      ankiCloud.boot=true;
+      const el=document.getElementById('ankiCloudConfig');
+      if(!el) return;
+      let stored='';try{stored=localStorage.getItem('anki_cloud_firebase_config_v1')||'';}catch(e){}
+      if(stored) {
+        el.value=stored;
+        try{ankiCloudInitFirebase(ankiCloudParseConfig(stored));}
+        catch(error){ankiCloudStatus(error.message,true);}
+      } else {
+        ankiCloudStatus('Not connected. Set up Firebase to enable cloud progress sync.');
+      }
+    }
+    // === End cloud module ===
 
   </script>
 </body>
