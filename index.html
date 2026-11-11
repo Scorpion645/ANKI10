@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <title>AnkiSync — iCloud APKG Study</title>
+  <title>AnkiSync — NON-DESTRUCTIVE Safe Copy Export</title>
   
   <!-- CSS Frameworks & Icons -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -42,12 +42,10 @@
   list-style-type: decimal !important;
   margin-left: 24px !important;
   padding-left: 12px !important;
-  text-align: left !important;
 }
 
 .anki-content li, .editor-canvas li {
   margin: 6px 0 !important;
-  text-align: left !important;
   line-height: 1.5 !important;
 }
 
@@ -74,12 +72,10 @@
   list-style-type: decimal !important;
   margin-left: 24px !important;
   padding-left: 12px !important;
-  text-align: left !important;
 }
 
 .editor-canvas li, .anki-content li {
   margin: 4px 0 !important;
-  text-align: left !important;
 }
 .editor-canvas ul {
   list-style-type: disc;
@@ -453,9 +449,7 @@ body.light-mode .sidebar-header {
       color: #0f172a !important;
     }
 
-#backContent * {
-    text-align: inherit !important;
-}
+/* Respect paragraph/list alignment saved in card HTML. */
 
     
 body.light-mode #cardBack span {
@@ -474,17 +468,7 @@ body.light-mode #cardBack span {
     font-weight: bold !important;
 }
 
-#backContent ul,
-#backContent ol {
-    display: block;
-    width: 100%;
-    margin-left: 0;
-    padding-left: 1.5rem;
-}
-
-#backContent li {
-    text-align: left;
-}
+/* The shared list gutter rules style saved lists; avoid overriding nested lists here. */
 
 #frontContent,
 #backContent {
@@ -1073,6 +1057,35 @@ body {min-width:0;min-height:100vh;min-height:100dvh;padding-bottom:env(safe-are
   #mainContainer {padding-bottom:max(20px,env(safe-area-inset-bottom,0px));}
 }
 
+
+/* Back-answer editors are twice their former minimum height. The existing
+   dark/light editor colors and scrollbars remain unchanged. */
+#createCardBack { min-height: 240px !important; }
+#editCardBack, #modalCardBack { min-height: 160px !important; }
+/* Keep save controls accessible when the expanded editor content is scrolled. */
+#quickAddModal .anki-card-save-footer,
+#studyEditMode .anki-card-save-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 12;
+  padding-top: 12px;
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+  background: var(--card-bg);
+}
+body.light-mode #quickAddModal .anki-card-save-footer,
+body.light-mode #studyEditMode .anki-card-save-footer { background: #ffffff; }
+
+/* Cloze answers must remain inline inside their original numbered/bullet item.
+   Keep the editor's text colors, font sizes and list spacing unchanged. */
+.anki-content .anki-cloze-revealed-answer { display: inline !important; white-space: normal; vertical-align: baseline; }
+.anki-content .anki-cloze-revealed-answer :is(p, div) { display: inline !important; margin: 0 !important; padding: 0 !important; }
+.anki-content li > .anki-inline-cloze-token { display: inline !important; }
+/* The default Edit button lives just above the Reveal button. Once dragged,
+   its existing fixed-position behavior and saved user position take over. */
+#ankiFloatingEditAnchor { display: flex; align-items: center; justify-content: center; min-height: 0; }
+#ankiFloatingEditAnchor:has(> .anki-floating-edit-button:not(.hidden)) { margin-top: 8px; margin-bottom: 5px; }
+.anki-floating-edit-button.anki-floating-default { position: static; right: auto; top: auto; left: auto; margin: 0 auto; }
+
 </style>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col font-sans antialiased selection:bg-indigo-500 selection:text-white">
@@ -1093,8 +1106,9 @@ body {min-width:0;min-height:100vh;min-height:100dvh;padding-bottom:env(safe-are
  <button onclick="toggleAppTheme()" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-xl text-xs font-semibold" title="Toggle Theme"><i id="themeIcon" class="fa-solid fa-sun"></i> <span id="themeText">Light Mode</span></button>
  <button id="preferredAnkiFolderButton" type="button" onclick="choosePreferredAnkiFolder()" class="hidden px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-xl text-xs font-semibold" title="One-time setup: select E:\ICLOUD sync folder\iCloudDrive\Anki, so Open and Save As start there"><i class="fa-solid fa-folder-tree"></i> Set Anki Folder</button>
  <button onclick="openApkgFiles()" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold" title="Open an Anki file from the remembered PC folder, or Files → iCloud Drive → Anki on iPhone/iPad"><i class="fa-solid fa-folder-open"></i> Open .apkg</button>
- <button onclick="saveActiveApkg()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold" title="Save the current deck to an APKG file"><i class="fa-solid fa-floppy-disk"></i> Save to File</button>
- <span id="fileSaveStatus" role="status" class="text-[11px] text-slate-300 bg-slate-700/50 rounded-lg px-2 py-1" style="max-width:240px;overflow-wrap:anywhere">Local file mode</span>
+ <button type="button" onclick="saveActiveApkg()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold" title="Native Windows Save As dialog (Chrome/Edge). You may select an existing file to replace it after validation."><i class="fa-solid fa-floppy-disk"></i> Save As .apkg</button>
+
+ <span id="fileSaveStatus" role="status" class="text-[11px] text-slate-300 bg-slate-700/50 rounded-lg px-2 py-1" style="max-width:240px;overflow-wrap:anywhere">Read-only opening • manual native Save As</span>
  <input id="apkgOpenInput" type="file" class="hidden" multiple accept=".apkg,.colpkg,.anki,.anki2,.anki21" onchange="onApkgFilePicker(event)">
 </div>
 </div>
@@ -1207,9 +1221,9 @@ body {min-width:0;min-height:100vh;min-height:100dvh;padding-bottom:env(safe-are
             <i class="fa-solid fa-expand"></i>
             <span id="immersiveBtnText">Full Screen</span>
           </button>
-          <button type="button" onclick="saveCurrentDeckToApkg()" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition shadow-md" title="Save only the currently open deck as an .apkg file">
+          <button type="button" onclick="saveCurrentDeckToApkg()" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition shadow-md" title="Open native Save As dialog in desktop Chrome/Edge and manually save the selected .apkg">
             <i class="fa-solid fa-file-export"></i>
-            <span>Save Deck .apkg</span>
+            <span>Save As .apkg</span>
           </button>
         </div>
       </div>
@@ -1283,11 +1297,19 @@ body {min-width:0;min-height:100vh;min-height:100dvh;padding-bottom:env(safe-are
                 
 
               </div>
+              <div id="ankiFloatingEditAnchor" aria-label="Edit card control"></div>
               <div id="ankiRevealBelowCard" class="mt-3 mb-1" role="group" aria-label="Card navigation and cloze reveal">
                 <button id="ankiPrevButton" type="button" onclick="prevCard()" class="anki-card-nav px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5" aria-label="Previous card"><i class="fa-solid fa-chevron-left"></i><span class="hidden sm:inline">Previous</span><span class="sm:hidden">Prev</span></button>
                 <button id="ankiRevealButton" type="button" onclick="revealNextClozeByButton()" class="w-11 h-11 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white border border-indigo-400 shadow flex items-center justify-center text-base" title="Reveal next cloze (same as Space)" aria-label="Reveal next cloze field"><i class="fa-solid fa-eye"></i></button>
                 <button id="ankiNextButton" type="button" onclick="nextCard()" class="anki-card-nav px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5" aria-label="Next card"><span>Next</span><i class="fa-solid fa-chevron-right"></i></button>
               </div>
+            </div>
+
+            <!-- Local and source-package save times are deliberately separate: iOS
+                 browser autosave does not imply an iCloud APKG was overwritten. -->
+            <div id="ankiDeckAutosaveTimes" class="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 pt-2 text-[11px] text-slate-400" role="status" aria-live="polite">
+              <span id="ankiBrowserAutosavedAt" title="Completed browser-local save"><i class="fa-solid fa-database text-indigo-400"></i> Browser autosave: Not saved yet</span>
+              <span id="ankiPackageAutosavedAt" title="Last confirmed update to a writable .apkg file"><i class="fa-solid fa-file-zipper text-emerald-400"></i> .apkg: Not saved yet</span>
             </div>
 
             <!-- SRS Rating Controls -->
@@ -1362,11 +1384,11 @@ body {min-width:0;min-height:100vh;min-height:100dvh;padding-bottom:env(safe-are
                     <button type="button" class="anki-preset-btn" style="color:#000000" data-color="#000000" data-underline="false" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('editCardFront','#000000',false)" title="Bold black">Abc</button>
                     <button type="button" class="anki-preset-btn" style="color:#000000" data-color="#000000" data-underline="true" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('editCardFront','#000000',true)" title="Bold black underline">Abc</button>
                   </div>
-                  <button type="button" onclick="execCmd('justifyLeft', 'editCardFront')" class="toolbar-btn" title="Align Left"><i class="fa-solid fa-align-left"></i></button>
-                  <button type="button" onclick="execCmd('justifyCenter', 'editCardFront')" class="toolbar-btn" title="Align Center"><i class="fa-solid fa-align-center"></i></button>
-                  <button type="button" onclick="execCmd('justifyRight', 'editCardFront')" class="toolbar-btn" title="Align Right"><i class="fa-solid fa-align-right"></i></button>
-                  <button type="button" onmousedown="event.preventDefault()" onclick="execCmd('insertUnorderedList', 'editCardFront')" class="toolbar-btn" title="Bullet List"><i class="fa-solid fa-list-ul"></i></button>
-                  <button type="button" onmousedown="event.preventDefault()" onclick="execCmd('insertOrderedList', 'editCardFront')" class="toolbar-btn" title="Numbered List"><i class="fa-solid fa-list-ol"></i></button>
+                  <button type="button" onpointerdown="event.preventDefault()" onmousedown="event.preventDefault()" onclick="execCmd('justifyLeft', 'editCardFront')" class="toolbar-btn" title="Align Left"><i class="fa-solid fa-align-left"></i></button>
+                  <button type="button" onpointerdown="event.preventDefault()" onmousedown="event.preventDefault()" onclick="execCmd('justifyCenter', 'editCardFront')" class="toolbar-btn" title="Align Center"><i class="fa-solid fa-align-center"></i></button>
+                  <button type="button" onpointerdown="event.preventDefault()" onmousedown="event.preventDefault()" onclick="execCmd('justifyRight', 'editCardFront')" class="toolbar-btn" title="Align Right"><i class="fa-solid fa-align-right"></i></button>
+                  <button type="button" onpointerdown="event.preventDefault()" onmousedown="event.preventDefault()" onclick="execCmd('insertUnorderedList', 'editCardFront')" class="toolbar-btn" title="Bullet List"><i class="fa-solid fa-list-ul"></i></button>
+                  <button type="button" onpointerdown="event.preventDefault()" onmousedown="event.preventDefault()" onclick="execCmd('insertOrderedList', 'editCardFront')" class="toolbar-btn" title="Numbered List"><i class="fa-solid fa-list-ol"></i></button>
                   <button type="button" onmousedown="event.preventDefault()" onclick="clearSelectedEditorFormatting('editCardFront')" class="toolbar-btn" title="Clear Formatting (selected front text only)"><i class="fa-solid fa-eraser"></i></button>
                 </div>
                 <button type="button" onmousedown="event.preventDefault()" onclick="insertBackClozeField('editCardFront')" class="toolbar-btn mb-1" title="Convert selected front text to a cloze, or insert a new cloze field"><i class="fa-solid fa-square-plus"></i> Add Cloze Field</button>
@@ -1421,24 +1443,24 @@ body {min-width:0;min-height:100vh;min-height:100dvh;padding-bottom:env(safe-are
                     <button type="button" class="anki-preset-btn" style="color:#000000" data-color="#000000" data-underline="false" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('editCardBack','#000000',false)" title="Bold black">Abc</button>
                     <button type="button" class="anki-preset-btn" style="color:#000000" data-color="#000000" data-underline="true" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('editCardBack','#000000',true)" title="Bold black underline">Abc</button>
                   </div>
-                  <button type="button" onclick="execCmd('justifyLeft', 'editCardBack')" class="toolbar-btn" title="Align Left"><i class="fa-solid fa-align-left"></i></button>
-                  <button type="button" onclick="execCmd('justifyCenter', 'editCardBack')" class="toolbar-btn" title="Align Center"><i class="fa-solid fa-align-center"></i></button>
-                  <button type="button" onclick="execCmd('justifyRight', 'editCardBack')" class="toolbar-btn" title="Align Right"><i class="fa-solid fa-align-right"></i></button>
-                  <button type="button" onmousedown="event.preventDefault()" onclick="execCmd('insertUnorderedList', 'editCardBack')" class="toolbar-btn" title="Bullet List"><i class="fa-solid fa-list-ul"></i></button>
-                  <button type="button" onmousedown="event.preventDefault()" onclick="execCmd('insertOrderedList', 'editCardBack')" class="toolbar-btn" title="Numbered List"><i class="fa-solid fa-list-ol"></i></button>
+                  <button type="button" onpointerdown="event.preventDefault()" onmousedown="event.preventDefault()" onclick="execCmd('justifyLeft', 'editCardBack')" class="toolbar-btn" title="Align Left"><i class="fa-solid fa-align-left"></i></button>
+                  <button type="button" onpointerdown="event.preventDefault()" onmousedown="event.preventDefault()" onclick="execCmd('justifyCenter', 'editCardBack')" class="toolbar-btn" title="Align Center"><i class="fa-solid fa-align-center"></i></button>
+                  <button type="button" onpointerdown="event.preventDefault()" onmousedown="event.preventDefault()" onclick="execCmd('justifyRight', 'editCardBack')" class="toolbar-btn" title="Align Right"><i class="fa-solid fa-align-right"></i></button>
+                  <button type="button" onpointerdown="event.preventDefault()" onmousedown="event.preventDefault()" onclick="execCmd('insertUnorderedList', 'editCardBack')" class="toolbar-btn" title="Bullet List"><i class="fa-solid fa-list-ul"></i></button>
+                  <button type="button" onpointerdown="event.preventDefault()" onmousedown="event.preventDefault()" onclick="execCmd('insertOrderedList', 'editCardBack')" class="toolbar-btn" title="Numbered List"><i class="fa-solid fa-list-ol"></i></button>
                   <button type="button" onmousedown="event.preventDefault()" onclick="clearSelectedEditorFormatting('editCardBack')" class="toolbar-btn" title="Clear Formatting"><i class="fa-solid fa-eraser"></i></button>
                 </div>
                 <button type="button" onmousedown="event.preventDefault()" onclick="insertBackClozeField('editCardBack')" class="toolbar-btn mb-1" title="Insert a numbered cloze field"><i class="fa-solid fa-square-plus"></i> Add Cloze Field</button>
 <button type="button" onmousedown="event.preventDefault()" onclick="toggleClozeTogether('editCardBack')" class="toolbar-btn mb-1" title="Link this cloze to the preceding cloze so both reveal together"><i class="fa-solid fa-link"></i> Reveal Together</button>
 <button type="button" onmousedown="event.preventDefault()" onclick="openImageClozeModal('editCardBack')" class="toolbar-btn mb-1" title="Draw reversible, numbered masks on an image; reveal them with Space"><i class="fa-solid fa-masks-theater"></i> Image Cloze</button>
-                <div id="editCardBack" contenteditable="true" class="editor-canvas !min-h-[80px]"></div>
+                <div id="editCardBack" contenteditable="true" class="editor-canvas !min-h-[160px]"></div>
               </div>
 
 
             </div>
 
-            <div class="flex space-x-3 pt-2">
-              <button onclick="saveCardEdits()" class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold transition shadow-md">
+            <div class="anki-card-save-footer flex space-x-3 pt-2">
+              <button type="button" onclick="saveCardEdits()" class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold transition shadow-md">
                 Save Changes
               </button>
               <button onclick="toggleEditCurrentCard()" class="px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-xl text-xs font-semibold transition">
@@ -1522,12 +1544,12 @@ body {min-width:0;min-height:100vh;min-height:100dvh;padding-bottom:env(safe-are
                     <button type="button" class="anki-preset-btn" style="color:#000000" data-color="#000000" data-underline="false" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('createCardFront','#000000',false)" title="Bold black">Abc</button>
                     <button type="button" class="anki-preset-btn" style="color:#000000" data-color="#000000" data-underline="true" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('createCardFront','#000000',true)" title="Bold black underline">Abc</button>
                   </div>
-                  <button type="button" onclick="execCmd('justifyLeft', 'createCardFront')" class="toolbar-btn" title="Align Left"><i class="fa-solid fa-align-left"></i></button>
-              <button type="button" onclick="execCmd('justifyCenter', 'createCardFront')" class="toolbar-btn" title="Align Center"><i class="fa-solid fa-align-center"></i></button>
-              <button type="button" onclick="execCmd('justifyRight', 'createCardFront')" class="toolbar-btn" title="Align Right"><i class="fa-solid fa-align-right"></i></button>
+                  <button type="button" onpointerdown="event.preventDefault()" onmousedown="event.preventDefault()" onclick="execCmd('justifyLeft', 'createCardFront')" class="toolbar-btn" title="Align Left"><i class="fa-solid fa-align-left"></i></button>
+              <button type="button" onpointerdown="event.preventDefault()" onmousedown="event.preventDefault()" onclick="execCmd('justifyCenter', 'createCardFront')" class="toolbar-btn" title="Align Center"><i class="fa-solid fa-align-center"></i></button>
+              <button type="button" onpointerdown="event.preventDefault()" onmousedown="event.preventDefault()" onclick="execCmd('justifyRight', 'createCardFront')" class="toolbar-btn" title="Align Right"><i class="fa-solid fa-align-right"></i></button>
              
-<button type="button" onmousedown="event.preventDefault()" onclick="execCmd('insertUnorderedList', 'createCardFront')" class="toolbar-btn" title="Bullet List"><i class="fa-solid fa-list-ul"></i></button>
-<button type="button" onmousedown="event.preventDefault()" onclick="execCmd('insertOrderedList', 'createCardFront')" class="toolbar-btn" title="Numbered List"><i class="fa-solid fa-list-ol"></i></button>
+<button type="button" onpointerdown="event.preventDefault()" onmousedown="event.preventDefault()" onclick="execCmd('insertUnorderedList', 'createCardFront')" class="toolbar-btn" title="Bullet List"><i class="fa-solid fa-list-ul"></i></button>
+<button type="button" onpointerdown="event.preventDefault()" onmousedown="event.preventDefault()" onclick="execCmd('insertOrderedList', 'createCardFront')" class="toolbar-btn" title="Numbered List"><i class="fa-solid fa-list-ol"></i></button>
 
 
 
@@ -1584,12 +1606,12 @@ body {min-width:0;min-height:100vh;min-height:100dvh;padding-bottom:env(safe-are
                     <button type="button" class="anki-preset-btn" style="color:#000000" data-color="#000000" data-underline="false" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('createCardBack','#000000',false)" title="Bold black">Abc</button>
                     <button type="button" class="anki-preset-btn" style="color:#000000" data-color="#000000" data-underline="true" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('createCardBack','#000000',true)" title="Bold black underline">Abc</button>
                   </div>
-                  <button type="button" onclick="execCmd('justifyLeft', 'createCardBack')" class="toolbar-btn" title="Align Left"><i class="fa-solid fa-align-left"></i></button>
-              <button type="button" onclick="execCmd('justifyCenter', 'createCardBack')" class="toolbar-btn" title="Align Center"><i class="fa-solid fa-align-center"></i></button>
-              <button type="button" onclick="execCmd('justifyRight', 'createCardBack')" class="toolbar-btn" title="Align Right"><i class="fa-solid fa-align-right"></i></button>
+                  <button type="button" onpointerdown="event.preventDefault()" onmousedown="event.preventDefault()" onclick="execCmd('justifyLeft', 'createCardBack')" class="toolbar-btn" title="Align Left"><i class="fa-solid fa-align-left"></i></button>
+              <button type="button" onpointerdown="event.preventDefault()" onmousedown="event.preventDefault()" onclick="execCmd('justifyCenter', 'createCardBack')" class="toolbar-btn" title="Align Center"><i class="fa-solid fa-align-center"></i></button>
+              <button type="button" onpointerdown="event.preventDefault()" onmousedown="event.preventDefault()" onclick="execCmd('justifyRight', 'createCardBack')" class="toolbar-btn" title="Align Right"><i class="fa-solid fa-align-right"></i></button>
 
-<button type="button" onmousedown="event.preventDefault()" onclick="execCmd('insertUnorderedList', 'createCardBack')" class="toolbar-btn" title="Bullet List"><i class="fa-solid fa-list-ul"></i></button>
-<button type="button" onmousedown="event.preventDefault()" onclick="execCmd('insertOrderedList', 'createCardBack')" class="toolbar-btn" title="Numbered List"><i class="fa-solid fa-list-ol"></i></button>
+<button type="button" onpointerdown="event.preventDefault()" onmousedown="event.preventDefault()" onclick="execCmd('insertUnorderedList', 'createCardBack')" class="toolbar-btn" title="Bullet List"><i class="fa-solid fa-list-ul"></i></button>
+<button type="button" onpointerdown="event.preventDefault()" onmousedown="event.preventDefault()" onclick="execCmd('insertOrderedList', 'createCardBack')" class="toolbar-btn" title="Numbered List"><i class="fa-solid fa-list-ol"></i></button>
 
 
               <button type="button" onmousedown="event.preventDefault()" onclick="clearSelectedEditorFormatting('createCardBack')" class="toolbar-btn" title="Clear Formatting"><i class="fa-solid fa-eraser"></i></button>
@@ -1597,12 +1619,12 @@ body {min-width:0;min-height:100vh;min-height:100dvh;padding-bottom:env(safe-are
             <button type="button" onmousedown="event.preventDefault()" onclick="insertBackClozeField('createCardBack')" class="toolbar-btn mb-1" title="Insert a numbered cloze field"><i class="fa-solid fa-square-plus"></i> Add Cloze Field</button>
 <button type="button" onmousedown="event.preventDefault()" onclick="toggleClozeTogether('createCardBack')" class="toolbar-btn mb-1" title="Link this cloze to the preceding cloze so both reveal together"><i class="fa-solid fa-link"></i> Reveal Together</button>
 <button type="button" onmousedown="event.preventDefault()" onclick="openImageClozeModal('createCardBack')" class="toolbar-btn mb-1" title="Draw reversible, numbered masks on an image; reveal them with Space"><i class="fa-solid fa-masks-theater"></i> Image Cloze</button>
-            <div id="createCardBack" contenteditable="true" class="editor-canvas"></div>
+            <div id="createCardBack" contenteditable="true" class="editor-canvas min-h-[240px]"></div>
           </div>
 
 
 
-          <button onclick="saveNewCard()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold transition shadow-lg shadow-indigo-500/25 flex items-center justify-center space-x-2">
+          <button type="button" onclick="saveNewCard()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold transition shadow-lg shadow-indigo-500/25 flex items-center justify-center space-x-2">
             <i class="fa-solid fa-floppy-disk"></i>
             <span>Save Flashcard</span>
           </button>
@@ -1614,13 +1636,13 @@ body {min-width:0;min-height:100vh;min-height:100dvh;padding-bottom:env(safe-are
 <div id="view-import" class="tab-view hidden space-y-6">
  <div class="bg-slate-800 p-6 rounded-3xl border border-slate-700 shadow-xl space-y-3">
   <h2 class="font-bold text-white"><i class="fa-solid fa-file-import text-indigo-400"></i> Open Anki Package</h2>
-  <p class="text-xs text-slate-300">Choose a .apkg on your PC, iPhone or iPad. Review progress is saved in this browser after every change. On supported Windows browsers, selecting a writable file enables automatic saving back to it. The original Anki package is preserved with AnkiSync progress stored in an additional ZIP entry.</p>
+  <p class="text-xs text-slate-300">Open .apkg remains read-only. Review progress autosaves to this browser (IndexedDB), not to the source file. On Windows, <b>Save As .apkg</b> directly opens the native Chrome/Edge Save As dialog: choose the iCloud folder, enter a filename, and confirm replacement if desired. The generated package is checked before writing. Because you previously experienced 0 KB files in iCloud, <b>keep an independent backup outside iCloud</b> before replacing an existing package.</p>
   <button type="button" onclick="openApkgFiles()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold">Open .apkg from Files</button>
-  <button type="button" onclick="saveActiveApkg()" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold">Save Current .apkg</button>
+  <button type="button" onclick="saveActiveApkg()" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold">Save As .apkg</button>
   <button type="button" onclick="document.getElementById('legacyBackupInput').click()" class="px-4 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-semibold">Import Earlier AnkiSync Backup (optional)</button>
   <input type="file" id="legacyBackupInput" accept=".json,application/json" class="hidden" onchange="importEarlierAnkiSyncBackup(event)">
   <div id="importProgress" class="hidden space-y-2"><div class="flex justify-between text-xs text-slate-300"><span id="importStatusText">Importing file...</span><span id="importPercent">0%</span></div><div class="w-full bg-slate-900 rounded-full h-2"><div id="importProgressBar" class="bg-indigo-500 h-2" style="width:0%"></div></div></div>
-  <div id="fileSaveExplanation" class="text-xs text-amber-200 rounded-xl bg-amber-500/10 p-3 border border-amber-500/20">Windows Chrome/Edge: choose Set Anki Folder once and select E:\ICLOUD sync folder\iCloudDrive\Anki. Later Open and Save As pickers will start there where supported. iPhone/iPad: choose Browse → iCloud Drive → Anki in Files when opening; use Save to File → Save to Files → iCloud Drive → Anki when saving. iOS does not let this web page force a starting folder or overwrite the original file automatically.</div>
+  <div id="fileSaveExplanation" class="text-xs text-amber-200 rounded-xl bg-amber-500/10 p-3 border border-amber-500/20"><b>Native Save As:</b> Available in Chrome and Edge on Windows; no Downloads settings change is needed. To open Save As in <b>E:\ICLOUD sync folder\iCloudDrive\Anki</b>, click <b>Set Anki Folder</b> once and select that folder (read-only folder permission). The browser cannot use the Windows path automatically without selection. Save As is a manual file write: a failed overwrite or iCloud conflict can still damage a destination. Keep a separate verified backup outside iCloud before selecting an existing file. The app will never write automatically when opening a deck.</div>
  </div>
 </div>
 <!-- Hidden Replacement Input -->
@@ -1682,12 +1704,12 @@ body {min-width:0;min-height:100vh;min-height:100dvh;padding-bottom:env(safe-are
                     <button type="button" class="anki-preset-btn" style="color:#000000" data-color="#000000" data-underline="false" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('modalCardFront','#000000',false)" title="Bold black">Abc</button>
                     <button type="button" class="anki-preset-btn" style="color:#000000" data-color="#000000" data-underline="true" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('modalCardFront','#000000',true)" title="Bold black underline">Abc</button>
                   </div>
-                  <button type="button" onclick="execCmd('justifyLeft', 'modalCardFront')" class="toolbar-btn" title="Align Left"><i class="fa-solid fa-align-left"></i></button>
-            <button type="button" onclick="execCmd('justifyCenter', 'modalCardFront')" class="toolbar-btn" title="Align Center"><i class="fa-solid fa-align-center"></i></button>
-            <button type="button" onclick="execCmd('justifyRight', 'modalCardFront')" class="toolbar-btn" title="Align Right"><i class="fa-solid fa-align-right"></i></button>
+                  <button type="button" onpointerdown="event.preventDefault()" onmousedown="event.preventDefault()" onclick="execCmd('justifyLeft', 'modalCardFront')" class="toolbar-btn" title="Align Left"><i class="fa-solid fa-align-left"></i></button>
+            <button type="button" onpointerdown="event.preventDefault()" onmousedown="event.preventDefault()" onclick="execCmd('justifyCenter', 'modalCardFront')" class="toolbar-btn" title="Align Center"><i class="fa-solid fa-align-center"></i></button>
+            <button type="button" onpointerdown="event.preventDefault()" onmousedown="event.preventDefault()" onclick="execCmd('justifyRight', 'modalCardFront')" class="toolbar-btn" title="Align Right"><i class="fa-solid fa-align-right"></i></button>
 
-<button type="button" onmousedown="event.preventDefault()" onclick="execCmd('insertUnorderedList', 'modalCardFront')" class="toolbar-btn" title="Bullet List"><i class="fa-solid fa-list-ul"></i></button>
-<button type="button" onmousedown="event.preventDefault()" onclick="execCmd('insertOrderedList', 'modalCardFront')" class="toolbar-btn" title="Numbered List"><i class="fa-solid fa-list-ol"></i></button>
+<button type="button" onpointerdown="event.preventDefault()" onmousedown="event.preventDefault()" onclick="execCmd('insertUnorderedList', 'modalCardFront')" class="toolbar-btn" title="Bullet List"><i class="fa-solid fa-list-ul"></i></button>
+<button type="button" onpointerdown="event.preventDefault()" onmousedown="event.preventDefault()" onclick="execCmd('insertOrderedList', 'modalCardFront')" class="toolbar-btn" title="Numbered List"><i class="fa-solid fa-list-ol"></i></button>
 
 
             <button type="button" onmousedown="event.preventDefault()" onclick="clearSelectedEditorFormatting('modalCardFront')" class="toolbar-btn" title="Clear Formatting"><i class="fa-solid fa-eraser"></i></button>
@@ -1752,12 +1774,12 @@ body {min-width:0;min-height:100vh;min-height:100dvh;padding-bottom:env(safe-are
                     <button type="button" class="anki-preset-btn" style="color:#000000" data-color="#000000" data-underline="false" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('modalCardBack','#000000',false)" title="Bold black">Abc</button>
                     <button type="button" class="anki-preset-btn" style="color:#000000" data-color="#000000" data-underline="true" onmousedown="event.preventDefault()" onclick="applyAnkiPreset('modalCardBack','#000000',true)" title="Bold black underline">Abc</button>
                   </div>
-                  <button type="button" onclick="execCmd('justifyLeft', 'modalCardBack')" class="toolbar-btn" title="Align Left"><i class="fa-solid fa-align-left"></i></button>
-            <button type="button" onclick="execCmd('justifyCenter', 'modalCardBack')" class="toolbar-btn" title="Align Center"><i class="fa-solid fa-align-center"></i></button>
-            <button type="button" onclick="execCmd('justifyRight', 'modalCardBack')" class="toolbar-btn" title="Align Right"><i class="fa-solid fa-align-right"></i></button>
+                  <button type="button" onpointerdown="event.preventDefault()" onmousedown="event.preventDefault()" onclick="execCmd('justifyLeft', 'modalCardBack')" class="toolbar-btn" title="Align Left"><i class="fa-solid fa-align-left"></i></button>
+            <button type="button" onpointerdown="event.preventDefault()" onmousedown="event.preventDefault()" onclick="execCmd('justifyCenter', 'modalCardBack')" class="toolbar-btn" title="Align Center"><i class="fa-solid fa-align-center"></i></button>
+            <button type="button" onpointerdown="event.preventDefault()" onmousedown="event.preventDefault()" onclick="execCmd('justifyRight', 'modalCardBack')" class="toolbar-btn" title="Align Right"><i class="fa-solid fa-align-right"></i></button>
 
-<button type="button" onmousedown="event.preventDefault()" onclick="execCmd('insertUnorderedList', 'modalCardBack')" class="toolbar-btn" title="Bullet List"><i class="fa-solid fa-list-ul"></i></button>
-<button type="button" onmousedown="event.preventDefault()" onclick="execCmd('insertOrderedList', 'modalCardBack')" class="toolbar-btn" title="Numbered List"><i class="fa-solid fa-list-ol"></i></button>
+<button type="button" onpointerdown="event.preventDefault()" onmousedown="event.preventDefault()" onclick="execCmd('insertUnorderedList', 'modalCardBack')" class="toolbar-btn" title="Bullet List"><i class="fa-solid fa-list-ul"></i></button>
+<button type="button" onpointerdown="event.preventDefault()" onmousedown="event.preventDefault()" onclick="execCmd('insertOrderedList', 'modalCardBack')" class="toolbar-btn" title="Numbered List"><i class="fa-solid fa-list-ol"></i></button>
 
 
 
@@ -1766,14 +1788,14 @@ body {min-width:0;min-height:100vh;min-height:100dvh;padding-bottom:env(safe-are
           <button type="button" onmousedown="event.preventDefault()" onclick="insertBackClozeField('modalCardBack')" class="toolbar-btn mb-1" title="Insert a numbered cloze field"><i class="fa-solid fa-square-plus"></i> Add Cloze Field</button>
 <button type="button" onmousedown="event.preventDefault()" onclick="toggleClozeTogether('modalCardBack')" class="toolbar-btn mb-1" title="Link this cloze to the preceding cloze so both reveal together"><i class="fa-solid fa-link"></i> Reveal Together</button>
 <button type="button" onmousedown="event.preventDefault()" onclick="openImageClozeModal('modalCardBack')" class="toolbar-btn mb-1" title="Draw reversible, numbered masks on an image; reveal them with Space"><i class="fa-solid fa-masks-theater"></i> Image Cloze</button>
-          <div id="modalCardBack" contenteditable="true" class="editor-canvas !min-h-[80px]"></div>
+          <div id="modalCardBack" contenteditable="true" class="editor-canvas !min-h-[160px]"></div>
         </div>
       </div>
 
 
 
-      <div class="flex space-x-3 pt-2">
-        <button onclick="saveModalCard()" class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold transition shadow-md">
+      <div class="anki-card-save-footer flex space-x-3 pt-2">
+        <button type="button" onclick="saveModalCard()" class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold transition shadow-md">
           Save & Add Card
         </button>
         <button onclick="closeAddCardModal()" class="px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-xl text-xs font-semibold transition">
@@ -2113,31 +2135,27 @@ function clearSelectedEditorFormatting(editorId) {
 
 function execCmd(command, editorId = null, value = null) {
   const targetId = editorId || activeEditorId;
-  if (!targetId) return;
-
-  const editor = document.getElementById(targetId);
-  if (!editor) return;
-
-  editor.focus();
-
-  // Restore last cursor position if available
-  if (savedRange) {
-    const sel = window.getSelection();
-    sel.removeAllRanges();
-    sel.addRange(savedRange);
+  const editor = targetId && document.getElementById(targetId);
+  if (!editor || !editor.isContentEditable) return;
+  const sel = window.getSelection();
+  const inside = r => r && editor.contains(r.startContainer) && editor.contains(r.endContainer);
+  let range = sel && sel.rangeCount ? sel.getRangeAt(0).cloneRange() : null;
+  if (!inside(range) && inside(savedRange)) range = savedRange.cloneRange();
+  if (!inside(range)) {
+    range = document.createRange();
+    range.selectNodeContents(editor);
+    range.collapse(false);
   }
-
+  editor.focus();
+  sel.removeAllRanges();
+  sel.addRange(range);
+  activeEditorId = editor.id;
   if (command === 'removeFormat') {
     clearSelectedEditorFormatting(targetId);
   } else {
     document.execCommand(command, false, value);
   }
-
-  // Save updated selection
-  const sel = window.getSelection();
-  if (sel.rangeCount > 0) {
-    savedRange = sel.getRangeAt(0).cloneRange();
-  }
+  if (sel.rangeCount && inside(sel.getRangeAt(0))) savedRange = sel.getRangeAt(0).cloneRange();
 }
 
 
@@ -2192,7 +2210,7 @@ function promptCreateDeck() {
  if(!name?.trim()) return;
  if(ankiFindSimilarExistingDeck(name)){showToast('A deck with this name is already open.');return;}
  const id='deck_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
- appState.decks[id]={id,name:name.trim(),category:'',cards:[],sourceFileName:name.trim()+'.apkg'};
+ appState.decks[id]={id,name:name.trim(),category:'',cards:[],sourceFileName:name.trim()+'.apkg',ankiNewDeckUnsaved:true};
  saveLocalState();renderDecks();showToast('New deck created. Use Save to File to create its .apkg.');
 }
 
@@ -2225,9 +2243,9 @@ function promptCreateDeck() {
     window.addEventListener('DOMContentLoaded',async()=>{
  const ready=await initIndexedDB();await loadStateFromIDB();
  renderDecks();initSketchCanvas();checkPasteVisibility();setupFloatingEditButton();
- await restorePreferredAnkiFolder();await restoreLinkedApkgHandles();fileFirstInitialized=true;
+ await restorePreferredAnkiFolder();fileFirstInitialized=true; // Do not reconnect old file handles for automatic writes.
  if(!ready)setFileStatus('Browser local storage is not available. Open the app in a normal browser window.',true);
- else if(!linkedApkgFiles.size)setFileStatus('Local autosave is active. Open a .apkg file to study.');
+ else setFileStatus('Browser autosave ON. Source .apkg opens read-only. Save As opens the native Windows dialog and writes only after your approval.');
 });
 
     function initIndexedDB(){return new Promise(resolve=>{
@@ -2238,9 +2256,38 @@ function promptCreateDeck() {
 });}
 
     function saveLocalState(){
- if(idbDB){try{const tx=idbDB.transaction('state','readwrite');tx.objectStore('state').put({decks:appState.decks,selectedCategory:'ALL'},'app_state');}catch(e){console.error('Local save error',e);}}
- if(fileFirstInitialized) scheduleLinkedApkgSave();
-}
+      const activeId=appState.activeStudyDeckId;
+      const activeDeck=activeId && appState.decks[activeId];
+      const previous=activeDeck?.ankiSyncLastBrowserSavedAt||null;
+      const proposed=Date.now();
+      // Disk auto-write disabled: browser IndexedDB autosave remains active.
+      if(!idbDB) {
+        setFileStatus('Browser autosave unavailable; open the app in a normal browser window.',true);
+        return Promise.resolve(false);
+      }
+      return new Promise(resolve=>{
+        try{
+          const tx=idbDB.transaction('state','readwrite');
+          if(activeDeck)activeDeck.ankiSyncLastBrowserSavedAt=proposed;
+          tx.objectStore('state').put({decks:appState.decks,selectedCategory:'ALL'},'app_state');
+          tx.oncomplete=()=>{updateAnkiDeckSaveTimes();resolve(true);};
+          const failed=()=>{
+            if(activeDeck && activeDeck.ankiSyncLastBrowserSavedAt===proposed)
+              activeDeck.ankiSyncLastBrowserSavedAt=previous;
+            console.error('Browser autosave failed',tx.error);
+            setFileStatus('Browser autosave failed; your latest progress may not be retained.',true);
+            updateAnkiDeckSaveTimes();resolve(false);
+          };
+          tx.onerror=failed;tx.onabort=failed;
+        }catch(error){
+          if(activeDeck && activeDeck.ankiSyncLastBrowserSavedAt===proposed)
+            activeDeck.ankiSyncLastBrowserSavedAt=previous;
+          console.error('Browser local save error',error);
+          setFileStatus('Browser save failed. Please export a backup.',true);
+          resolve(false);
+        }
+      });
+    }
 
     // Apply progress embedded in this HTML. Embedded data takes precedence over device-local storage,
     // allowing a copied HTML file to restore the same decks and review schedule on another device.
@@ -2265,26 +2312,22 @@ function promptCreateDeck() {
  req.onerror=()=>resolve();}catch(e){resolve();}
 });}
 
-    // --- TRUE .APKG FILE EXPORT (WITH NATIVE "SAVE AS" FILE PICKER) ---
+    // --- TRUE .APKG FILE EXPORT VIA BROWSER DOWNLOAD (SAVE AS SETTINGS REQUIRED) ---
     async function saveCurrentDeckToApkg(){return saveActiveApkg();}
 
-    async function saveAllDecksToFile(onlyDeckId = null,directHandle=null) {
+    async function saveAllDecksToFile(onlyDeckId = null,directHandle=null,returnBlob=false) {
       try {
         const exportDeckEntries = onlyDeckId
           ? Object.entries(appState.decks).filter(([id]) => id === onlyDeckId)
           : Object.entries(appState.decks);
         if (!exportDeckEntries.length) throw new Error('No deck selected for export.');
 
+        if(directHandle) throw new Error('Disk file handles are disabled. Export a browser download instead.');
         const defaultExportName=onlyDeckId
-          ? (appState.decks[onlyDeckId].sourceFileName||appState.decks[onlyDeckId].name+'.apkg')
+          ? ankiBrowserSaveAsFilename(appState.decks[onlyDeckId])
           : 'AnkiSync_Collection.apkg';
-        let exportFilename=directHandle?.name||defaultExportName;
-        let selectedSaveHandle=directHandle||null;
-        if(!directHandle && typeof window.showSaveFilePicker==='function'){
-          try{selectedSaveHandle=await window.showSaveFilePicker({...ankiPreferredPickerOptions(),suggestedName:defaultExportName,types:[{description:'Anki Package',accept:{'application/octet-stream':['.apkg']}}]});
-          exportFilename=selectedSaveHandle.name;}
-          catch(error){if(error?.name==='AbortError')return false;console.warn('Save dialog unavailable',error);}
-        }
+        const exportFilename=defaultExportName;
+        const selectedSaveHandle=null;
         // The filename and the internal deck name are separate Anki fields.
         // For a single-deck export, persist the chosen filename as the deck
         // name too. Never rename the user's live deck or any cards in memory.
@@ -2509,37 +2552,27 @@ function promptCreateDeck() {
         
 
 const content = await zip.generateAsync({ type: "blob" });
+        if(returnBlob)return content;
 
-        // Write only to an explicit, user-authorized file handle.
-        if(selectedSaveHandle){
-          try{
-            const writable=await selectedSaveHandle.createWritable();
-            await writable.write(content);await writable.close();
-            if(onlyDeckId){
-              const deck=appState.decks[onlyDeckId];
-              if(deck){deck.sourceFileName=exportFilename;deck.fileLastModified=(await selectedSaveHandle.getFile()).lastModified;deck.ankiFileLocalDirty=false;}
-              linkedApkgFiles.set(onlyDeckId,{handle:selectedSaveHandle,lastSavedSnapshot:deckContentSnapshot(deck),mtime:deck?.fileLastModified||0});
-              await persistLinkedApkgHandle(onlyDeckId,selectedSaveHandle);
-            }
-            setFileStatus('Saved to '+exportFilename+' in your selected folder.');
-            saveLocalState();return true;
-          }catch(error){setFileStatus('Could not write selected file: '+error.message,true);throw error;}
-        }
+        // No writing into ANY filesystem location from JavaScript.
+        // The browser creates a DOWNLOAD (controlled by Chrome/Edge settings).
         // iOS: browser cannot silently replace its source file in iCloud Drive.
         const out=new File([content],exportFilename,{type:'application/octet-stream'});
         if(typeof navigator.share==='function' && (!navigator.canShare||navigator.canShare({files:[out]}))){
           try{await navigator.share({files:[out],title:exportFilename});
             if(onlyDeckId&&appState.decks[onlyDeckId]){appState.decks[onlyDeckId].ankiFileLocalDirty=false;saveLocalState();}
-            setFileStatus('File shared; confirm replacement in iCloud Drive / Files.');return true;
+            setFileStatus('Package shared. Choose the destination in Files and verify the resulting package.');return true;
           }catch(error){if(error?.name==='AbortError')return false;console.warn(error);}
         }
         const url=URL.createObjectURL(content);const a=document.createElement('a');a.href=url;a.download=exportFilename;
         document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
-        setFileStatus('Downloaded '+exportFilename+'. Move/replace in iCloud Drive using Files.');return true;
+        setFileStatus('SAVE AS REQUESTED for '+exportFilename+'. Choose the destination in the browser dialog (requires Ask where to save). Verify the completed download.');return true;
 
       } catch(err) {
         console.error("APKG Export Error:", err);
-        alert("APKG Export Error: " + err.message);
+        setFileStatus('Unable to export .apkg: '+(err?.message||String(err)),true);
+        alert("APKG Export Error: " + (err?.message||String(err)));
+        return false;
       }
     }
 
@@ -2855,8 +2888,10 @@ const content = await zip.generateAsync({ type: "blob" });
           <div class="anki-deck-progress-track"><div class="anki-deck-progress-fill" style="width:${percent}%"></div></div>
         </div>
         <div class="text-[11px] text-slate-400 truncate" title="${escapeDeckHtml(deck.sourceFileName||'Unsaved new deck')}"><i class="fa-solid fa-file-zipper"></i> ${escapeDeckHtml(deck.sourceFileName||'Not yet saved to .apkg')}</div>
+        <div class="text-[11px] text-slate-400" title="Browser-local autosave; not necessarily saved to iCloud"><i class="fa-solid fa-clock"></i> Last browser save: ${escapeDeckHtml(formatAnkiSavedDate(deck.ankiSyncLastBrowserSavedAt)||'Not recorded yet')}</div>
         <div class="anki-deck-reset-buttons"><button data-action="soft" class="px-2 py-2 rounded-lg bg-indigo-500/15 border border-indigo-500/40 text-indigo-300 text-[11px] font-bold">Soft Reset</button><button data-action="hard" class="px-2 py-2 rounded-lg bg-rose-500/10 border border-rose-500/40 text-rose-300 text-[11px] font-bold">Hard Reset</button></div>
-        <div class="flex gap-2"><button data-action="open" class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl">Study</button><button data-action="save" class="px-3 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl">Save .apkg</button></div>`;
+        <div class="flex gap-2"><button data-action="open" class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl">Study</button><button data-action="save" class="px-3 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl">Save As</button></div>
+        <button type="button" data-action="reconnect-original" class="w-full py-2 bg-slate-700 hover:bg-slate-600 text-slate-100 text-xs font-bold rounded-xl" title="Read the intact source archive without reimporting or writing any data">Reconnect Original .apkg (Read Only)</button>`;
         const form=row.querySelector('[data-role=rename-form]');
         const input=row.querySelector('[data-role=rename-input]');
         row.querySelector('[data-action=rename]').onclick=()=>{form.classList.remove('hidden');input.focus();input.select();};
@@ -2867,6 +2902,7 @@ const content = await zip.generateAsync({ type: "blob" });
         row.querySelector('[data-action=hard]').onclick=()=>requestAnkiHardReset(id);
         row.querySelector('[data-action=open]').onclick=()=>startStudy(id);
         row.querySelector('[data-action=save]').onclick=()=>saveDeckToFile(id);
+        row.querySelector('[data-action=reconnect-original]').onclick=()=>ankiReconnectOriginalReadOnly(id);
         grid.appendChild(row);
       }
       empty.classList.toggle('hidden',ids.length>0);
@@ -2938,7 +2974,7 @@ const content = await zip.generateAsync({ type: "blob" });
     function deleteDeck(deckId){
  const deck=appState.decks[deckId];if(!deck)return;
  if(!confirm('Remove "'+deck.name+'" from THIS browser? The original .apkg file in iCloud/Files will not be deleted.'))return;
- delete appState.decks[deckId];linkedApkgFiles.delete(deckId);openedApkgSources.delete(deckId);
+ delete appState.decks[deckId];linkedApkgFiles.delete(deckId);openedApkgSources.delete(deckId);openedApkgByteSnapshots.delete(deckId);
  if(idbDB){try{const tx=idbDB.transaction('state','readwrite');tx.objectStore('state').delete('linked_'+deckId);}catch(e){}}
  if(appState.activeStudyDeckId===deckId){appState.activeStudyDeckId=null;appState.studyQueue=[];}
  saveLocalState();renderDecks();setFileStatus('Deck removed locally. The original file was not deleted.');
@@ -3543,7 +3579,7 @@ function openAddCardModal() {
       document.getElementById('quickAddModal').classList.add('hidden');
     }
 
-    function saveModalCard() {
+    async function saveModalCard() {
   renumberClozeEditors('modalCardFront', 'modalCardBack');
   const title = document.getElementById('modalCardTitle').value.trim();
   // Sanitize to clean external PPT/Word styles
@@ -3565,6 +3601,7 @@ function openAddCardModal() {
   };
 
   const deck = appState.decks[appState.activeStudyDeckId];
+  if (!deck) { alert('No active deck selected. Open a deck before adding a card.'); return; }
   if (deck) {
     if (!deck.cards) deck.cards = [];
     const insertIndex = insertCardAfterId == null
@@ -3578,11 +3615,12 @@ function openAddCardModal() {
       appState.studyIndex = deck.cards.length - 1;
     }
     appState.studyQueue = [...deck.cards];
-    saveLocalState();
+    const saved = await saveLocalState();
     renderSidebarList();
     showStudyCard();
+    if (!saved) { alert('Card added in memory but browser save failed. Keep this page open and try again.'); return; }
     closeAddCardModal();
-    showToast("New card added successfully!");
+    showToast('Card saved locally. Use Save to File to update the .apkg on iPhone/iPad.');
   }
 }
 
@@ -3829,23 +3867,41 @@ function openAddCardModal() {
 
     // Locate character offsets across text nodes so rich formatting within
     // an answer does not break the numbered cloze token.
-    function clozeTextRange(root, start, end) {
-      const range = document.createRange();
+    function clozeTextRange(root, start, end, keepInlineFormatting = false) {
+      // DOM text offsets touch at boundaries between <li>, <p>, and formatting
+      // spans. A start offset exactly at a boundary belongs to the NEXT text
+      // node, not to the end of the preceding list item. Otherwise revealing
+      // a cloze moves the answer outside its list item (and breaks numbering).
       const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-      let node, offset = 0, started = false;
+      const nodes = [];
+      let node, total = 0;
       while ((node = walker.nextNode())) {
-        const next = offset + node.nodeValue.length;
-        if (!started && start >= offset && start <= next) {
-          range.setStart(node, start - offset);
-          started = true;
+        if (node.nodeValue.length) {
+          nodes.push({ node, begin: total, end: total + node.nodeValue.length });
+          total += node.nodeValue.length;
         }
-        if (started && end >= offset && end <= next) {
-          range.setEnd(node, end - offset);
-          return range;
-        }
-        offset = next;
       }
-      return null;
+      if (!nodes.length || start < 0 || end < start || end > total) return null;
+      const point = (index, preferNext) => {
+        // For the START, boundary offsets use the next nonempty text node.
+        // For the END, boundaries use the preceding text node.
+        for (const item of nodes) {
+          if (preferNext ? index < item.end : index <= item.end) {
+            return { node: item.node, offset: index - item.begin };
+          }
+        }
+        const last = nodes[nodes.length - 1];
+        return { node: last.node, offset: last.node.nodeValue.length };
+      };
+      // When cloning the ANSWER, use the boundary just before its styled
+      // element to include the color/bold/underline wrapper in cloneContents().
+      // The full cloze replacement still uses next-node bias to keep list items intact.
+      const first = point(start, !keepInlineFormatting);
+      const last = point(end, false);
+      const range = document.createRange();
+      range.setStart(first.node, first.offset);
+      range.setEnd(last.node, last.offset);
+      return range;
     }
 
     function renderInlineBackCloze(source, revealCount = 0) {
@@ -3868,7 +3924,7 @@ function openAddCardModal() {
         const replacement = document.createElement('span');
         if (visible) {
           replacement.className = 'anki-cloze-revealed-answer';
-          const answerRange = clozeTextRange(container, answerStart, answerEnd);
+          const answerRange = clozeTextRange(container, answerStart, answerEnd, true);
           if (answerRange) replacement.appendChild(answerRange.cloneContents());
           else replacement.textContent = match[2];
         } else {
@@ -3944,6 +4000,7 @@ function openAddCardModal() {
       badge.innerText = card.title ? card.title.toUpperCase() : 'QUESTION';
       updateClozeFront();
       updateClozeBack();
+      updateAnkiDeckSaveTimes();
     }
 
     // Space reveals one numbered cloze group at a time while the study card is showing its front.
@@ -4889,7 +4946,7 @@ function toggleEditCurrentCard() {
 
 
     
-function saveCardEdits() {
+async function saveCardEdits() {
   renumberClozeEditors('editCardFront', 'editCardBack');
   const newTitle = document.getElementById('editCardTitleInput').value.trim();
   // Sanitize raw HTML to strip overlapping PPT line-heights/positioning
@@ -4913,11 +4970,12 @@ function saveCardEdits() {
     }
   }
 
-  saveLocalState();
+  const saved = await saveLocalState();
   renderSidebarList();
   showStudyCard();
+  if (!saved) { alert('Changes made, but browser storage failed. Keep the page open and retry saving.'); return; }
   toggleEditCurrentCard();
-  showToast("Changes saved successfully!");
+  showToast('Changes saved locally. The .apkg file is updated separately.');
 }
 
 
@@ -5065,7 +5123,7 @@ function saveCardEdits() {
       });
     }
 
-    function saveNewCard() {
+    async function saveNewCard() {
   renumberClozeEditors('createCardFront', 'createCardBack');
       const deckId = document.getElementById('createCardDeck').value;
       const title = document.getElementById('createCardTitle').value.trim();
@@ -5089,12 +5147,13 @@ function saveCardEdits() {
       if (!appState.decks[deckId].cards) appState.decks[deckId].cards = [];
       appState.decks[deckId].cards.push(newCard);
 
-      saveLocalState();
+      const saved = await saveLocalState();
+      if (!saved) { alert('The card was added but could not be saved to browser storage. Keep the page open and retry.'); return; }
       document.getElementById('createCardTitle').value = '';
       document.getElementById('createCardFront').innerHTML = '<span style="font-weight: bold;"><br></span>';
       document.getElementById('createCardBack').innerHTML = '<br>';
 
-      alert("Flashcard saved successfully!");
+      showToast('Flashcard saved locally. Use Save to File to update your .apkg.');
       switchTab('decks');
     } // <-- THIS CLOSING BRACE WAS MISSING AND BROKE THE SCRIPT
 
@@ -5117,7 +5176,8 @@ function saveCardEdits() {
 
       try {
         const isRawAnkiDatabase = /\.(anki|anki2|anki21)$/i.test(file.name);
-        const zip = isRawAnkiDatabase ? {files:{}, file:() => null} : await JSZip.loadAsync(file);
+        const originalArchiveBytes = isRawAnkiDatabase ? null : await file.arrayBuffer();
+        const zip = isRawAnkiDatabase ? {files:{}, file:() => null} : await JSZip.loadAsync(originalArchiveBytes);
         progressBar.style.width = '30%';
         statusText.innerText = "Processing media files into IndexedDB storage...";
         percentText.innerText = "30%";
@@ -5403,21 +5463,30 @@ function saveCardEdits() {
           appState.decks[id]={id,name:linkedFileState?.deck?.name || deckFileStem(file.name),category:'',cards,
            sourceFileName:file.name,
            lastIndex:Math.min(linkedFileState?.deck?.lastIndex ?? Math.max(...selectedDecks.map(name=>importedLastIndexByDeck[name]||0),0),Math.max(0,cards.length-1)),
-           lastCardId:linkedFileState?.deck?.lastCardId||oldDeck?.lastCardId||null};
-          appState.decks[id].ankiFileLocalDirty=false;
+           lastCardId:linkedFileState?.deck?.lastCardId||oldDeck?.lastCardId||null,
+           ankiSyncLastFileSavedAt:linkedFileState?.exportedAt && Number.isFinite(Date.parse(linkedFileState.exportedAt)) ? Date.parse(linkedFileState.exportedAt) : null,
+           ankiSyncLastBrowserSavedAt:oldDeck?.ankiSyncLastBrowserSavedAt||null};
+          appState.decks[id].ankiNewDeckUnsaved=false;
+          appState.decks[id].ankiFileLocalDirty=mergedProgress>0;
+          // Baseline is the selected package's state; if older local review data
+          // was merged in, the file still needs to be updated explicitly.
+          appState.decks[id].ankiSyncLastFileSignature=mergedProgress ? '' : ankiDeckSaveSignature(appState.decks[id]);
           openedApkgSources.set(id,file);
-          if(options.handle){
-           await rememberLinkedApkgHandle(id,options.handle,file);
-          }else{
-           linkedApkgFiles.delete(id);
-           appState.decks[id].fileLastModified=Number(file.lastModified)||0;
+          // Keep the original APKG intact in memory only for reasonably sized
+          // files. Do not cache stale byte snapshots for newly imported decks.
+          openedApkgByteSnapshots.delete(id);
+          if(originalArchiveBytes && originalArchiveBytes.byteLength &&
+             originalArchiveBytes.byteLength<=ANKI_MAX_SOURCE_SNAPSHOT_BYTES){
+            openedApkgByteSnapshots.set(id,originalArchiveBytes);
           }
-          if(mergedProgress && options.handle){
-            const link=linkedApkgFiles.get(id);if(link)link.lastSavedSnapshot='';
-          }
-          if(mergedProgress && !options.handle)appState.decks[id].ankiFileLocalDirty=true;
+          // OPEN MUST NEVER GRANT OR RETAIN A WRITABLE FILE ASSOCIATION.
+          // A package may have study progress different from this browser's local
+          // IndexedDB data. Never rewrite it merely because the user opened it.
+          linkedApkgFiles.delete(id);
+          appState.decks[id].fileLastModified=Number(file.lastModified)||0;
+          if(mergedProgress)appState.decks[id].ankiFileLocalDirty=true;
           saveLocalState();renderDecks();
-          setFileStatus(options.handle?'Opened '+file.name+' — automatic file saving enabled.':'Opened '+file.name+' — local autosave enabled; use Save to File to update iCloud.');
+          setFileStatus('Opened READ-ONLY: '+file.name+'. Browser autosave is active; .apkg changes require Save As.');
         }
         progressBar.style.width = '100%';
         statusText.innerText = "Import Complete!";
@@ -5578,58 +5647,94 @@ function saveCardEdits() {
     }
 
     function setupFloatingEditButton() {
-      const button=document.getElementById('floatingEditCardButton');
-      if (!button) return;
+      const button = document.getElementById('floatingEditCardButton');
+      const anchor = document.getElementById('ankiFloatingEditAnchor');
+      if (!button || !anchor || button.dataset.ankiFloatReady === 'true') return;
+      button.dataset.ankiFloatReady = 'true'; // Prevent two click handlers toggling edit mode twice.
+
+      let savedPosition = null;
       try {
-        const pos=JSON.parse(localStorage.getItem('anki_floating_edit_pos')||'null');
-        if (pos && Number.isFinite(pos.x) && Number.isFinite(pos.y)) {
-          button.style.left=Math.max(0,Math.min(window.innerWidth-115,pos.x))+'px';
-          button.style.top=Math.max(0,Math.min(window.innerHeight-40,pos.y))+'px';
-          button.style.right='auto';
-        }
-      } catch(e) {}
-      const keepInsideViewport=()=>{
-        if(button.classList.contains('hidden'))return;
-        const box=button.getBoundingClientRect();
-        if(box.left<0 || box.right>window.innerWidth || box.top<0 || box.bottom>window.innerHeight){
-          button.style.left=Math.max(0,Math.min(window.innerWidth-button.offsetWidth,box.left))+'px';
-          button.style.top=Math.max(0,Math.min(window.innerHeight-button.offsetHeight,box.top))+'px';
-          button.style.right='auto';
+        const p = JSON.parse(localStorage.getItem('anki_floating_edit_pos_v2') || 'null');
+        if (p && Number.isFinite(p.x) && Number.isFinite(p.y)) savedPosition = p;
+      } catch (error) {}
+      if (savedPosition) {
+        button.style.left = Math.max(0, Math.min(window.innerWidth - 115, savedPosition.x)) + 'px';
+        button.style.top = Math.max(0, Math.min(window.innerHeight - 40, savedPosition.y)) + 'px';
+        button.style.right = 'auto';
+      } else {
+        // Unlike a viewport percentage, this stays immediately above Reveal
+        // on PC, iPhone and iPad, including after resizing or scrolling.
+        anchor.appendChild(button);
+        button.classList.add('anki-floating-default');
+        button.style.removeProperty('left');
+        button.style.removeProperty('top');
+        button.style.removeProperty('right');
+      }
+
+      const keepInsideViewport = () => {
+        if (button.classList.contains('hidden') || button.classList.contains('anki-floating-default')) return;
+        const rect = button.getBoundingClientRect();
+        if (rect.left < 0 || rect.right > window.innerWidth || rect.top < 0 || rect.bottom > window.innerHeight) {
+          button.style.left = Math.max(0, Math.min(window.innerWidth - button.offsetWidth, rect.left)) + 'px';
+          button.style.top = Math.max(0, Math.min(window.innerHeight - button.offsetHeight, rect.top)) + 'px';
+          button.style.right = 'auto';
         }
       };
-      window.addEventListener('resize',keepInsideViewport);
-      button.addEventListener('pointerdown',e=>{
-        if(e.button!==0) return;
-        const rect=button.getBoundingClientRect();
-        ankiFloatingDrag={id:e.pointerId,x:e.clientX,y:e.clientY,left:rect.left,top:rect.top,moved:false};
-        button.setPointerCapture(e.pointerId);
+      window.addEventListener('resize', keepInsideViewport);
+
+      button.addEventListener('pointerdown', event => {
+        if (event.button !== 0) return;
+        const rect = button.getBoundingClientRect();
+        ankiFloatingDrag = {
+          id: event.pointerId, x: event.clientX, y: event.clientY,
+          left: rect.left, top: rect.top, moved: false
+        };
+        try { button.setPointerCapture(event.pointerId); } catch (error) {}
       });
-      button.addEventListener('pointermove',e=>{
-        if (!ankiFloatingDrag || ankiFloatingDrag.id!==e.pointerId) return;
-        const dx=e.clientX-ankiFloatingDrag.x,dy=e.clientY-ankiFloatingDrag.y;
-        if(!ankiFloatingDrag.moved && Math.hypot(dx,dy)>5) ankiFloatingDrag.moved=true;
-        if(!ankiFloatingDrag.moved) return;
-        e.preventDefault();
-        button.classList.add('anki-dragging');
-        const left=Math.max(0,Math.min(window.innerWidth-button.offsetWidth,ankiFloatingDrag.left+dx));
-        const top=Math.max(0,Math.min(window.innerHeight-button.offsetHeight,ankiFloatingDrag.top+dy));
-        button.style.left=left+'px'; button.style.top=top+'px'; button.style.right='auto';
-      });
-      const finish=e=>{
-        if(!ankiFloatingDrag || ankiFloatingDrag.id!==e.pointerId) return;
-        if(ankiFloatingDrag.moved) {
-          ankiFloatingSuppressClick=true;
-          localStorage.setItem('anki_floating_edit_pos',JSON.stringify({x:button.offsetLeft,y:button.offsetTop}));
+      button.addEventListener('pointermove', event => {
+        const drag = ankiFloatingDrag;
+        if (!drag || drag.id !== event.pointerId) return;
+        const dx = event.clientX - drag.x;
+        const dy = event.clientY - drag.y;
+        if (!drag.moved && Math.hypot(dx, dy) > 7) {
+          drag.moved = true;
+          button.classList.remove('anki-floating-default');
+          button.style.left = drag.left + 'px';
+          button.style.top = drag.top + 'px';
+          button.style.right = 'auto';
         }
-        ankiFloatingDrag=null;
+        if (!drag.moved) return;
+        event.preventDefault();
+        button.classList.add('anki-dragging');
+        button.style.left = Math.max(0, Math.min(window.innerWidth - button.offsetWidth, drag.left + dx)) + 'px';
+        button.style.top = Math.max(0, Math.min(window.innerHeight - button.offsetHeight, drag.top + dy)) + 'px';
+      });
+      const finishDrag = event => {
+        const drag = ankiFloatingDrag;
+        if (!drag || drag.id !== event.pointerId) return;
+        if (drag.moved) {
+          // Mark the gesture as a drag BEFORE touching storage: a private or
+          // sandboxed browser may reject localStorage without affecting clicks.
+          ankiFloatingSuppressClick = true;
+          try {
+            const rect = button.getBoundingClientRect();
+            localStorage.setItem('anki_floating_edit_pos_v2', JSON.stringify({x:rect.left, y:rect.top}));
+          } catch (error) {}
+          // A drag can end without a click; do not suppress the NEXT real tap.
+          setTimeout(() => { ankiFloatingSuppressClick = false; }, 120);
+        }
+        ankiFloatingDrag = null;
         button.classList.remove('anki-dragging');
       };
-      button.addEventListener('pointerup',finish);
-      button.addEventListener('pointercancel',finish);
-      button.addEventListener('click',e=>{
-        e.stopPropagation();
-        if(ankiFloatingSuppressClick) {ankiFloatingSuppressClick=false;return;}
-        if(appState.studyQueue.length) toggleEditCurrentCard();
+      button.addEventListener('pointerup', finishDrag);
+      button.addEventListener('pointercancel', finishDrag);
+      button.addEventListener('click', event => {
+        event.stopPropagation();
+        if (ankiFloatingSuppressClick) {
+          ankiFloatingSuppressClick = false;
+          return;
+        }
+        if (appState.studyQueue.length) toggleEditCurrentCard();
       });
     }
 
@@ -5739,13 +5844,13 @@ function saveCardEdits() {
 
     
 
-    window.addEventListener("DOMContentLoaded",()=>{setupFloatingEditButton();});
+    // Floating Edit is initialized once in the main DOMContentLoaded startup. 
 
 
-// FILE-FIRST APKG WORKFLOW.
+// FILE-FIRST APKG WORKFLOW (read-only source and non-destructive separate export).
 // Browsers on iOS save to browser storage automatically; overwriting iCloud Drive
-// requires a user-initiated Save to Files action. Desktop Chromium can retain
-// a permission-granted FileSystemFileHandle and rewrite the linked APKG.
+// requires a user-initiated Save to Files action. On desktop, the browser
+// may show Save As for downloads when the user enables its location prompt.
 // One-time local migration of existing study progress; ignores previous folders
 // and cloud settings. No remote access is made.
 async function importEarlierAnkiSyncBackup(event){
@@ -5763,7 +5868,7 @@ async function importEarlierAnkiSyncBackup(event){
       appState.decks[id]={id,name:d.name||deckFileStem(d.sourceFileName||'Imported.apkg'),
         sourceFileName:d.sourceFileName||d.name+'.apkg',cards:d.cards,lastIndex:d.lastIndex||0,
         lastCardId:d.lastCardId||null,category:'',ankiFileLocalDirty:true};
-      linkedApkgFiles.delete(id);openedApkgSources.delete(id);
+      linkedApkgFiles.delete(id);openedApkgSources.delete(id);openedApkgByteSnapshots.delete(id);
     }
     saveLocalState();renderDecks();setFileStatus('Earlier study progress imported locally. Reopen each original .apkg to incorporate its progress safely.');
     switchTab('decks');
@@ -5792,13 +5897,20 @@ function mergePreviousFileProgress(importedCards,previousDeck){
   return merged;
 }
 const openedApkgSources = new Map();
+// Retain a verified, immutable import snapshot for recovery if a Save As
+// target turns out to be a new/empty file. This never contains local edits:
+// those are taken from the current browser state when saving.
+const openedApkgByteSnapshots = new Map();
+const ANKI_MAX_SOURCE_SNAPSHOT_BYTES = 128 * 1024 * 1024;
 // Save a separate AnkiSync state overlay inside the original .apkg ZIP.
 // This keeps every original collection/database/media member unchanged.
-async function buildPreservedApkg(id,originalFile){
+async function buildPreservedApkg(id,originalFile,frozenSnapshot=null){
   const deck=appState.decks[id];if(!deck)throw new Error('Deck no longer exists.');
   const zip=await JSZip.loadAsync(originalFile);
+  const frozen=frozenSnapshot||{
+    name:deck.name,lastIndex:deck.lastIndex||0,lastCardId:deck.lastCardId||null,cards:deck.cards||[]};
   const overlay={format:'AnkiSyncFileState',version:1,exportedAt:new Date().toISOString(),
-    deck:{name:deck.name,lastIndex:deck.lastIndex||0,lastCardId:deck.lastCardId||null,cards:deck.cards||[]}};
+    deck:frozen};
   zip.file('ankisync-state.json',JSON.stringify(overlay));
   return zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:5}});
 }
@@ -5816,20 +5928,80 @@ async function shareSavedApkg(blob,filename){
   setFileStatus('Downloaded '+filename+'. Move it into iCloud Drive → Anki and replace the old copy in Files.');
   return true;
 }
-async function writePreservedLinkedApkg(id,handle){
-  const deck=appState.decks[id];if(!deck)throw new Error('Deck missing');
-  const original=await handle.getFile();
-  const blob=await buildPreservedApkg(id,original);
-  const writable=await handle.createWritable();
-  await writable.write(blob);await writable.close();
-  const updated=await handle.getFile();
-  deck.fileLastModified=updated.lastModified;
-  deck.ankiFileLocalDirty=false;
-  openedApkgSources.set(id,updated);
-  linkedApkgFiles.set(id,{handle,mtime:updated.lastModified,lastSavedSnapshot:deckContentSnapshot(deck),writing:false});
-  saveLocalState();
-  setFileStatus('Saved '+handle.name+' back to your selected iCloud folder.');
-  return true;
+// Desktop: source read-only; browser downloads control any Save As or overwrite.
+// Cloud-backed File objects can turn stale between getFile() and JSZip reading.
+// Snapshot the whole source into memory immediately, and reconnect by exact
+// filename through the authorized directory when an iCloud handle is replaced.
+function ankiReviewTimestamp(state){
+  const n=Date.parse(state?.exportedAt||'');
+  return Number.isFinite(n) ? n : 0;
+}
+async function ankiFreshOriginalHandle(deck, fallback, {requestWrite=false}={}){
+  // The *first* API call for a manual save must be permission/selection. A
+  // preceding queryPermission/getFileHandle await can expire user activation.
+  if(requestWrite && fallback && typeof fallback.requestPermission==='function'){
+    throw new Error('AnkiSync Download-Only mode forbids write permission requests.');
+    if(permission!=='granted')
+      throw new DOMException('Write permission for the original .apkg was not granted.','NotAllowedError');
+  }
+  if(fallback){
+    if(!requestWrite && typeof fallback.queryPermission==='function'){
+      const permission=await fallback.queryPermission({mode:'read'});
+      if(permission!=='granted')throw new DOMException('Automatic file saving needs permission. Press Save to File.','NotAllowedError');
+    }
+    return fallback;
+  }
+  // For automatic saves, an already-authorized folder may refresh a stale
+  // file handle. Manual saves without a handle use the native Open picker
+  // directly; they do not wait here and then try to open another dialog.
+  const folder=preferredAnkiDirectory;
+  if(folder?.kind==='directory' && deck?.sourceFileName && typeof folder.getFileHandle==='function'){
+    try{
+      const permission=await folder.queryPermission?.({mode:'read'});
+      if(permission==='granted')return await folder.getFileHandle(deck.sourceFileName,{create:false});
+    }catch(error){console.warn('Anki folder cannot refresh the original file handle',error);}
+  }
+  return null;
+}
+async function ankiReadFreshPackage(handle,verifiedImportSnapshot=null){
+  const file=await handle.getFile();
+  // Read the selected file BEFORE creating a writable stream. Save As may
+  // legitimately point at an empty newly created file rather than an APKG.
+  let bytes=await file.arrayBuffer();
+  let recoveredFromImport=false;
+  if(!bytes.byteLength && verifiedImportSnapshot?.byteLength){
+    bytes=verifiedImportSnapshot;
+    recoveredFromImport=true;
+  }
+  if(!bytes.byteLength){
+    const error=new Error('The selected .apkg is EMPTY (0 bytes). It cannot be used to preserve the original Anki database or media. No bytes were written by AnkiSync.');
+    error.code='ANKI_EMPTY_PACKAGE';
+    throw error;
+  }
+  let zip;
+  try{zip=await JSZip.loadAsync(bytes);}
+  catch(error){throw new Error('The selected .apkg is not a readable ZIP package ('+error.message+'). No changes were written.');}
+  if(!['collection.anki2','collection.anki21','collection.anki21b'].some(k=>zip.file(k)))
+    throw new Error('The selected file does not contain an Anki collection. No changes were written.');
+  let state=null;
+  const overlay=zip.file('ankisync-state.json');
+  if(overlay){
+    try{state=JSON.parse(await overlay.async('string'));}
+    catch(error){throw new Error('The package contains unreadable AnkiSync progress; overwrite blocked.');}
+  }
+  return {file,bytes,state,recoveredFromImport};
+}
+function ankiNewerCloudState(deck,remote){
+  const remoteTime=ankiReviewTimestamp(remote);
+  const known=Number(deck.ankiSyncLastFileSavedAt)||0;
+  return !!(remoteTime && known && remoteTime>known+1500);
+}
+// A full archive is generated and ZIP-validated in memory BEFORE any write.
+// This helps avoid replacing an original package with an empty or broken blob.
+// keepExistingData + exclusive avoids an empty staging file and competing writers.
+// Permanently disabled: historical in-place save caused 0-byte originals.
+async function writePreservedLinkedApkg(){
+  throw new Error('In-place .apkg writes are disabled. Use browser Save As instead.');
 }
 const linkedApkgFiles = new Map();
 let fileFirstInitialized = false;
@@ -5840,9 +6012,56 @@ let fileFirstBusy = false;
 function setFileStatus(message, isError=false) {
   const label=document.getElementById('fileSaveStatus');
   if(label){label.textContent=message;label.classList.toggle('text-rose-300',!!isError);label.title=message;}
+  updateAnkiDeckSaveTimes();
 }
+function formatAnkiSavedDate(timestamp){
+  const value=Number(timestamp);
+  if(!Number.isFinite(value) || value<=0)return null;
+  try{return new Date(value).toLocaleString(undefined,{year:'numeric',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});}
+  catch(error){return null;}
+}
+function updateAnkiDeckSaveTimes(){
+  const localLabel=document.getElementById('ankiBrowserAutosavedAt');
+  const fileLabel=document.getElementById('ankiPackageAutosavedAt');
+  if(!localLabel && !fileLabel)return;
+  const id=appState.activeStudyDeckId;
+  const deck=id && appState.decks[id];
+  if(!deck){
+    if(localLabel)localLabel.textContent='Browser autosave: No deck selected';
+    if(fileLabel)fileLabel.textContent='.apkg: No deck selected';
+    return;
+  }
+  const local=formatAnkiSavedDate(deck.ankiSyncLastBrowserSavedAt);
+  const file=formatAnkiSavedDate(deck.ankiSyncLastFileSavedAt);
+  const link=linkedApkgFiles.get(id);
+  const hasChangesAwaitingFile=link ? deckContentSnapshot(deck)!==link.lastSavedSnapshot :
+    !!(deck.ankiFileLocalDirty || (deck.ankiSyncLastFileSignature && ankiDeckSaveSignature(deck)!==deck.ankiSyncLastFileSignature));
+  if(localLabel){
+    localLabel.textContent='Browser autosave: '+(local||'Not saved yet');
+    localLabel.title='Last confirmed save to this browser\'s local storage. This is not proof of an iCloud file update.';
+  }
+  if(fileLabel){
+    const label=file ? '.apkg saved: '+file : '.apkg: No confirmed AnkiSync save';
+    const extra=hasChangesAwaitingFile ? (link?' · File save pending':' · Save to File needed') :
+      (!link?' · Manual Save to File on iPhone/iPad':'');
+    fileLabel.textContent=label+extra;
+    fileLabel.title=link ? 'Last confirmed write to the selected .apkg file. iCloud syncing to other devices is handled separately.' :
+      'Last known saved .apkg state. Browser-local autosave does not overwrite an iCloud file on iPhone/iPad.';
+    fileLabel.classList.toggle('text-amber-300',hasChangesAwaitingFile);
+    fileLabel.classList.toggle('text-slate-400',!hasChangesAwaitingFile);
+  }
+}
+
 function deckContentSnapshot(deck) {
   return JSON.stringify({name:deck?.name||'',cards:deck?.cards||[],lastIndex:deck?.lastIndex||0,lastCardId:deck?.lastCardId||null});
+}
+// Compact local change signature; never used as a security or identity hash.
+// Helps distinguish a reopened package from actual unsaved progress on iPhone.
+function ankiDeckSaveSignature(deck){
+  const str=deckContentSnapshot(deck);
+  let hash=2166136261;
+  for(let i=0;i<str.length;i++)hash=Math.imul(hash^str.charCodeAt(i),16777619);
+  return str.length+':'+(hash>>>0).toString(16);
 }
 async function persistLinkedApkgHandle(id, handle) {
   if(!idbDB||!handle)return;
@@ -5851,6 +6070,7 @@ async function persistLinkedApkgHandle(id, handle) {
 }
 async function rememberLinkedApkgHandle(id,handle,file){
   const deck=appState.decks[id];if(!deck)return;
+  deck.ankiAutoWritePaused=false;
   deck.fileLastModified=file.lastModified||0;
   deck.sourceFileName=file.name;
   linkedApkgFiles.set(id,{handle,mtime:file.lastModified||0,lastSavedSnapshot:deckContentSnapshot(deck),writing:false});
@@ -5865,27 +6085,29 @@ async function restoreLinkedApkgHandles(){
     });
     if(!handle?.getFile)continue;
     try {
-      const permission=await handle.queryPermission({mode:'readwrite'});
+      const permission=await handle.queryPermission({mode:'read'});
       if(permission!=='granted'){
-        setFileStatus('Reopen your .apkg to restore permission for automatic file saving.');
+        setFileStatus('Read permission for the original archive has expired. Reconnect read-only if needed.');
         continue;
       }
       const file=await handle.getFile();const deck=appState.decks[id];
-      // Don't silently discard browser-local changes if the iCloud file changed.
-      if(deck.fileLastModified && Number(file.lastModified)!==Number(deck.fileLastModified)) {
-        setFileStatus('The iCloud package changed outside AnkiSync: '+file.name+'. Reopen it to compare and import safely.',true);
-        continue;
-      }
-      linkedApkgFiles.set(id,{handle,mtime:file.lastModified,lastSavedSnapshot:deckContentSnapshot(deck),writing:false});
-      setFileStatus('Reconnected to '+file.name+' (automatic file save enabled).');
+      // iCloud can change the file timestamp without changing AnkiSync progress.
+      // Reattach the handle; a fresh ZIP state comparison is done at write time.
+      deck.ankiAutoWritePaused=false;
+      linkedApkgFiles.set(id,{handle,mtime:file.lastModified,lastSavedSnapshot:deck.ankiFileLocalDirty?'':deckContentSnapshot(deck),writing:false,paused:false});
+      setFileStatus('Read permission available for '+file.name+'. Only browser-local autosave is enabled.');
     }catch(error){console.warn('File handle reattachment unavailable',error);}
   }
 }
 function scheduleLinkedApkgSave(){
-  clearTimeout(linkedApkgAutoTimer);
-  linkedApkgAutoTimer=setTimeout(flushLinkedApkgChanges,1100);
+  // SAFETY: No automatic writes to cloud-synchronized .apkg files.
+  // Only IndexedDB/local browser progress is automatically saved.
+  return;
 }
 async function flushLinkedApkgChanges(){
+  // SAFETY: Fail closed even if a stale timer from an older version fires.
+  // The user must click Save to File or Save Deck .apkg to write to disk.
+  return;
   if(!fileFirstInitialized||linkedApkgAutosaving)return;
   linkedApkgAutosaving=true;
   try{
@@ -5896,30 +6118,29 @@ async function flushLinkedApkgChanges(){
       if(link && snapshot===link.lastSavedSnapshot)continue;
       // When no writable handle exists, changes are kept in IndexedDB only.
       if(!link){
-        if(deck.sourceFileName && !deck.ankiFileLocalDirty){
+        if(deck.sourceFileName && !deck.ankiFileLocalDirty &&
+           (!deck.ankiSyncLastFileSignature || ankiDeckSaveSignature(deck)!==deck.ankiSyncLastFileSignature)){
           deck.ankiFileLocalDirty=true;
           setFileStatus('Progress saved in browser. Tap Save to File to update '+deck.sourceFileName+'.');
         }
         continue;
       }
-      if(link.writing)continue;
+      if(link.writing || link.paused || deck.ankiAutoWritePaused)continue;
       link.writing=true;
       try{
-        const diskFile=await link.handle.getFile();
-        if(link.mtime && Number(diskFile.lastModified)!==Number(link.mtime)){
-          deck.ankiFileLocalDirty=true;
-          setFileStatus('External iCloud file change detected: '+diskFile.name+'. Auto-save stopped to prevent overwriting.',true);
-          // Detach the handle until the user deliberately reopens the file.
-          linkedApkgFiles.delete(id);
-          continue;
-        }
-        setFileStatus('Saving changes to '+diskFile.name+'...');
-        await writePreservedLinkedApkg(id,link.handle);
-        const current=linkedApkgFiles.get(id);
-        if(current){current.lastSavedSnapshot=deckContentSnapshot(appState.decks[id]);current.mtime=appState.decks[id].fileLastModified||current.mtime;}
+        setFileStatus('Saving latest changes to '+(deck.sourceFileName||'original .apkg')+'...');
+        const result=await writePreservedLinkedApkg(id,link.handle,{manual:false});
+        if(!result)deck.ankiFileLocalDirty=true;
       }catch(error){
         deck.ankiFileLocalDirty=true;
-        setFileStatus('Auto-save failed; progress remains in this browser: '+error.message,true);
+        if(isStaleApkgFileError(error) || error?.name==='AnkiRemoteConflictError'){
+          link.paused=true;
+          deck.ankiAutoWritePaused=true;
+          setFileStatus('Automatic file save paused: '+error.message+' Use Save to File to retry the SAME .apkg.',true);
+        }else{
+          setFileStatus('Auto-save could not update the original .apkg: '+error.message,true);
+        }
+        await saveLocalState();
       }finally{link.writing=false;}
     }
   }finally{linkedApkgAutosaving=false;}
@@ -5936,10 +6157,7 @@ function ankiIsIosDevice(){
   return /iPhone|iPad|iPod/i.test(navigator.userAgent||'') ||
     (navigator.platform==='MacIntel' && (navigator.maxTouchPoints||0)>1);
 }
-function ankiCanChooseDirectory(){
-  return !ankiIsIosDevice() && window.isSecureContext &&
-    typeof window.showDirectoryPicker === 'function';
-}
+function ankiCanChooseDirectory(){ return !ankiIsIosDevice() && window.isSecureContext && typeof window.showDirectoryPicker === 'function'; }
 function refreshAnkiFolderButton(){
   const btn=document.getElementById('preferredAnkiFolderButton');
   if(!btn)return;
@@ -5966,13 +6184,15 @@ async function restorePreferredAnkiFolder(){
 }
 async function choosePreferredAnkiFolder(){
   if(!ankiCanChooseDirectory()){
-    setFileStatus('On iPhone/iPad, select '+ANKI_IOS_SUGGESTED_FOLDER+' manually in Files.',true);
+    setFileStatus('Folder selection requires desktop Chrome or Edge. On iOS choose iCloud Drive / Anki in Files.',true);
     return;
   }
   try{
-    const options={id:'ankisync-icloud-anki-dir',mode:'readwrite'};
-    if(preferredAnkiDirectory)options.startIn=preferredAnkiDirectory;
+    // The folder is granted READ access only; selecting it NEVER authorizes a write.
+    const options={id:'ankisync-icloud-anki-dir',mode:'read'};
+    if(preferredAnkiDirectory?.kind==='directory')options.startIn=preferredAnkiDirectory;
     const handle=await window.showDirectoryPicker(options);
+    if(!handle||handle.kind!=='directory')return;
     preferredAnkiDirectory=handle;
     if(idbDB){
       await new Promise(resolve=>{
@@ -5984,13 +6204,12 @@ async function choosePreferredAnkiFolder(){
       });
     }
     refreshAnkiFolderButton();
-    setFileStatus('Anki folder remembered: '+handle.name+'. Open and Save As will prefer this folder.');
+    setFileStatus('Preferred Save As folder: '+handle.name+'. Original files are still opened read-only.');
   }catch(error){
-    if(error?.name!=='AbortError'){
-      setFileStatus('Could not set Anki folder: '+error.message,true);
-    }
+    if(error?.name!=='AbortError')setFileStatus('Could not set Anki folder: '+error.message,true);
   }
 }
+
 function ankiPreferredPickerOptions(){
   const result={id:'ankisync-apkg-files'};
   if(preferredAnkiDirectory?.kind==='directory')result.startIn=preferredAnkiDirectory;
@@ -5998,18 +6217,8 @@ function ankiPreferredPickerOptions(){
 }
 
 async function openApkgFiles(){
-  if(fileFirstBusy)return;
-  if(window.isSecureContext && typeof window.showOpenFilePicker==='function'){
-    try{
-      const handles=await window.showOpenFilePicker({...ankiPreferredPickerOptions(),multiple:true,types:[{description:'Anki Packages',accept:{'application/octet-stream':['.apkg','.colpkg']}}]});
-      fileFirstBusy=true;
-      for(const handle of handles){const file=await handle.getFile();await handleAnkiFileUpload({target:{files:[file]}},{file,handle});}
-      return;
-    }catch(error){
-      if(error?.name==='AbortError')return;
-      console.warn('Native open picker unavailable; using device file selection',error);
-    }finally{fileFirstBusy=false;}
-  }
+  // A native <input type=file> exposes only an immutable File snapshot, never a
+  // writable handle to the selected iCloud APKG. Do not use showOpenFilePicker.
   document.getElementById('apkgOpenInput')?.click();
 }
 async function onApkgFilePicker(event){
@@ -6020,36 +6229,319 @@ async function onApkgFilePicker(event){
   }
   event.target.value='';
 }
-async function saveDeckToFile(id){
-  const deck=appState.decks[id];if(!deck)return;
-  const link=linkedApkgFiles.get(id);
-  try{
-    if(link){
-      const current=await link.handle.getFile();
-      if(link.mtime && Number(current.lastModified)!==Number(link.mtime)){
-        alert('The iCloud package changed outside AnkiSync. Reopen it before writing to avoid losing newer changes.');return;
+// After a browser refresh the study cards are still in IndexedDB, but a File
+// supplied by a file picker is intentionally not retained in memory. Re-select
+// the ORIGINAL package for saving without re-importing it or replacing edits.
+async function requestOriginalApkgForSave(id, {allowModifiedCopy=false}={}){
+  const deck=appState.decks[id];
+  if(!deck?.sourceFileName)return null;
+  const expected=String(deck.sourceFileName);
+  setFileStatus('Select the original '+expected+' to preserve its Anki database and media; local edits will not be re-imported.');
+  let file=null,handle=null;
+  if(!ankiIsIosDevice() && window.isSecureContext && typeof window.showOpenFilePicker==='function'){
+    try{
+      const chosen=await window.showOpenFilePicker({
+        ...ankiPreferredPickerOptions(),multiple:false,
+        types:[{description:'Original Anki package',accept:{'application/octet-stream':['.apkg','.colpkg']}}]
+      });
+      handle=chosen?.[0]||null;
+      if(!handle)return null;
+      file=await handle.getFile();
+    }catch(error){
+      if(error?.name==='AbortError'){
+        setFileStatus('Save canceled; original .apkg was not changed.');
+        return null;
       }
-      await writePreservedLinkedApkg(id,link.handle);return;
+      console.warn('Native picker unavailable for reconnection',error);
     }
-    const original=openedApkgSources.get(id);
-    if(original && /\.(apkg|colpkg)$/i.test(original.name)){
-      const file=await buildPreservedApkg(id,original);
-      await shareSavedApkg(file,original.name);
-      return;
-    }
-    if(deck.sourceFileName && !original){
-      alert('Reopen '+deck.sourceFileName+' using Open .apkg before saving. This preserves the original Anki cards, tags, note types and media. Your local study progress is safe.');
-      return;
-    }
-    await saveAllDecksToFile(id); // Brand-new deck: create a new Anki package.
-  }catch(error){console.error('APKG save failed',error);setFileStatus('Save failed: '+error.message,true);alert('Unable to save .apkg: '+error.message);}
+  }
+  if(!file){
+    file=await new Promise(resolve=>{
+      const input=document.createElement('input');
+      input.type='file';input.accept='.apkg,.colpkg';input.style.display='none';
+      let completed=false;
+      const finish=value=>{if(completed)return;completed=true;input.remove();resolve(value||null);};
+      input.addEventListener('change',()=>finish(input.files?.[0]||null),{once:true});
+      input.addEventListener('cancel',()=>finish(null),{once:true});
+      document.body.appendChild(input);
+      input.click();
+    });
+  }
+  if(!file){setFileStatus('Save canceled; no .apkg file was changed.');return null;}
+  // A different deck or a renamed copy must not silently overwrite this deck.
+  if(String(file.name).normalize('NFC').toLocaleLowerCase() !== expected.normalize('NFC').toLocaleLowerCase()){
+    alert('Wrong package selected. Choose '+expected+'. Your browser-saved study progress is unchanged.');
+    return null;
+  }
+  // iCloud may change the timestamp after download or indexing. Validate the
+  // embedded AnkiSync progress at write time instead of rejecting by mtime.
+  // Confirm this really is an Anki package before allowing a file write.
+  const archive=await JSZip.loadAsync(await file.arrayBuffer());
+  if(!['collection.anki2','collection.anki21','collection.anki21b'].some(key=>archive.file(key))){
+    alert('The selected file does not contain a supported Anki collection. No changes were made.');
+    return null;
+  }
+  return {file,handle};
 }
+
+// An InvalidStateError from a synchronized Windows file must not trigger an
+// uncontrolled overwrite or repeated autosave. A separate downloaded copy is
+// safer and uses only read access to the original Anki ZIP.
+function isStaleApkgFileError(error){
+  const message=String(error?.message||'');
+  return error?.name==='InvalidStateError' || /state cached|state had changed|changed since it was read from disk|iCloud package changed while|file has been modified/i.test(message);
+}
+// A deck created with New Deck already has a proposed filename, but it has
+// NEVER been written to disk. Such a deck must use Save As, not the 'reselect
+// original package' path (which only works for files that actually exist).
+// The legacy check also repairs new unsaved decks created in earlier HTML versions.
+function ankiIsNeverSavedNewDeck(id, deck){
+  if(deck?.ankiNewDeckUnsaved === true)return true;
+  return Boolean(deck && String(id).startsWith('deck_') && deck.sourceFileName &&
+    !Number(deck.fileLastModified) && !Number(deck.ankiSyncLastFileSavedAt) &&
+    !deck.ankiSyncLastFileSignature && !linkedApkgFiles.has(id) &&
+    !openedApkgSources.has(id));
+}
+// IMPORTANT SAFETY RULE: this HTML never opens source APKG files for writing.
+// Browser downloads may be saved under the original name if the user confirms
+// replacement in the system dialog. The generated ZIP is validated in memory.
+// The browser owns the final download/overwrite; this page cannot verify it.
+let ankiManualSaveRunning=false;
+function ankiSafeCopyFilename(deck){
+  const base=String(deck?.sourceFileName||((deck?.name||'Deck')+'.apkg'))
+    .replace(/[\/]/g,'').replace(/\.apkg$/i,'').trim()||'Deck';
+  return base+' - SAFE COPY.apkg';
+}
+// Browser Save As filename: retain the original deck's filename (not -SAFE COPY).
+// This routine never creates a writable file handle. Chrome/Edge's Downloads
+// settings determine whether the operating system Save As dialog is shown.
+function ankiBrowserSaveAsFilename(deck){
+  let name=String(deck?.sourceFileName || ((deck?.name||'Deck')+'.apkg')).trim();
+  name=name.split(/[\\/]/).pop().replace(/[<>:"|?*\x00-\x1f]/g,'_').trim();
+  if(!name)name='Deck.apkg';
+  if(!/\.apkg$/i.test(name))name += '.apkg';
+  return name;
+}
+function ankiSameFilename(a,b){
+  return String(a||'').normalize('NFC').toLocaleLowerCase()===
+         String(b||'').normalize('NFC').toLocaleLowerCase();
+}
+async function ankiValidateSafeCopy(){
+  throw new Error('Writing a selected file is disabled in Download-Only Safety Mode.');
+}
+async function ankiGetReadableSource(id){
+  const saved=openedApkgByteSnapshots.get(id);
+  if(saved?.byteLength){
+    const zip=await JSZip.loadAsync(saved);
+    if(['collection.anki2','collection.anki21','collection.anki21b'].some(n=>zip.file(n)))
+      return saved;
+  }
+  const file=openedApkgSources.get(id);
+  if(file){
+    try{
+      const bytes=await file.arrayBuffer();
+      const zip=await JSZip.loadAsync(bytes);
+      if(['collection.anki2','collection.anki21','collection.anki21b'].some(n=>zip.file(n)))
+        return bytes;
+    }catch(error){console.warn('Previously opened source is no longer readable:',error);}
+  }
+  return null;
+}
+// Explicit read-only reconnection after a browser reload. Never import the
+// selected file into appState and NEVER request/create a writable file handle.
+// The selected archive is cached only in RAM for the current tab/session.
+async function ankiReconnectOriginalReadOnly(id){
+  const deck=appState.decks[id];
+  if(!deck){setFileStatus('Select the deck whose original you want to reconnect.',true);return false;}
+  const expected=String(deck.sourceFileName||'').trim();
+  if(!expected){setFileStatus('This is a new deck with no original archive. Use Save Copy.',true);return false;}
+  let file=null;
+  try{
+    // Read-only reconnection via a File input. No FileSystemFileHandle exists.
+    file=await new Promise(resolve=>{
+      const input=document.createElement('input');
+      input.type='file';input.accept='.apkg,.colpkg';input.style.display='none';
+      document.body.appendChild(input);
+      let completed=false;
+      const done=f=>{if(completed)return;completed=true;input.remove();resolve(f||null);};
+      input.addEventListener('change',()=>done(input.files?.[0]||null),{once:true});
+      input.addEventListener('cancel',()=>done(null),{once:true});
+      input.click();
+    });
+    if(!file)return false;
+    if(!file.size)throw new Error('Selected source is 0 bytes. Choose the intact 56 MB recovered/backup .apkg, NOT the empty original.');
+    if(file.size>ANKI_MAX_SOURCE_SNAPSHOT_BYTES)
+      throw new Error('Source exceeds the '+Math.round(ANKI_MAX_SOURCE_SNAPSHOT_BYTES/1048576)+' MB in-memory safety limit. No file was changed.');
+    const chosenName=String(file.name||'');
+    if(!ankiSameFilename(chosenName,expected)){
+      if(!confirm('The file is named "'+chosenName+'", but this deck originally came from "'+expected+'".\n\nOnly continue if this is an intact RECOVERED COPY of the SAME deck. Continue read-only?'))return false;
+    }
+    setFileStatus('Reading '+chosenName+' as a read-only recovery source…');
+    const bytes=await file.arrayBuffer();
+    if(bytes.byteLength!==file.size)throw new Error('Source file changed during reading. No data was attached.');
+    const archive=await JSZip.loadAsync(bytes);
+    if(!['collection.anki2','collection.anki21','collection.anki21b'].some(n=>archive.file(n))||!archive.file('media'))
+      throw new Error('Selected archive is missing an Anki collection or media index. No data was attached.');
+    openedApkgByteSnapshots.set(id,bytes);
+    openedApkgSources.set(id,file);
+    setFileStatus('SOURCE RECONNECTED READ-ONLY: '+chosenName+' ('+(bytes.byteLength/1048576).toFixed(1)+' MB). Your browser cards/progress are unchanged. Use Save As .apkg to export through your browser.');
+    alert('Original archive attached READ-ONLY for this session.\n\n'+chosenName+'\n'+(bytes.byteLength/1048576).toFixed(1)+' MB\n\nYour current browser cards and progress have NOT been replaced. Use Save As .apkg. The browser chooses the destination; no write permission is granted to this HTML.');
+    return true;
+  }catch(error){
+    if(error?.name==='AbortError'){setFileStatus('Read-only reconnection canceled; nothing changed.');return false;}
+    console.error('Read-only archive reconnection failed:',error);
+    setFileStatus('Cannot reconnect source: '+(error?.message||String(error)),true);
+    alert('Cannot reconnect original archive:\n'+(error?.message||String(error))+'\n\nYour cards and files were not changed.');
+    return false;
+  }
+}
+
+async function ankiDownloadThroughBrowserSaveAs(blob,filename){
+  if(!(blob instanceof Blob)||blob.size<256)
+    throw new Error('Generated package is missing or too small; no download requested.');
+  const zip=await JSZip.loadAsync(blob);
+  if(!['collection.anki2','collection.anki21','collection.anki21b'].some(n=>zip.file(n)) || !zip.file('media'))
+    throw new Error('Export is not a valid Anki archive (missing collection or media).');
+  const name=ankiBrowserSaveAsFilename({sourceFileName:filename});
+  // A normal browser download, NOT File System Access API. To see a native
+  // Save As picker, the user must enable "Ask where to save" in Chrome/Edge.
+  const url=URL.createObjectURL(blob);
+  const anchor=document.createElement('a');
+  anchor.href=url;anchor.download=name;
+  document.body.appendChild(anchor);anchor.click();anchor.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),120000);
+  return name;
+}
+// Actual native Save As: call showSaveFilePicker DIRECTLY from the click handler,
+// before ANY awaited ZIP generation or IndexedDB operation (transient activation).
+// The original Open/import path never receives or uses this write handle.
+async function saveDeckToFile(id){
+  const deck=appState.decks[id];
+  if(!deck){setFileStatus('Select a deck before saving.',true);return false;}
+  if(ankiManualSaveRunning){setFileStatus('Save As is already in progress.',true);return false;}
+  if(!window.isSecureContext||typeof window.showSaveFilePicker!=='function'){
+    const explanation='A real Save As dialog is available in desktop Chrome/Edge on Windows. This browser cannot open it. Your original file was not written.';
+    setFileStatus(explanation,true);alert(explanation);return false;
+  }
+  const needsOriginal=Boolean(deck.sourceFileName)&&!ankiIsNeverSavedNewDeck(id,deck);
+  if(needsOriginal && !openedApkgByteSnapshots.has(id) && !openedApkgSources.has(id)){
+    const msg='This browser tab does not have the intact original Anki archive. Click Reconnect Original .apkg (Read Only) first; then click Save As again. No destination has been selected or changed.';
+    setFileStatus(msg,true);alert(msg);return false;
+  }
+  const filename=ankiBrowserSaveAsFilename(deck);
+  ankiManualSaveRunning=true;
+  let writable=null;
+  let writeFinished=false;
+  let output=null;
+  try{
+    // MUST be the first async API call while the original user click is active.
+    // The picker remembers its last destination with a stable id. Its default
+    // may also be the read-only Anki folder handle selected using the header.
+    const pickerOptions={
+      id:'ankisync-native-apkg-save',
+      suggestedName:filename,
+      types:[{description:'Anki deck package (.apkg)',accept:{'application/octet-stream':['.apkg']}}],
+      excludeAcceptAllOption:true
+    };
+    if(preferredAnkiDirectory?.kind==='directory')pickerOptions.startIn=preferredAnkiDirectory;
+    const selectedHandle=await window.showSaveFilePicker(pickerOptions);
+    if(!selectedHandle){setFileStatus('Save As canceled; nothing was written.');return false;}
+    if(!/\.apkg$/i.test(selectedHandle.name||''))
+      throw new Error('The selected destination must end with .apkg. Nothing was written.');
+
+    // Perform ALL expensive generation and validation before createWritable().
+    // File picker selection itself is not treated as a successful save.
+    setFileStatus('Save As selected: '+selectedHandle.name+'. Preparing and validating package BEFORE writing…');
+    const source=needsOriginal ? await ankiGetReadableSource(id) : null;
+    if(needsOriginal && !source)
+      throw new Error('The original Anki archive is unavailable or invalid. Destination has not been written; reconnect an intact source file.');
+    if(source){
+      output=await buildPreservedApkg(id,source);
+      const before=await JSZip.loadAsync(source);
+      const after=await JSZip.loadAsync(output);
+      const missing=Object.keys(before.files).filter(n=>!after.files[n]);
+      if(missing.length)throw new Error('Generated package is missing '+missing.length+' entries from the source. No write attempted.');
+    }else{
+      output=await saveAllDecksToFile(id,null,true); // new deck, no download
+    }
+    if(!(output instanceof Blob)||output.size<256)
+      throw new Error('Generated APKG is empty or too small. No write attempted.');
+    const generated=await JSZip.loadAsync(output);
+    if(!['collection.anki2','collection.anki21','collection.anki21b'].some(n=>generated.file(n))||!generated.file('media'))
+      throw new Error('Generated archive is missing a collection or media index. No write attempted.');
+
+    // Snapshot and validate an existing destination before opening a writer.
+    // A new file can be 0 bytes here; that is normal before its first write.
+    const currentFile=await selectedHandle.getFile();
+    if(currentFile.size>0){
+      if(currentFile.size>ANKI_MAX_SOURCE_SNAPSHOT_BYTES)
+        throw new Error('Selected destination is too large for overwrite safety checks. No write attempted.');
+      const currentBytes=await currentFile.arrayBuffer();
+      try{
+        const oldZip=await JSZip.loadAsync(currentBytes);
+        if(!['collection.anki2','collection.anki21','collection.anki21b'].some(n=>oldZip.file(n)))
+          throw new Error('not an Anki package');
+      }catch(error){
+        throw new Error('Existing destination is not a valid APKG. It has NOT been overwritten: '+error.message);
+      }
+      // An independent backup matters: a failed write on an iCloud-backed
+      // file can still cause a 0-byte destination despite browser safeguards.
+      if(!confirm('REPLACE EXISTING ANKI PACKAGE?\n\n'+selectedHandle.name+' ('+(currentFile.size/1048576).toFixed(1)+' MB)\n\nAnkiSync has built and verified the replacement ZIP in memory.\n\nThis will write to your selected existing file. Because this iCloud folder previously produced 0 KB files, you MUST retain an intact backup OUTSIDE iCloud first.\n\nChoose OK only if that independent backup exists.')){
+        setFileStatus('Replacement canceled; no writing attempted.');return false;
+      }
+    }
+
+    // File System Access uses a temporary swap file and commits on close.
+    // keepExistingData preserves the old contents until explicitly replaced.
+    // Never call this in any automatic-save or Open function.
+    setFileStatus('Writing validated .apkg to '+selectedHandle.name+' (manual Save As)…');
+    writable=await selectedHandle.createWritable({keepExistingData:true,mode:'exclusive'});
+    await writable.write({type:'write',position:0,data:output});
+    await writable.truncate(output.size);
+    await writable.close();
+    writable=null;
+    writeFinished=true;
+
+    // Verify the ACTUAL saved file, not merely the in-memory export.
+    const actual=await selectedHandle.getFile();
+    if(actual.size!==output.size)
+      throw new Error('The destination has '+actual.size+' bytes; expected '+output.size+'. Saving may have failed. Keep the independent backup.');
+    const actualZip=await JSZip.loadAsync(await actual.arrayBuffer());
+    if(!['collection.anki2','collection.anki21','collection.anki21b'].some(n=>actualZip.file(n))||!actualZip.file('media'))
+      throw new Error('The file written to disk failed archive verification. Restore from independent backup.');
+
+    // Re-use the updated archive in RAM for subsequent manual saves only.
+    openedApkgByteSnapshots.set(id,await output.arrayBuffer());
+    deck.sourceFileName=selectedHandle.name;
+    deck.ankiNewDeckUnsaved=false;
+    deck.ankiSyncLastFileSavedAt=Date.now();
+    deck.ankiSyncLastExportedAt=deck.ankiSyncLastFileSavedAt;
+    deck.ankiFileLocalDirty=false;
+    await saveLocalState();
+    setFileStatus('SAVED AND VERIFIED: '+selectedHandle.name+' ('+(actual.size/1048576).toFixed(1)+' MB). Original import is otherwise read-only.');
+    showToast('Saved and verified '+selectedHandle.name);
+    return true;
+  }catch(error){
+    if(writable){try{await writable.abort();}catch(abortError){console.error('Could not abort incomplete write',abortError);}}
+    if(error?.name==='AbortError'){
+      setFileStatus('Save As canceled. No write attempted.');return false;
+    }
+    const message='Save As failed: '+(error?.message||String(error));
+    console.error(message,error);
+    setFileStatus(message,true);
+    alert(message+'\n\n'+(writeFinished
+      ? 'The browser may already have changed the selected file. Check its size and restore from the independent backup if needed.'
+      : 'No completed file write was reported. If you selected an existing iCloud file, check its size before proceeding.'));
+    return false;
+  }finally{ankiManualSaveRunning=false;}
+}
+
 async function saveActiveApkg(){
   let id=appState.activeStudyDeckId;
   if(!id||!appState.decks[id]){
     const all=Object.keys(appState.decks);
     if(all.length===1)id=all[0];
-    else {alert('Open a deck first, or use the Save .apkg button on its deck card.');return;}
+    else {setFileStatus('Choose a deck first, or press Save As on a specific deck.',true);alert('Choose the deck to save: open it in Study, or press Save As on its deck card.');return false;}
   }
   return saveDeckToFile(id);
 }
