@@ -14,9 +14,6 @@
   <script src="https://cdn.jsdelivr.net/npm/sql.js@1.15.1/dist/sql-wasm-inline.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/fzstd@0.1.1/umd/index.js"></script>
   
-  <!-- Firebase SDKs -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 
   <style>
 .anki-content {
@@ -623,26 +620,6 @@ body.light-mode .text-slate-100,
       color: #0f172a !important;
     }
 
-    /* Target the Local Mode / Sync Status badge in the header */
-    body.light-mode #syncStatus {
-      background-color: #f1f5f9 !important;
-      border-color: #cbd5e1 !important;
-      color: #334155 !important;
-    }
-
-    /* Target the "New Group" button in the filter bar */
-    body.light-mode #view-decks button[onclick="promptCreateCategory()"] {
-      background-color: #f1f5f9 !important;
-      color: #334155 !important;
-      border: 1px solid #cbd5e1 !important;
-    }
-
-    body.light-mode #view-decks button[onclick="promptCreateCategory()"]:hover {
-      background-color: #e2e8f0 !important;
-      color: #0f172a !important;
-    }
-    
-
 /* Focus Study Mode Styles (Step 2) */
     .deck-viewer-container.focus-study-active .sidebar {
       display: none !important;
@@ -942,6 +919,45 @@ body.light-mode .anki-search-result { background: #fff; color: #0f172a; }
       }
     }
     
+/* Back answer editors: 200% taller than their original minimum heights. */
+#createCardBack { min-height: 1080px !important; }
+#editCardBack, #modalCardBack { min-height: 720px !important; }
+/* Keep the action buttons visible when the larger editor is scrolled. */
+#studyEditMode .anki-card-save-footer, #quickAddModal .anki-card-save-footer {
+  position: sticky; bottom: 0; z-index: 12;
+  background: var(--card-bg); padding-block: 8px;
+}
+body.light-mode #studyEditMode .anki-card-save-footer,
+body.light-mode #quickAddModal .anki-card-save-footer { background: #ffffff; }
+/* Existing rating palette, applied consistently to desktop rows and iPhone card numbers. */
+.anki-card-legend { display:flex; flex-wrap:wrap; gap:7px; align-items:center; padding:8px 10px;
+  border-bottom:1px solid var(--border-color); font-size:10px; font-weight:700; }
+.anki-card-legend span { display:inline-flex; gap:4px; align-items:center; white-space:nowrap; }
+.anki-card-legend span::before { content:''; height:8px; width:8px; border-radius:50%; display:inline-block; background:currentColor; }
+.anki-legend-new {color:#22d3ee}.anki-legend-again {color:#fda4af}.anki-legend-hard {color:#fbbf24}
+.anki-legend-good {color:#6ee7b7}.anki-legend-easy {color:#a5b4fc}
+#slide-list .slide-item.anki-nav-new {background:rgba(8,145,178,.19); border-left:4px solid #06b6d4; color:#67e8f9}
+#slide-list .slide-item.anki-nav-again {background:rgba(244,63,94,.14); border-left:4px solid #f43f5e; color:#fda4af}
+#slide-list .slide-item.anki-nav-hard {background:rgba(245,158,11,.15); border-left:4px solid #f59e0b; color:#fcd34d}
+#slide-list .slide-item.anki-nav-good {background:rgba(16,185,129,.15); border-left:4px solid #10b981; color:#6ee7b7}
+#slide-list .slide-item.anki-nav-easy {background:rgba(99,102,241,.16); border-left:4px solid #6366f1; color:#c7d2fe}
+#slide-list .slide-item .sidebar-card-number { color:inherit !important; font-weight:800; }
+#slide-list .slide-item.active { outline:2px solid currentColor; outline-offset:-3px; font-weight:800; }
+body.light-mode .anki-legend-new {color:#0e7490} body.light-mode .anki-legend-again {color:#be123c}
+body.light-mode .anki-legend-hard {color:#92400e} body.light-mode .anki-legend-good {color:#047857}
+body.light-mode .anki-legend-easy {color:#4338ca}
+body.light-mode #slide-list .slide-item.anki-nav-new {color:#0e7490; background:rgba(8,145,178,.15)}
+body.light-mode #slide-list .slide-item.anki-nav-again {color:#be123c; background:rgba(244,63,94,.13)}
+body.light-mode #slide-list .slide-item.anki-nav-hard {color:#92400e; background:rgba(245,158,11,.15)}
+body.light-mode #slide-list .slide-item.anki-nav-good {color:#047857; background:rgba(16,185,129,.13)}
+body.light-mode #slide-list .slide-item.anki-nav-easy {color:#4338ca; background:rgba(99,102,241,.15)}
+body.light-mode #slide-list .slide-item.active { outline-color:#0f172a; }
+/* Compact iPhone grid keeps the status colors from the full desktop sidebar. */
+@media (max-width:700px) {
+ body.anki-iphone #slide-list .slide-item { border-left-width:4px; }
+ body.anki-iphone #slide-list .slide-item .sidebar-card-number {font-weight:800; color:inherit !important;}
+}
+
 /* Compact rich-text presets (create/add/edit front and back). */
 .anki-preset-group { display: inline-flex; flex-wrap: wrap; gap: 4px; align-items: center; }
 .anki-preset-btn {
@@ -986,37 +1002,32 @@ body:not(.focus-study-active) #view-study #studyViewMode > .perspective-1000 {
 #imageClozeDrawingArea { position:absolute; inset:0; touch-action:none; cursor:crosshair; }
 #imageClozeDrawingArea .anki-image-mask { pointer-events:auto; }
 #imageClozeDraft { position:absolute; border:2px dashed #fbbf24; background:rgba(99,102,241,.5); pointer-events:none; }
-/* Targeted organizer / movable card-edit enhancements. */
+/* Movable card-edit control. */
 .anki-floating-edit-button { position:fixed; right:18px; top:38%; z-index:75; touch-action:none;
   display:flex; align-items:center; gap:8px; padding:10px 14px; border-radius:13px;
   border:1px solid #818cf8; background:#4f46e5; color:#fff; font-size:12px; font-weight:700;
   box-shadow:0 7px 22px rgba(0,0,0,.38); cursor:grab; user-select:none; -webkit-user-select:none; }
 .anki-floating-edit-button.hidden { display:none !important; }
 .anki-floating-edit-button.anki-dragging { cursor:grabbing; opacity:.9; }
-.anki-organizer-row { padding:7px 9px; border-radius:9px; display:flex; align-items:center; gap:7px;
-  margin-top:2px; color:#cbd5e1; border:1px solid transparent; touch-action:pan-y; }
-.anki-organizer-row:hover { background:rgba(99,102,241,.15); }
-.anki-organizer-row.anki-drop-target { background:rgba(79,70,229,.32); border-color:#a5b4fc; }
-.anki-organizer-row[draggable="true"] { cursor:grab; }
-.anki-organizer-row .anki-organizer-label { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-body.light-mode .anki-organizer-row { color:#334155; }
-body.light-mode .anki-organizer-row:hover { background:#e0e7ff; }
 /* Compact reset controls live beneath each deck's category dropdown. */
 .anki-deck-reset-buttons { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; width:100%; }
 .anki-deck-reset-buttons button { min-width:0; white-space:nowrap; display:flex; align-items:center; justify-content:center; gap:6px; }
-/* Expand/collapse controls apply to both real folders and nested files. */
-.anki-organizer-toggle, .anki-organizer-toggle-placeholder { flex:0 0 22px; width:22px; height:24px; display:inline-flex; align-items:center; justify-content:center; }
-.anki-organizer-toggle { border-radius:5px; color:#a5b4fc; cursor:pointer; }
-.anki-organizer-toggle:hover { background:rgba(99,102,241,.25); }
-.anki-organizer-delete { flex-shrink:0; padding:4px 6px; border-radius:6px; color:#fda4af; }
-.anki-organizer-delete:hover { background:rgba(244,63,94,.15); color:#fecdd3; }
-body.light-mode .anki-organizer-toggle { color:#4f46e5; }
-body.light-mode .anki-organizer-delete { color:#be123c; }
-/* Existing organizer palette: selection highlights only, without changing row typography. */
-.anki-organizer-row.anki-selected { background:rgba(79,70,229,.20); border-color:rgba(129,140,248,.45); }
-body.light-mode .anki-organizer-row.anki-selected { background:#e0e7ff; border-color:#a5b4fc; }
-.anki-organizer-checkbox { flex:0 0 15px; width:15px; height:15px; accent-color:#6366f1; cursor:pointer; }
-#ankiOrganizerMoveSelectedBtn:disabled { opacity:.45; cursor:not-allowed; }
+
+/* Layout adjustments: reuse original navigation and reveal colors. */
+#view-study .perspective-1000 { position: relative; }
+#ankiRevealAtCardBottom { position:absolute; bottom:12px; left:50%; transform:translateX(-50%); z-index:15; display:flex; align-items:center; justify-content:center; gap:8px; white-space:nowrap; }
+#ankiRevealAtCardBottom .anki-floating-edit-button { position:static; inset:auto; right:auto; top:auto; left:auto; transform:none; padding:10px 12px; min-height:40px; cursor:pointer; touch-action:manipulation; }
+#ankiRevealAtCardBottom .anki-floating-edit-button:active { cursor:pointer; }
+#view-study #frontContent, #view-study #backContent { padding-bottom:56px; }
+#ankiViewNavigation { flex:0 0 auto; margin-top:7px; }
+#ankiEditNavigation { flex:0 0 auto; }
+/* Edits remain scrollable while the Save/Cancel row stays below navigation. */
+#studyEditMode { min-height:0; }
+#studyEditMode > .space-y-4:first-child { max-height: min(76vh, 980px) !important; }
+@media (max-width:700px) {
+  #ankiRevealAtCardBottom { bottom:10px; }
+  #view-study #frontContent, #view-study #backContent { padding-bottom:53px; }
+}
 </style>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col font-sans antialiased selection:bg-indigo-500 selection:text-white">
@@ -1044,10 +1055,7 @@ body.light-mode .anki-organizer-row.anki-selected { background:#e0e7ff; border-c
           <span>Save As...</span>
         </button>
 
-        <div id="syncStatus" class="flex items-center space-x-2 px-3 py-1.5 rounded-full text-xs font-medium bg-slate-700/50 border border-slate-600 text-slate-300">
-          <span id="syncDot" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-          <span id="syncText">Local Mode</span>
-        </div>
+
       </div>
     </div>
   </header>
@@ -1063,10 +1071,6 @@ body.light-mode .anki-organizer-row.anki-selected { background:#e0e7ff; border-c
         <i class="fa-solid fa-book-open text-xs"></i>
         <span>Decks</span>
       </button>
-      <button onclick="switchTab('organizer')" id="tab-btn-organizer" class="tab-btn flex-1 min-w-[90px] py-2.5 px-3 rounded-xl font-medium text-sm flex items-center justify-center space-x-2 text-slate-400 hover:text-slate-200 transition-all duration-200">
-        <i class="fa-solid fa-folder-tree text-xs"></i>
-        <span>Organizer</span>
-      </button>
       <button onclick="switchTab('create')" id="tab-btn-create" class="tab-btn flex-1 min-w-[90px] py-2.5 px-3 rounded-xl font-medium text-sm flex items-center justify-center space-x-2 text-slate-400 hover:text-slate-200 transition-all duration-200">
         <i class="fa-solid fa-plus text-xs"></i>
         <span>New Card</span>
@@ -1079,24 +1083,6 @@ body.light-mode .anki-organizer-row.anki-selected { background:#e0e7ff; border-c
 
     <!-- VIEW 1: DECKS & STUDY HUB -->
     <div id="view-decks" class="tab-view space-y-6">
-      <div class="flex items-center justify-between gap-4 flex-wrap bg-slate-800/40 p-3 rounded-2xl border border-slate-800">
-        <div class="flex items-center space-x-2 overflow-x-auto py-1 scrollbar-none" id="categoryFilterContainer">
-          <button onclick="filterCategory('ALL')" class="cat-filter-btn px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-indigo-600 text-white shadow-sm transition">All Decks</button>
-        </div>
-        
-<div class="flex items-center space-x-2">
-          <button onclick="promptCreateDeck()" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition flex items-center space-x-1.5 shadow-sm">
-            <i class="fa-solid fa-plus"></i>
-            <span>New Deck</span>
-          </button>
-          <button onclick="promptCreateCategory()" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-700 hover:bg-slate-600 text-indigo-300 border border-slate-600 transition flex items-center space-x-1.5">
-            <i class="fa-solid fa-folder-plus"></i>
-            <span>New Group</span>
-          </button>
-        </div>
-      </div>
-
-
       <!-- Search cards in all decks; results are temporary and never modify progress. -->
       <div class="bg-slate-800/40 p-3 rounded-2xl border border-slate-700/60 space-y-2">
         <label for="allDeckCardSearch" class="block text-xs font-semibold text-slate-400">Search all decks</label>
@@ -1107,6 +1093,21 @@ body.light-mode .anki-organizer-row.anki-selected { background:#e0e7ff; border-c
         </div>
         <div id="allDeckCardSearchResults" class="hidden space-y-1 max-h-72 overflow-y-auto"></div>
       </div>
+
+      <div class="flex items-center justify-between gap-4 flex-wrap bg-slate-800/40 p-3 rounded-2xl border border-slate-800">
+        <div class="flex items-center space-x-2 overflow-x-auto py-1 scrollbar-none" id="categoryFilterContainer">
+          <button onclick="filterCategory('ALL')" class="cat-filter-btn px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-indigo-600 text-white shadow-sm transition">All Decks</button>
+        </div>
+        
+<div class="flex items-center space-x-2">
+          <button onclick="promptCreateDeck()" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition flex items-center space-x-1.5 shadow-sm">
+            <i class="fa-solid fa-plus"></i>
+            <span>New Deck</span>
+          </button>
+
+        </div>
+      </div>
+
 
       <div id="decksGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       </div>
@@ -1202,6 +1203,11 @@ body.light-mode .anki-organizer-row.anki-selected { background:#e0e7ff; border-c
               </div>
             </div>
           </div>
+          <div id="ankiCardStatusLegend" class="anki-card-legend" aria-label="Card review colors">
+            <span class="anki-legend-new">New</span><span class="anki-legend-again">Again</span>
+            <span class="anki-legend-hard">Hard</span><span class="anki-legend-good">Good</span>
+            <span class="anki-legend-easy">Easy</span>
+          </div>
           <ul id="slide-list" class="slide-list">
           </ul>
         </div>
@@ -1224,9 +1230,6 @@ body.light-mode .anki-organizer-row.anki-selected { background:#e0e7ff; border-c
 
 
        
-              <div class="flex justify-center mb-2">
-                <button type="button" onclick="revealNextClozeByButton()" class="w-9 h-9 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white border border-indigo-400 shadow flex items-center justify-center text-sm" title="Reveal the next back cloze answer (same as Space)"><i class="fa-solid fa-eye"></i></button>
-              </div>
               <div id="studyCard" onclick="flipCard()" class="card-inner w-full min-h-[300px] cursor-pointer relative rounded-2xl bg-slate-800/90 border border-slate-700 shadow-xl p-6 flex flex-col justify-between">
                 
                 <!-- Front Side -->
@@ -1245,6 +1248,19 @@ body.light-mode .anki-organizer-row.anki-selected { background:#e0e7ff; border-c
                 
 
               </div>
+              <!-- Reveal stays on the bottom edge of the card, including on iPhone. -->
+              <div id="ankiRevealAtCardBottom">
+                <button type="button" onclick="revealNextClozeByButton()" class="w-10 h-10 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white border border-indigo-400 shadow flex items-center justify-center text-sm" title="Reveal next cloze (Space)" aria-label="Reveal next answer"><i class="fa-solid fa-eye"></i></button>
+                <button id="floatingEditCardButton" type="button" class="hidden anki-floating-edit-button" aria-label="Edit current card" title="Edit current card">
+                  <i class="fa-solid fa-pen-to-square" aria-hidden="true"></i><span>Edit Card</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Navigation immediately beneath the card; ratings follow it. -->
+            <div id="ankiViewNavigation" class="flex justify-between items-center pt-2">
+              <button type="button" onclick="prevCard()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition flex items-center space-x-1.5"><i class="fa-solid fa-chevron-left"></i><span>Previous</span></button>
+              <button type="button" onclick="nextCard()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition flex items-center space-x-1.5"><span>Next</span><i class="fa-solid fa-chevron-right"></i></button>
             </div>
 
             <!-- SRS Rating Controls -->
@@ -1394,127 +1410,19 @@ body.light-mode .anki-organizer-row.anki-selected { background:#e0e7ff; border-c
 
             </div>
 
+            <div id="ankiEditNavigation" class="flex justify-between items-center pt-2 border-t border-slate-700/60 mt-2">
+              <button type="button" onclick="ankiNavigateFromEditor(-1)" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition flex items-center space-x-1.5"><i class="fa-solid fa-chevron-left"></i><span>Previous</span></button>
+              <button type="button" onclick="ankiNavigateFromEditor(1)" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition flex items-center space-x-1.5"><span>Next</span><i class="fa-solid fa-chevron-right"></i></button>
+            </div>
             <div class="flex space-x-3 pt-2">
-              <button onclick="saveCardEdits()" class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold transition shadow-md">
-                Save Changes
-              </button>
-              <button onclick="toggleEditCurrentCard()" class="px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-xl text-xs font-semibold transition">
-                Cancel
-              </button>
+              <button onclick="saveCardEdits()" class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold transition shadow-md">Save Changes</button>
+              <button onclick="toggleEditCurrentCard()" class="px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-xl text-xs font-semibold transition">Cancel</button>
             </div>
           </div>
 
 
 
-          <!-- Bottom Navigation Controls -->
-          <div class="flex justify-between items-center pt-4 border-t border-slate-700/60 mt-4">
-            <button onclick="prevCard()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition flex items-center space-x-1.5">
-              <i class="fa-solid fa-chevron-left"></i>
-              <span>Previous</span>
-            </button>
-            <button onclick="nextCard()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition flex items-center space-x-1.5">
-              <span>Next</span>
-              <i class="fa-solid fa-chevron-right"></i>
-            </button>
-          </div>
 
-        </div>
-      </div>
-    </div>
-
-    <!-- VIEW 3: ORGANIZER -->
-    <div id="view-organizer" class="tab-view hidden space-y-6">
-      <div class="bg-slate-800 p-5 rounded-3xl border border-slate-700 shadow-xl space-y-4">
-        <h2 class="text-lg font-bold text-white flex items-center space-x-2">
-          <i class="fa-solid fa-folder-tree text-indigo-400"></i>
-          <span>Card & Deck Organizer</span>
-        </h2>
-        
-        <!-- Folder-based .apkg import and portable hierarchy manifest. -->
-        <div class="rounded-xl bg-slate-900/50 border border-indigo-500/30 p-3 space-y-3">
-          <div class="text-xs font-semibold text-indigo-300">Import folder of Anki files · arrange with drag &amp; drop</div>
-          <div class="flex flex-wrap gap-2 items-center">
-            <button id="ankiOrganizerOpenFolderButton" type="button" onclick="pickAnkiOrganizerFolder()" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold" title="Open the folder containing your Anki packages (PC)"><i class="fa-solid fa-folder-open"></i> Open Folder</button>
-            <button type="button" onclick="document.getElementById('ankiOrganizerSelectedFiles').click()" class="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-xs font-semibold" title="Select a hierarchy JSON and/or .apkg files; works on iPhone"><i class="fa-solid fa-file-import"></i> Select Files / Manifest</button>
-            <button type="button" onclick="saveAnkiOrganizerHierarchy()" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold" title="Save only the deck organization as AnkiSync-Organizer.json"><i class="fa-solid fa-floppy-disk"></i> Save Hierarchy As...</button>
-            <input id="ankiOrganizerFolderInput" type="file" webkitdirectory directory multiple accept=".apkg,.colpkg,.anki,.anki2,.anki21,.json" class="hidden" onchange="importAnkiOrganizerFileSelection(event, true)">
-            <input id="ankiOrganizerSelectedFiles" type="file" multiple accept=".apkg,.colpkg,.anki,.anki2,.anki21,.json" class="hidden" onchange="importAnkiOrganizerFileSelection(event, false)">
-            <input id="ankiOrganizerManifestOnly" type="file" accept=".json,application/json" class="hidden" onchange="ankiOrganizerApplySelectedManifest(event)">
-          </div>
-          <details id="ankiOrganizerDesktopOptions" class="text-xs text-slate-300 rounded-lg border border-slate-700/50 p-2">
-            <summary class="cursor-pointer text-indigo-300 font-semibold select-none">PC linked-folder options</summary>
-            <div class="flex flex-wrap items-center gap-3 pt-2">
-              <button id="ankiOrganizerRefreshButton" type="button" onclick="ankiOrganizerRefreshLinkedFolder()" class="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-xs font-semibold hidden"><i class="fa-solid fa-arrows-rotate"></i> Refresh Linked Folder</button>
-              <label class="inline-flex items-center gap-1.5 text-[11px] text-slate-300 cursor-pointer"><input id="ankiOrganizerAutoSave" type="checkbox" checked class="rounded border-slate-600 bg-slate-900 text-indigo-500" onchange="ankiOrganizerToggleAutoSave(this.checked)"><span>Auto-save hierarchy to linked folder (PC)</span></label>
-            </div>
-          </details>
-          <div class="flex flex-wrap gap-2 items-center pt-1 border-t border-slate-700/50">
-            <span class="text-[11px] text-indigo-300 font-semibold">Full library backup (PC ↔ iPhone)</span>
-            <button type="button" onclick="exportStudyBackup()" class="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-xs font-semibold" title="Save As: AnkiSync-Library-Backup.json (all cards, images, progress, hierarchy)"><i class="fa-solid fa-file-export"></i> Export Library + Hierarchy</button>
-            <button type="button" onclick="document.getElementById('ankiOrganizerPortableBackupInput').click()" class="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-xs font-semibold" title="Restore a complete library from another device (with confirmation)"><i class="fa-solid fa-file-import"></i> Import Library + Hierarchy</button>
-            <input id="ankiOrganizerPortableBackupInput" type="file" accept=".json,application/json" class="hidden" onchange="importStudyBackup(event)">
-          </div>
-          <p class="text-[11px] text-slate-400"><strong>Save Hierarchy As...</strong> writes AnkiSync-Organizer.json (deck locations only). <strong>Export Library + Hierarchy</strong> writes AnkiSync-Library-Backup.json (cards, images, review progress and deck locations). These are different file formats; do not replace one with the other.</p>
-          <p class="text-[11px] text-slate-400">On an iPhone without imported cards, the hierarchy JSON shows missing decks as read-only placeholders. To study them, choose the corresponding .apkg packages through Select Files / Manifest, or transfer all cards and progress at once using the library backup buttons above. Importing a full library backup asks permission before replacing this device's stored decks.</p>
-          <p id="ankiOrganizerFolderStatus" role="status" class="text-xs text-slate-400">Open your Anki folder or use Select Files / Manifest. When AnkiSync-Organizer.json is provided, its hierarchy is applied automatically. On iPhone, choose the JSON and needed .apkg files in Files; Safari cannot silently scan iCloud Drive.</p>
-          <p class="text-[11px] text-slate-400">The fixed <strong>AnkiSync-Organizer.json</strong> determines the placement of <em>existing package files</em>. The folder scan checks which packages actually exist, so obsolete local imports are not written into the manifest. On supported Windows browsers, Open Folder once to link your iCloud Drive folder; auto-save writes the JSON there while permission remains granted. iPhone Safari requires choosing the files again using Files; it cannot continuously monitor or silently overwrite an iCloud Drive folder from this HTML.</p>
-        </div>
-
-        <!-- Nested medical specialty organizer; existing category data is reused. -->
-        <div class="rounded-xl bg-slate-900/50 border border-slate-700 p-3 space-y-3">
-          <div class="text-xs font-semibold text-indigo-300">Specialty / Subject / Subsubject hierarchy</div>
-          <div class="flex flex-wrap gap-2 items-center">
-            <select id="organizerParentSubject" aria-label="Parent subject" class="bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-lg px-2 py-2 flex-1 min-w-[140px]"></select>
-            <input id="organizerNewSubject" type="text" placeholder="New specialty or subsubject" class="bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-lg px-3 py-2 flex-1 min-w-[170px]" />
-            <button type="button" onclick="createNestedSubject()" class="toolbar-btn">+ Add Subject</button>
-          </div>
-          <div class="flex items-center justify-between gap-2 flex-wrap text-[11px]">
-            <span id="ankiOrganizerSelectionCount" class="text-indigo-300" role="status">0 decks selected</span>
-            <div class="flex items-center gap-2">
-              <button type="button" onclick="selectVisibleAnkiOrganizerDecks()" class="toolbar-btn">Select Visible</button>
-              <button type="button" onclick="clearAnkiOrganizerDeckSelection()" class="toolbar-btn">Clear Selection</button>
-            </div>
-          </div>
-          <div class="flex flex-wrap items-center gap-2">
-            <label for="ankiOrganizerMoveTarget" class="text-[11px] font-semibold text-slate-400">Move selected decks to</label>
-            <select id="ankiOrganizerMoveTarget" aria-label="Move selected decks to folder or parent deck" class="bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-lg px-2 py-2 flex-1 min-w-[150px]"></select>
-            <button id="ankiOrganizerMoveSelectedBtn" type="button" onclick="moveSelectedAnkiOrganizerDecks()" class="toolbar-btn" disabled><i class="fa-solid fa-arrow-right" aria-hidden="true"></i> Move Selected</button>
-          </div>
-          <div id="organizerSubjectTree" class="text-xs space-y-1 max-h-[878px] overflow-y-auto" style="max-height:878px"></div>
-          <p class="text-[11px] text-slate-400">Select multiple decks, choose a destination and click Move Selected, or drag a selected deck onto a folder or parent deck. The trash icon on a deck deletes that deck after confirmation; child decks are kept. Deleting a folder keeps all its contents.</p>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
-          <div>
-            <label class="block text-xs font-semibold text-slate-400 mb-1">Filter Source Deck</label>
-            <select id="organizerSourceDeck" onchange="renderOrganizerCards()" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500">
-              <option value="ALL">All Decks</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-xs font-semibold text-slate-400 mb-1">Target Destination Deck</label>
-            <select id="organizerTargetDeck" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500">
-            </select>
-          </div>
-          <div class="flex items-end">
-            <button onclick="moveSelectedCards()" class="w-full py-2 px-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold transition flex items-center justify-center space-x-2 shadow-lg shadow-indigo-500/20">
-              <i class="fa-solid fa-arrow-right-arrow-left"></i>
-              <span>Move Selected Cards</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div class="bg-slate-800 rounded-3xl border border-slate-700 overflow-hidden shadow-xl">
-        <div class="p-4 bg-slate-800/80 border-b border-slate-700 flex items-center justify-between">
-          <div class="flex items-center space-x-3">
-            <input type="checkbox" id="selectAllCards" onchange="toggleSelectAllCards(this.checked)" class="w-4 h-4 rounded bg-slate-900 border-slate-700 text-indigo-600 focus:ring-0 cursor-pointer" />
-            <span class="text-xs font-bold text-slate-300 uppercase tracking-wider">Select All</span>
-          </div>
-          <span id="selectedCardCount" class="text-xs font-medium text-indigo-400">0 Cards Selected</span>
-        </div>
-
-        <div id="organizerCardList" class="divide-y divide-slate-700/60 max-h-[500px] overflow-y-auto">
         </div>
       </div>
     </div>
@@ -1716,32 +1624,7 @@ body.light-mode .anki-organizer-row.anki-selected { background:#e0e7ff; border-c
           </div>
         </div>
 
-        <div class="bg-slate-800 p-6 rounded-3xl border border-slate-700 shadow-xl space-y-4">
-          <div class="flex items-center space-x-3">
-            <div class="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-              <i class="fa-solid fa-arrows-rotate text-lg"></i>
-            </div>
-            <div>
-              <h3 class="font-bold text-white">Cross-Device Synchronization</h3>
-              <p class="text-xs text-slate-400">Connect Firebase for instant sync between PC & iPhone</p>
-            </div>
-          </div>
 
-          <div class="space-y-3">
-            <div>
-              <label class="block text-xs font-semibold text-slate-400 mb-1">Sync Group Code / User Key</label>
-              <div class="flex space-x-2">
-                <input type="text" id="syncUserKey" placeholder="e.g. my-anki-deck-sync-123" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500" />
-                <button onclick="connectFirebaseSync()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs rounded-xl transition shadow-lg shadow-emerald-600/20">
-                  Connect
-                </button>
-              </div>
-            </div>
-            <p class="text-[11px] text-slate-500 leading-relaxed">
-              Enter the exact same Sync Group Code on your PC and iPhone to share decks, review history, and images instantly.
-            </p>
-          </div>
-        </div>
 
       </div>
     </div>
@@ -2054,19 +1937,13 @@ body.light-mode .anki-organizer-row.anki-selected { background:#e0e7ff; border-c
     </div>
   </div>
 
-  <!-- Movable Edit Card button. Drag its grip; click to edit the current card. -->
-  <button id="floatingEditCardButton" type="button" class="hidden anki-floating-edit-button" aria-label="Edit current card; drag to move" title="Click to edit card · drag to reposition">
-    <i class="fa-solid fa-grip-vertical opacity-70" aria-hidden="true"></i>
-    <i class="fa-solid fa-pen-to-square" aria-hidden="true"></i>
-    <span>Edit Card</span>
-  </button>
 
   <!-- Confirm destructive reset for a single deck -->
   <div id="ankiHardResetModal" class="hidden fixed inset-0 z-[110] bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="ankiHardResetTitle">
     <div class="bg-slate-800 border border-rose-500/50 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
       <h3 id="ankiHardResetTitle" class="font-bold text-lg text-rose-300"><i class="fa-solid fa-triangle-exclamation"></i> Hard Reset Deck?</h3>
-      <p class="text-sm text-slate-200">This permanently clears all study progress, review ratings and future due dates for <strong id="ankiHardResetDeckName"></strong>. Cards, text, images, and deck hierarchy will be kept.</p>
-      <p class="text-xs text-amber-300">This cannot be undone unless you have a backup. This action only affects the selected deck in this browser until you export or sync it.</p>
+      <p class="text-sm text-slate-200">This permanently clears all study progress, review ratings and future due dates for <strong id="ankiHardResetDeckName"></strong>. Cards, text, and images will be kept.</p>
+      <p class="text-xs text-amber-300">This cannot be undone unless you have a backup. This action affects the selected deck in this browser; exporting later can carry the reset into a saved package.</p>
       <div class="flex gap-3 justify-end">
         <button type="button" onclick="closeAnkiHardReset()" class="px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-100 rounded-xl text-sm font-semibold">Cancel</button>
         <button type="button" onclick="confirmAnkiHardReset()" class="px-4 py-2.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-sm font-semibold">Yes, Clear Progress</button>
@@ -2307,8 +2184,6 @@ function promptCreateDeck() {
       studyQueue: [],
       studyIndex: 0,
       attachedPhotoBase64: null,
-      syncKey: (()=>{try{return localStorage.getItem('anki_sync_key')||'';}catch(e){return '';}})(),
-      selectedCardIds: new Set(),
       clipboardCard: null
     };
 
@@ -2316,6 +2191,7 @@ function promptCreateDeck() {
     let sidebarSelectionAnchorIndex = null;
     let fullDeckPracticeMode = false;
     let idbDB = null;
+    let ankiLastBrowserSaveAt = 0;
     let dbInstance = null;
     let targetImageToReplace = null;
     let activeSketchTargetId = null;
@@ -2329,25 +2205,14 @@ function promptCreateDeck() {
     window.addEventListener('DOMContentLoaded', async () => {
       const storageReady=await initIndexedDB();
       await loadStateFromIDB();
-      if(!storageReady) {
-        ankiOrganizerStatus('Browser storage is unavailable in this viewing mode. A JSON can be read, but cards may disappear after closing the page. Open AnkiSync as a persistent Safari website (HTTPS), not in Files/Quick Look preview.',true);
-      }
+      if(!storageReady) console.warn('Persistent browser storage unavailable; progress may not survive closing the page.');
       loadEmbeddedStudyBackup();
-      // Browser-local categories can be stale after a reload. Reapply the last
-      // imported hierarchy guide before showing either the deck or tree view.
-      if(validateAnkiOrganizerManifest(ankiOrganizerLoadedManifest))
-        applyAnkiOrganizerManifest(ankiOrganizerLoadedManifest);
-      // On a hosted page, a same-directory AnkiSync-Organizer.json can also be
-      // loaded automatically. Local file:// and iCloud Files remain permission-gated.
-      await ankiOrganizerLoadAdjacentManifest();
+      await ankiRestoreLinkedHandles();
       renderCategories();
       renderDecks();
       refreshAnkiImportDeckOptions();
       initSketchCanvas();
       checkPasteVisibility();
-      // Reopen previously authorized desktop iCloud folder only if permission
-      // is still granted; never trigger a hidden permission prompt on iPhone.
-      await ankiOrganizerRestoreHandle();
 
       // Listen for clipboard or deck changes from other browser tabs
       window.addEventListener('storage', (e) => {
@@ -2381,6 +2246,8 @@ function promptCreateDeck() {
     }
 
     function saveLocalState() {
+      ankiLastBrowserSaveAt = Date.now();
+      if (appState.activeStudyDeckId) ankiMarkDirty(appState.activeStudyDeckId);
       if (idbDB) {
         try {
           const tx = idbDB.transaction('state', 'readwrite');
@@ -2389,12 +2256,278 @@ function promptCreateDeck() {
             decks: appState.decks,
             categories: appState.categories,
             selectedCategory: appState.selectedCategory,
-            organizerManifest: ankiOrganizerLoadedManifest
+            browserSavedAt: ankiLastBrowserSaveAt
           }, 'app_state');
         } catch(e) {
           console.error("IndexedDB save error:", e);
         }
       }
+    }
+
+    // Optional, explicit original-file autosave for browsers with write permission.
+    // Importing a deck is always read-only. These handles are never inferred from
+    // a file name, nor obtained by a normal input[type=file] selection.
+    const ankiLinkedHandles = new Map();
+    const ANKI_FILE_AUTOSAVE_DELAY = 120000; // 2 min after the first unsaved change
+    const ankiAutosaveTimers = new Map();
+    const ankiLinkKey = deckId => 'anki-linked-file:' + deckId;
+    const ankiRecoveryKey = deckId => 'anki-original-recovery:' + deckId;
+    const ankiFileStamp = file => [file.name,file.size,file.lastModified].join(':');
+    const ankiMobileSave = () => /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+      (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+
+    function ankiAutoSaveStatusForDeck(deckId) {
+      if (ankiMobileSave() || !window.showOpenFilePicker) return 'Original file autosave: unavailable in this browser; local progress remains saved.';
+      const entry=ankiLinkedHandles.get(deckId);
+      if (!entry) return 'Original file autosave: OFF — link the source file to enable.';
+      if (entry.paused) return 'Original file autosave: PAUSED — click Link Original to reauthorize.';
+      const at=entry.lastSavedAt ? new Date(entry.lastSavedAt).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}) : 'not yet';
+      return entry.busy ? 'Original file: verifying and saving…' :
+        entry.dirty ? 'Original file: autosave pending (2 min) · last: '+at :
+        'Original file autosave: ON · last: '+at;
+    }
+    function ankiRefreshAutosaveStatus(deckId) {
+      const el=document.getElementById('ankiAutoSaveStatus-'+deckId);
+      if(el) el.textContent=ankiAutoSaveStatusForDeck(deckId);
+    }
+    function ankiCancelAutosaveTimer(deckId) {
+      if(ankiAutosaveTimers.has(deckId)) clearTimeout(ankiAutosaveTimers.get(deckId));
+      ankiAutosaveTimers.delete(deckId);
+    }
+    function ankiMarkDirty(deckId) {
+      const linked=ankiLinkedHandles.get(deckId);
+      if(!linked || linked.paused || !appState.decks[deckId]) return;
+      linked.dirty=true;
+      if(!ankiAutosaveTimers.has(deckId)) {
+        ankiAutosaveTimers.set(deckId,setTimeout(()=>{
+          ankiAutosaveTimers.delete(deckId);
+          ankiAutosaveNow(deckId,false);
+        },ANKI_FILE_AUTOSAVE_DELAY));
+      }
+      ankiRefreshAutosaveStatus(deckId);
+    }
+    // Save just card data and review progress to the ORIGINAL archive, without
+    // replacing its Anki collection, note models or numbered media ZIP entries.
+    function ankiLinkedStateSnapshot(deckId) {
+      const deck=appState.decks[deckId];
+      return {
+        format:'AnkiSyncLinkedDeckState',version:1,
+        sourceFileName:deck.sourceFileName,
+        deckName:deck.name,category:deck.category,
+        lastIndex:deck.lastIndex||0,lastCardId:deck.lastCardId||null,
+        exportedAt:new Date().toISOString(),cards:deck.cards||[]
+      };
+    }
+    async function ankiValidateZipBlob(file) {
+      if(!file || file.size<100) throw new Error('The selected original is empty or too small. It was NOT overwritten.');
+      const zip=await JSZip.loadAsync(file);
+      if(!['collection.anki2','collection.anki21','collection.anki21b'].some(n=>zip.file(n)))
+        throw new Error('The original is not a valid .apkg containing a collection database. It was NOT overwritten.');
+      return zip;
+    }
+    async function ankiBackupOriginalOnce(deckId,file) {
+      if(!idbDB) throw new Error('IndexedDB recovery storage unavailable. Automatic overwrite is disabled.');
+      const key=ankiRecoveryKey(deckId);
+      // Retain the FIRST verified full package in browser storage for recovery,
+      // never silently replacing that backup with a possibly damaged copy.
+      await new Promise((resolve,reject)=>{
+        const tx=idbDB.transaction('state','readonly');
+        const req=tx.objectStore('state').get(key);
+        req.onsuccess=()=>resolve(req.result||null);
+        req.onerror=()=>reject(req.error||new Error('Cannot check recovery copy'));
+      }).then(existing=>{
+        if(existing && existing.size>100) return;
+        return new Promise((resolve,reject)=>{
+          const tx=idbDB.transaction('state','readwrite');
+          tx.objectStore('state').put(file,key);
+          tx.oncomplete=()=>resolve();
+          tx.onerror=()=>reject(tx.error||new Error('Unable to retain recovery copy'));
+          tx.onabort=()=>reject(tx.error||new Error('Recovery backup was aborted'));
+        });
+      });
+    }
+    async function ankiStoreLinkedHandle(deckId,entry) {
+      if(!idbDB) return;
+      await new Promise((resolve,reject)=>{
+        const tx=idbDB.transaction('state','readwrite');
+        tx.objectStore('state').put({handle:entry.handle,lastDiskStamp:entry.lastDiskStamp,
+          lastSavedAt:entry.lastSavedAt||null,paused:!!entry.paused},ankiLinkKey(deckId));
+        tx.oncomplete=()=>resolve();
+        tx.onerror=()=>reject(tx.error||new Error('Unable to remember file handle'));
+        tx.onabort=()=>reject(tx.error||new Error('File handle storage blocked'));
+      });
+    }
+    async function ankiRestoreLinkedHandles() {
+      if(!idbDB) return;
+      for(const deckId of Object.keys(appState.decks||{})) {
+        try {
+          const row=await new Promise(resolve=>{
+            const tx=idbDB.transaction('state','readonly');
+            const req=tx.objectStore('state').get(ankiLinkKey(deckId));
+            req.onsuccess=()=>resolve(req.result);
+            req.onerror=()=>resolve(null);
+          });
+          if(!row?.handle) continue;
+          let granted=false;
+          try {granted=(await row.handle.queryPermission({mode:'readwrite'}))==='granted';}catch(e){}
+          ankiLinkedHandles.set(deckId,{handle:row.handle,lastDiskStamp:row.lastDiskStamp,
+            lastSavedAt:row.lastSavedAt,paused:!!row.paused||!granted,dirty:false,busy:false});
+        } catch(err) {console.warn('Cannot restore linked file handle:',err);}
+      }
+    }
+    async function ankiLinkOriginalForAutosave(deckId) {
+      const deck=appState.decks[deckId];
+      if(!deck) return;
+      if(ankiMobileSave() || typeof window.showOpenFilePicker!=='function') {
+        alert('This browser cannot automatically overwrite an iCloud Drive file. Browser-local progress continues saving. Use Save As / Save to Files instead.');
+        return;
+      }
+      const legacyImport = !deck.sourceFileName && Array.isArray(deck.cards) &&
+        deck.cards.some(c=>/^(?:file_[a-z0-9]+_)?anki_card_/i.test(String(c.id||'')));
+      if(!deck.sourceFileName && !legacyImport) {
+        alert('Import this deck from an original .apkg file before linking automatic replacement.');return;
+      }
+      if(deck.sourceFileName && !/\.apkg$/i.test(deck.sourceFileName)) {
+        alert('Original file must be an .apkg package.');return;
+      }
+      const expectedName=deck.sourceFileName||'(an older imported deck with unknown source filename)';
+      const acknowledged=confirm('LINK ORIGINAL FOR AUTOSAVE\n\nThis will allow AnkiSync to replace '+expectedName+' every 2 minutes after changes. A verified recovery copy will be kept in this browser before the first write.\n\nBecause iCloud overwrites previously produced 0 KB files, also keep a separate backup outside iCloud. Continue?');
+      if(!acknowledged) return;
+      try {
+        const chosen=await window.showOpenFilePicker({multiple:false,
+          types:[{description:'Anki Package',accept:{'application/octet-stream':['.apkg']}}]});
+        const handle=chosen?.[0];
+        if(!handle) return;
+        if(deck.sourceFileName && handle.name!==deck.sourceFileName)
+          throw new Error('Selected '+handle.name+' but this deck came from '+deck.sourceFileName+'. Nothing was written.');
+        if(!deck.sourceFileName && !/\.apkg$/i.test(handle.name))
+          throw new Error('Select an original .apkg file.');
+        // Request permission during the user-initiated picker gesture; a
+        // long ZIP inspection can otherwise expire the activation required by Chrome.
+        const p=await handle.requestPermission({mode:'readwrite'});
+        if(p!=='granted') throw new Error('Write access was not granted; original left read-only.');
+        const file=await handle.getFile();
+        await ankiValidateZipBlob(file);
+        if(legacyImport && !deck.sourceFileName) {
+          if(!confirm('Confirm '+handle.name+' is the original archive for deck '+deck.name+'. AnkiSync will replace it automatically when you study.')) return;
+          deck.sourceFileName=handle.name;
+          saveLocalState();
+        }
+        await ankiBackupOriginalOnce(deckId,file);
+        const entry={handle,lastDiskStamp:ankiFileStamp(file),lastSavedAt:null,paused:false,dirty:false,busy:false};
+        ankiLinkedHandles.set(deckId,entry);
+        try {await ankiStoreLinkedHandle(deckId,entry);}catch(e){console.warn('File handle cannot be remembered between reloads:',e);}
+        ankiRefreshAutosaveStatus(deckId);
+        showToast('Original linked. Changes will autosave every 2 minutes. Initial archive backed up in the browser.');
+      } catch(error) {
+        if(error?.name==='AbortError') return;
+        console.error('Link original failed:',error);
+        alert('Original was NOT modified. '+(error.message||error));
+      }
+    }
+    async function ankiPauseLinkedAutosave(deckId) {
+      const entry=ankiLinkedHandles.get(deckId);
+      if(!entry) {showToast('This deck has no linked original.');return;}
+      entry.paused=true;entry.dirty=false;ankiCancelAutosaveTimer(deckId);
+      try {await ankiStoreLinkedHandle(deckId,entry);}catch(e){}
+      ankiRefreshAutosaveStatus(deckId);showToast('Original-file autosave paused.');
+    }
+    async function ankiDownloadRecoveryCopy(deckId) {
+      if(!idbDB){showToast('Recovery storage unavailable in this browser.');return;}
+      try {
+        const blob=await new Promise((resolve,reject)=>{
+          const tx=idbDB.transaction('state','readonly');
+          const req=tx.objectStore('state').get(ankiRecoveryKey(deckId));
+          req.onsuccess=()=>resolve(req.result);
+          req.onerror=()=>reject(req.error);
+        });
+        if(!blob || blob.size<100) throw new Error('No original recovery copy stored for this deck.');
+        await ankiValidateZipBlob(blob);
+        const name=(appState.decks[deckId]?.sourceFileName||'Anki-Deck.apkg')
+          .replace(/\.apkg$/i,' - RECOVERY.apkg');
+        const url=URL.createObjectURL(blob);
+        const a=document.createElement('a');a.download=name;a.href=url;
+        document.body.appendChild(a);a.click();a.remove();
+        setTimeout(()=>URL.revokeObjectURL(url),60000);
+        showToast('Original archive recovery copy downloaded.');
+      }catch(err){alert('Recovery copy unavailable: '+(err?.message||err));}
+    }
+
+    async function ankiAutosaveNow(deckId,manual=true) {
+      const entry=ankiLinkedHandles.get(deckId);
+      if(!entry || entry.paused) {
+        if(manual) showToast('Link Original for Autosave before using Save Now.');
+        return;
+      }
+      if(entry.busy) return;
+      if(!manual && !entry.dirty) return;
+      ankiCancelAutosaveTimer(deckId);
+      entry.busy=true;entry.dirty=false;
+      ankiRefreshAutosaveStatus(deckId);
+      let stream=null;
+      try {
+        const deck=appState.decks[deckId];
+        if(!deck || entry.handle.name!==deck.sourceFileName) throw new Error('Linked filename no longer matches this deck.');
+        const permission=await entry.handle.queryPermission({mode:'readwrite'});
+        if(permission!=='granted') throw new Error('Write permission expired. Re-link the original via a button click.');
+        const before=await entry.handle.getFile();
+        if(ankiFileStamp(before)!==entry.lastDiskStamp)
+          throw new Error('The file on disk changed outside AnkiSync. Autosave paused to avoid overwriting external changes. Re-link the original.');
+        const zip=await ankiValidateZipBlob(before);
+        await ankiBackupOriginalOnce(deckId,before);
+        const snapshot=ankiLinkedStateSnapshot(deckId);
+        const saveToken=Date.now()+'-'+Math.random().toString(36).slice(2);
+        const manifest={format:'AnkiSyncPortableProgress',version:1,exportedAt:snapshot.exportedAt,
+          decks:[{name:snapshot.deckName,lastIndex:snapshot.lastIndex,lastCardId:snapshot.lastCardId,
+            cards:snapshot.cards.map(c=>({id:String(c.id),reviewData:c.reviewData||null}))}]};
+        zip.file('ankisync-progress.json',JSON.stringify(manifest));
+        zip.file('ankisync-linked-state.json',JSON.stringify({...snapshot,saveToken}));
+        const output=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:3}});
+        if(output.size<100) throw new Error('Generated .apkg is empty; original left unchanged.');
+        const check=await ankiValidateZipBlob(output);
+        const content=JSON.parse(await check.file('ankisync-linked-state.json').async('string'));
+        if(content.saveToken!==saveToken || content.cards.length!==snapshot.cards.length)
+          throw new Error('Archive verification failed; original left unchanged.');
+        const originalEntries=Object.keys(zip.files).filter(k=>!zip.files[k].dir && !/^ankisync-(linked-state|progress)\.json$/.test(k));
+        if(!originalEntries.every(k=>!!check.file(k)))
+          throw new Error('Original Anki archive entries not preserved; overwrite blocked.');
+        // Recheck after ZIP generation: iCloud or another tab may have changed
+        // the source during compression. Never silently overwrite that change.
+        const current=await entry.handle.getFile();
+        if(ankiFileStamp(current)!==entry.lastDiskStamp)
+          throw new Error('Original file changed while preparing the ZIP. No overwrite was attempted.');
+        // keepExistingData prevents starting the temporary writer with 0 bytes;
+        // exclusive mode blocks another same-file writer in supported browsers.
+        stream=await entry.handle.createWritable({keepExistingData:true,mode:'exclusive'});
+        await stream.write({type:'write',position:0,data:output});
+        await stream.truncate(output.size);
+        await stream.close(); stream=null;
+        const after=await entry.handle.getFile();
+        if(after.size!==output.size) throw new Error('Saved file size differs from verified package size. AUTOSAVE PAUSED; use recovery copy if needed.');
+        const savedZip=await ankiValidateZipBlob(after);
+        const savedState=JSON.parse(await savedZip.file('ankisync-linked-state.json').async('string'));
+        if(savedState.saveToken!==saveToken) throw new Error('Saved file failed final readback validation. AUTOSAVE PAUSED.');
+        entry.lastDiskStamp=ankiFileStamp(after);
+        entry.lastSavedAt=Date.now();
+        await ankiStoreLinkedHandle(deckId,entry).catch(e=>console.warn('Cannot persist link metadata:',e));
+        if(manual) showToast('Original .apkg saved and verified; archive media preserved.');
+      }catch(err){
+        console.error('Verified original APKG autosave failed:',err);
+        if(stream) try {await stream.abort();}catch(e){}
+        entry.paused=true;
+        alert('Automatic .apkg save PAUSED: '+(err?.message||err)+'\n\nYour browser-stored cards remain available. Do not delete the recovery backup.');
+      }finally{
+        entry.busy=false;
+        ankiRefreshAutosaveStatus(deckId);
+        if(entry.dirty && !entry.paused) ankiMarkDirty(deckId);
+      }
+    }
+
+    // Editor navigation avoids silently discarding changes when moving between cards.
+    function ankiNavigateFromEditor(direction) {
+      if(!confirm('Leave this card without saving your edits?')) return;
+      toggleEditCurrentCard();
+      if(direction<0) prevCard(); else nextCard();
     }
 
     // Apply progress embedded in this HTML. Embedded data takes precedence over device-local storage,
@@ -2409,8 +2542,6 @@ function promptCreateDeck() {
           appState.decks = backup.decks;
           appState.categories = backup.categories;
           appState.selectedCategory = backup.selectedCategory || 'ALL';
-          if(validateAnkiOrganizerManifest(backup.organizerManifest))
-            ankiOrganizerLoadedManifest=backup.organizerManifest;
           saveLocalState();
         }
       } catch (error) {
@@ -2440,7 +2571,7 @@ function promptCreateDeck() {
           decks: appState.decks,
           categories: appState.categories,
           selectedCategory: appState.selectedCategory,
-          organizerManifest: buildAnkiOrganizerManifest()
+          browserSavedAt: ankiLastBrowserSaveAt
         };
         const safeJson = JSON.stringify(backup).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026');
         const pattern = /(<script\s+id="embeddedStudyBackup"\s+type="application\/json">)[\s\S]*?(<\/script>)/i;
@@ -2466,7 +2597,7 @@ function promptCreateDeck() {
     }
 
     // A portable full-library backup has its own fixed filename. It must not
-    // overwrite AnkiSync-Organizer.json, which is a different, hierarchy-only format.
+    // use a fixed name distinct from the Anki package exports.
     const ANKI_LIBRARY_BACKUP_FILENAME = 'AnkiSync-Library-Backup.json';
     async function exportStudyBackup() {
       try {
@@ -2477,7 +2608,7 @@ function promptCreateDeck() {
           decks: appState.decks,
           categories: appState.categories,
           selectedCategory: appState.selectedCategory,
-          organizerManifest: buildAnkiOrganizerManifest()
+          browserSavedAt: ankiLastBrowserSaveAt
         };
         const json = JSON.stringify(backup, null, 2);
         const blob = new Blob([json], { type: 'application/json' });
@@ -2489,7 +2620,6 @@ function promptCreateDeck() {
             suggestedName: ANKI_LIBRARY_BACKUP_FILENAME,
             types: [{description:'AnkiSync Full Library Backup',accept:{'application/json':['.json']}}]
           };
-          if (ankiOrganizerFolderHandle) opts.startIn = ankiOrganizerFolderHandle;
           try {
             let handle;
             try {handle = await window.showSaveFilePicker(opts);}
@@ -2500,22 +2630,22 @@ function promptCreateDeck() {
               } else throw e;
             }
             if (handle.name !== ANKI_LIBRARY_BACKUP_FILENAME) {
-              ankiOrganizerStatus('Use the fixed filename '+ANKI_LIBRARY_BACKUP_FILENAME+' for the full library backup.',true);
+              showToast('Use the fixed filename '+ANKI_LIBRARY_BACKUP_FILENAME+' for the full library backup.',true);
               return;
             }
             const writable = await handle.createWritable();
             await writable.write(json);
             await writable.close();
-            ankiOrganizerStatus('Saved '+ANKI_LIBRARY_BACKUP_FILENAME+' to the chosen folder. Select the existing file next time to replace it.');
+            showToast('Saved '+ANKI_LIBRARY_BACKUP_FILENAME+' to the chosen folder. Select the existing file next time to replace it.');
             showToast('Full library backup saved.');
             return;
           } catch (e) {
             if (e?.name === 'AbortError') {
-              ankiOrganizerStatus('Library backup Save As canceled; no file was changed.');
+              showToast('Library backup Save As canceled; no file was changed.');
               return;
             }
             console.warn('Native full-library Save As unavailable:',e);
-            ankiOrganizerStatus('Native Save As unavailable: offering the browser save/share option instead.',true);
+            showToast('Native Save As unavailable: offering the browser save/share option instead.',true);
           }
         }
         // iPhone Safari has no desktop Save As picker. Offer Save to Files via
@@ -2525,7 +2655,7 @@ function promptCreateDeck() {
             const file = new File([blob], ANKI_LIBRARY_BACKUP_FILENAME,{type:'application/json'});
             if (navigator.canShare({files:[file]})) {
               await navigator.share({files:[file],title:ANKI_LIBRARY_BACKUP_FILENAME});
-              ankiOrganizerStatus('Full library shared. Use Save to Files and choose the destination folder; replace the old file in Files if needed.');
+              showToast('Full library shared. Use Save to Files and choose the destination folder; replace the old file in Files if needed.');
               return;
             }
           } catch (e) {
@@ -2541,7 +2671,7 @@ function promptCreateDeck() {
         link.click();
         link.remove();
         setTimeout(() => URL.revokeObjectURL(url), 2000);
-        ankiOrganizerStatus('Downloaded '+ANKI_LIBRARY_BACKUP_FILENAME+'. Move it to your chosen folder and replace the old backup there if your browser did not offer Save As.');
+        showToast('Downloaded '+ANKI_LIBRARY_BACKUP_FILENAME+'. Move it to your chosen folder and replace the old backup there if your browser did not offer Save As.');
         showToast('Full library backup exported.');
       } catch (error) {
         console.error('Study backup export failed:', error);
@@ -2553,7 +2683,7 @@ function promptCreateDeck() {
       const file = event.target.files && event.target.files[0];
       if (!file) return;
       try {
-        const backup = JSON.parse(await ankiOrganizerReadSelectedText(file));
+        const backup = JSON.parse(await file.text());
         if (!backup || backup.format !== 'AnkiSyncStudyBackup' || backup.version !== 1 ||
             !backup.decks || typeof backup.decks !== 'object' || !Array.isArray(backup.categories)) {
           throw new Error('This is not a supported AnkiSync study backup.');
@@ -2573,19 +2703,11 @@ function promptCreateDeck() {
         appState.activeStudyDeckId = null;
         appState.studyQueue = [];
         appState.studyIndex = 0;
-        ankiOrganizerVerifiedFiles=null;
-        ankiOrganizerInventoryComplete=false;
-        if(validateAnkiOrganizerManifest(backup.organizerManifest)) {
-          applyAnkiOrganizerManifest(backup.organizerManifest);
-        } else {
-          ankiOrganizerLoadedManifest=null;
-        }
+        ankiLastBrowserSaveAt = Number(backup.browserSavedAt) || Date.now();
         saveLocalState();
         renderCategories();
         renderDecks();
-        renderNestedSubjects();
-        switchTab('organizer');
-        ankiOrganizerStatus(`Restored ${deckIds.length} deck(s), including cards, review progress and ${ankiOrganizerLoadedManifest?'saved hierarchy':'their saved categories'}.`);
+        switchTab('decks');
         showToast(`Imported ${deckIds.length} deck(s), including saved review progress.`);
       } catch (error) {
         console.error('Study backup import failed:', error);
@@ -2610,9 +2732,7 @@ function promptCreateDeck() {
               if (req.result.decks) appState.decks = req.result.decks;
               if (req.result.categories) appState.categories = req.result.categories;
               if (req.result.selectedCategory) appState.selectedCategory = req.result.selectedCategory;
-              if (validateAnkiOrganizerManifest(req.result.organizerManifest)) {
-                ankiOrganizerLoadedManifest = req.result.organizerManifest;
-              }
+              if (req.result.browserSavedAt) ankiLastBrowserSaveAt = Number(req.result.browserSavedAt) || 0;
             }
             resolve();
           };
@@ -2934,16 +3054,32 @@ const content = await zip.generateAsync({ type: "blob" });
           return;
         }
         
-        // Write to the location already selected before creating the package.
+        // Manual Save As: validate the generated .apkg BEFORE requesting a writer.
+        // On failure, never silently download a second copy and claim success.
         if (selectedSaveHandle) {
+          let writable=null;
           try {
-            const writable = await selectedSaveHandle.createWritable();
-            await writable.write(content);
-            await writable.close();
-            showToast('Deck exported successfully!');
+            await ankiValidateZipBlob(content);
+            const original=await selectedSaveHandle.getFile();
+            if(original.size>0) {
+              await ankiValidateZipBlob(original);
+              // Keep a recoverable pre-overwrite archive when an imported deck is known.
+              if(onlyDeckId) await ankiBackupOriginalOnce(onlyDeckId,original);
+            }
+            writable=await selectedSaveHandle.createWritable({keepExistingData:true,mode:'exclusive'});
+            await writable.write({type:'write',position:0,data:content});
+            await writable.truncate(content.size);
+            await writable.close(); writable=null;
+            const saved=await selectedSaveHandle.getFile();
+            if(saved.size!==content.size) throw new Error('Saved package size mismatch. Check recovery copy before proceeding.');
+            await ankiValidateZipBlob(saved);
+            showToast('Deck exported and verified!');
             return;
           } catch (err) {
-            console.warn('Could not write selected file; using download:', err);
+            if(writable) try {await writable.abort();}catch(_){}
+            console.error('Manual APKG save failed:',err);
+            alert('Save As did not finish safely: '+(err?.message||err)+'\nBrowser-stored cards remain intact.');
+            return;
           }
         }
 
@@ -3205,7 +3341,6 @@ const content = await zip.generateAsync({ type: "blob" });
         activeBtn.classList.remove('text-slate-400');
       }
 
-      if (tabId === 'organizer') populateOrganizerDropdowns();
       if (tabId === 'create') populateCreateDropdown();
       syncFloatingEditButton(tabId);
     }
@@ -3226,19 +3361,15 @@ const content = await zip.generateAsync({ type: "blob" });
 
     function renderCategories() {
       const container = document.getElementById('categoryFilterContainer');
-      // A deck with children is displayed as a +/- expandable deck, not as an extra group.
-      const visibleCategories = (appState.categories || []).filter(cat => !ankiIsImplicitDeckFolder(cat));
-      if (appState.selectedCategory !== 'ALL' && !visibleCategories.includes(appState.selectedCategory)) {
+      if (!container) return;
+      const categories = [...new Set((appState.categories || []).filter(Boolean))];
+      if (appState.selectedCategory !== 'ALL' && !categories.includes(appState.selectedCategory))
         appState.selectedCategory = 'ALL';
-      }
-      let html = `<button onclick="filterCategory('ALL')" class="cat-filter-btn px-3.5 py-1.5 rounded-xl text-xs font-semibold ${appState.selectedCategory === 'ALL' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-700/60 text-slate-300 hover:bg-slate-700'} transition shrink-0">All Decks</button>`;
-      visibleCategories.forEach(cat => {
+      let html = `<button type="button" onclick="filterCategory('ALL')" class="cat-filter-btn px-3.5 py-1.5 rounded-xl text-xs font-semibold ${appState.selectedCategory === 'ALL' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-700/60 text-slate-300 hover:bg-slate-700'} transition shrink-0">All Decks</button>`;
+      categories.forEach(cat => {
+        const safeArg = encodeURIComponent(cat).replace(/'/g,'%27');
         const active = appState.selectedCategory === cat;
-        const safeArg = encodeURIComponent(cat).replace(/'/g, '%27');
-        html += `<span class="inline-flex shrink-0 items-center rounded-xl overflow-hidden border ${active ? 'border-indigo-400/50' : 'border-slate-600/50'}">
-          <button type="button" onclick="filterCategory(decodeURIComponent('${safeArg}'))" class="cat-filter-btn px-3 py-1.5 text-xs font-semibold ${active ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-700/60 text-slate-300 hover:bg-slate-700'} transition">${ankiOrganizerEscapeHtml(cat)}</button>
-          <button type="button" onclick="deleteAnkiOrganizerFolder(decodeURIComponent('${safeArg}'))" class="px-2 py-1.5 text-rose-300 bg-slate-800 hover:bg-rose-900/40 text-xs" aria-label="Delete group ${ankiOrganizerEscapeHtml(cat)}" title="Delete this group (keep all decks)"><i class="fa-solid fa-trash-can" aria-hidden="true"></i></button>
-        </span>`;
+        html += `<button type="button" onclick="filterCategory(decodeURIComponent('${safeArg}'))" class="cat-filter-btn shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold ${active ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-700/60 text-slate-300 hover:bg-slate-700'} transition">${ankiEscapeHtml(cat)}</button>`;
       });
       container.innerHTML = html;
     }
@@ -3249,92 +3380,90 @@ const content = await zip.generateAsync({ type: "blob" });
       renderDecks();
     }
 
-    function promptCreateCategory() {
-      const name = prompt("Enter new category/group name:");
-      if (name && !appState.categories.includes(name)) {
-        appState.categories.push(name.trim());
-        saveLocalState();
-        renderCategories();
-      }
-    }
-
     function renderDecks() {
       refreshAnkiImportDeckOptions();
       const grid = document.getElementById('decksGrid');
       const emptyNotice = document.getElementById('emptyDecksNotice');
-      grid.innerHTML = '';
-
-      const deckKeys = Object.keys(appState.decks).filter(id=>ankiOrganizerIsVerifiedDeck(appState.decks[id]));
+      if(!grid) return;
+      grid.replaceChildren();
       let visibleCount = 0;
-
-      deckKeys.forEach(deckId => {
-        const deck = appState.decks[deckId];
-        if (appState.selectedCategory !== 'ALL' && deck.category !== appState.selectedCategory && !deck.category?.startsWith(appState.selectedCategory + ' / ')) return;
-        
+      const now = Date.now();
+      Object.entries(appState.decks || {}).forEach(([deckId,deck]) => {
+        if (appState.selectedCategory !== 'ALL' &&
+           deck.category !== appState.selectedCategory &&
+           !String(deck.category || '').startsWith(appState.selectedCategory + ' / ')) return;
         visibleCount++;
-        const cardCount = deck.cards ? deck.cards.length : 0;
-        const lastIdx = deck.lastIndex || 0;
-        const percent = cardCount > 0 ? Math.round((lastIdx / cardCount) * 100) : 0;
-
-        // Build the dropdown options dynamically from appState.categories
-        let categoryOptions = '';
-        (appState.categories || []).filter(cat => !ankiIsImplicitDeckFolder(cat)).forEach(cat => {
-          const selected = (deck.category === cat) ? 'selected' : '';
-          categoryOptions += `<option value="${ankiOrganizerEscapeHtml(cat)}" ${selected}>${ankiOrganizerEscapeHtml(cat)}</option>`;
-        });
-        if (!categoryOptions || !(appState.categories || []).some(cat => cat === deck.category && !ankiIsImplicitDeckFolder(cat))) {
-          const parentDeck = Object.values(appState.decks).find(other => other.id !== deck.id && ankiDeckVirtualPath(other) === deck.category);
-          const displayCategory = parentDeck ? `↳ Under ${parentDeck.name}` : (deck.category || 'Uncategorized');
-          categoryOptions = `<option value="${ankiOrganizerEscapeHtml(deck.category || '')}" selected>${ankiOrganizerEscapeHtml(displayCategory)}</option>` + categoryOptions;
-        }
-
-        const cardEl = document.createElement('div');
-        cardEl.className = "bg-slate-800 p-5 rounded-3xl border border-slate-700 shadow-lg flex flex-col justify-between hover:border-slate-600 transition space-y-4";
+        const cards = Array.isArray(deck.cards) ? deck.cards : [];
+        const total = cards.length;
+        const due = cards.filter(card => !card.reviewData || !card.reviewData.dueAt || Number(card.reviewData.dueAt) <= now).length;
+        const reviewed = cards.filter(card => card.reviewData &&
+          (Number(card.reviewData.reviewCount) > 0 || Number(card.reviewData.lastReviewedAt) > 0)).length;
+        const studied = Math.min(total, Math.max(reviewed, reviewed ? 0 : (Number(deck.lastIndex) || 0)));
+        const percent = total ? Math.round(100 * studied / total) : 0;
+        const lastSave = ankiLastBrowserSaveAt
+          ? new Date(ankiLastBrowserSaveAt).toLocaleString([], {month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'})
+          : 'Not saved in this session';
+        const filename = deck.sourceFileName || (deck.name + '.apkg');
+        const cardEl=document.createElement('div');
+        cardEl.className='bg-slate-800 p-5 rounded-3xl border border-slate-700 shadow-lg flex flex-col justify-between hover:border-slate-600 transition space-y-4';
         cardEl.innerHTML = `
-          <div class="space-y-2">
-            <div class="flex items-center justify-between gap-2">
-              <select onchange="updateDeckCategory('${deck.id}', this.value)" class="min-w-0 max-w-[calc(100%-36px)] text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-slate-900 text-indigo-400 border border-slate-700/80 outline-none cursor-pointer" aria-label="Deck category">
-                ${categoryOptions}
-              </select>
-              <button onclick="deleteDeck('${deck.id}')" class="text-slate-500 hover:text-rose-400 transition text-xs p-1 shrink-0" title="Delete deck" aria-label="Delete deck">
-                <i class="fa-solid fa-trash"></i>
-              </button>
+          <div class="space-y-3">
+            <div class="flex items-start justify-between gap-2">
+              <h3 class="font-bold text-slate-100 text-base leading-snug break-words min-w-0">${ankiEscapeHtml(deck.name)}</h3>
+              <div class="flex gap-3 items-center shrink-0">
+                <button type="button" onclick="renameAnkiDeck('${deckId}')" class="text-indigo-400 hover:text-indigo-300" title="Rename deck" aria-label="Rename deck"><i class="fa-solid fa-pen-to-square"></i></button>
+                <button type="button" onclick="deleteDeck('${deckId}')" class="text-slate-400 hover:text-rose-400" title="Delete deck" aria-label="Delete deck"><i class="fa-solid fa-trash"></i></button>
+              </div>
+            </div>
+            <div class="text-xs text-slate-400">${total} cards · ${due} due</div>
+            <div class="flex items-center justify-between text-xs font-semibold text-slate-400">
+              <span>Studied ${studied} / ${total}</span><span class="text-indigo-400">${percent}%</span>
+            </div>
+            <div class="w-full bg-slate-900 rounded-full h-2 overflow-hidden"><div class="bg-indigo-500 h-full rounded-full" style="width:${percent}%"></div></div>
+            <div class="space-y-1.5 text-[11px] text-slate-400">
+              <div class="break-all"><i class="fa-solid fa-file-zipper" aria-hidden="true"></i> ${ankiEscapeHtml(filename)}</div>
+              <div><i class="fa-solid fa-clock" aria-hidden="true"></i> Last browser save: ${ankiEscapeHtml(lastSave)}</div>
+            </div>
+            <div class="text-[11px] space-y-1.5" data-anki-autosave-deck="${ankiEscapeHtml(deckId)}">
+              <div id="ankiAutoSaveStatus-${ankiEscapeHtml(deckId)}" class="text-slate-400">${ankiAutoSaveStatusForDeck(deckId)}</div>
+              ${(!ankiMobileSave() && typeof window.showOpenFilePicker==='function') ? `<div class="flex flex-wrap gap-1.5">
+                <button type="button" onclick="ankiLinkOriginalForAutosave('${deckId}')" class="px-2 py-1.5 rounded-lg border border-indigo-500/40 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20" title="Choose the original APKG and authorize periodic in-place saves">Link Original for Autosave</button>
+                <button type="button" onclick="ankiAutosaveNow('${deckId}')" class="px-2 py-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20" title="Write verified progress to the linked APKG now">Save Now</button>
+                <button type="button" onclick="ankiPauseLinkedAutosave('${deckId}')" class="px-2 py-1.5 rounded-lg border border-slate-500/40 text-slate-400 hover:bg-slate-500/10" title="Stop writing automatically to this APKG">Pause</button>
+                <button type="button" onclick="ankiDownloadRecoveryCopy('${deckId}')" class="px-2 py-1.5 rounded-lg border border-slate-500/40 text-slate-400 hover:bg-slate-500/10" title="Download a recovery backup of the original archive">Recovery</button>
+              </div>` : ''}
             </div>
             <div class="anki-deck-reset-buttons pt-1">
-              <button type="button" onclick="resetStudyDeck('${deck.id}')" class="text-[11px] font-bold px-2 py-2 rounded-lg bg-indigo-500/15 border border-indigo-500/40 text-indigo-300 hover:bg-indigo-500/25" title="Show all cards without changing progress or due dates"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i><span>Soft Reset</span></button>
-              <button type="button" onclick="requestAnkiHardReset('${deck.id}')" class="text-[11px] font-bold px-2 py-2 rounded-lg bg-rose-500/10 border border-rose-500/40 text-rose-300 hover:bg-rose-500/20" title="Clear this deck's study progress after confirmation"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><span>Hard Reset</span></button>
-            </div>
-            <h3 class="font-bold text-slate-100 text-base leading-snug line-clamp-2">${ankiOrganizerEscapeHtml(deck.name)}</h3>
-
-
-
-            <div class="flex items-center justify-between text-xs text-slate-400 font-medium">
-              <span>${cardCount} cards</span>
-              <span>${percent}% completed</span>
-            </div>
-            <div class="w-full bg-slate-900 rounded-full h-1.5 overflow-hidden">
-              <div class="bg-indigo-500 h-full" style="width: ${percent}%"></div>
+              <button type="button" onclick="resetStudyDeck('${deckId}')" class="text-[11px] font-bold px-2 py-2 rounded-lg bg-indigo-500/15 border border-indigo-500/40 text-indigo-300 hover:bg-indigo-500/25" title="Show all cards without changing your saved progress or review schedule"><span>Soft Reset</span></button>
+              <button type="button" onclick="requestAnkiHardReset('${deckId}')" class="text-[11px] font-bold px-2 py-2 rounded-lg bg-rose-500/10 border border-rose-500/40 text-rose-300 hover:bg-rose-500/20" title="Clear study progress and due dates after confirmation"><span>Hard Reset</span></button>
             </div>
           </div>
-
-  <div class="pt-2 flex items-center space-x-2">
-            <button onclick="startStudy('${deck.id}')" class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition shadow-lg shadow-indigo-500/20 flex items-center justify-center space-x-1.5">
-              <i class="fa-solid fa-folder-open text-[10px]"></i>
-              <span>Open</span>
-            </button>
-          </div>  
-
-
-
-        `;
+          <div class="flex items-center gap-2">
+            <button type="button" onclick="startStudy('${deckId}')" class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl">Study</button>
+            <button type="button" onclick="saveAllDecksToFile('${deckId}')" class="py-2.5 px-3 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl">Save As</button>
+          </div>`;
         grid.appendChild(cardEl);
       });
+      emptyNotice?.classList.toggle('hidden', visibleCount > 0);
+    }
 
-      if (visibleCount === 0) {
-        emptyNotice.classList.remove('hidden');
-      } else {
-        emptyNotice.classList.add('hidden');
+    function renameAnkiDeck(deckId) {
+      const deck=appState.decks[deckId];
+      if(!deck) return;
+      const name=window.prompt('New deck name:',deck.name || '');
+      if(name===null) return;
+      const trimmed=name.trim();
+      if(!trimmed) { showToast('Deck name cannot be empty.'); return; }
+      if(trimmed===deck.name) return;
+      deck.name=trimmed;
+      saveLocalState();
+      ankiMarkDirty(deckId);
+      renderDecks();
+      if(appState.activeStudyDeckId===deckId) {
+        const title=document.getElementById('studyDeckTitle');
+        if(title) title.textContent=trimmed;
       }
+      showToast('Deck renamed. Your cards and progress are unchanged.');
     }
 
     // Search existing card data without editing it or changing review progress.
@@ -3401,7 +3530,19 @@ const content = await zip.generateAsync({ type: "blob" });
     }
 
     function deleteDeck(deckId) {
-      deleteAnkiOrganizerDeck(deckId);
+      const deck=appState.decks[deckId];
+      if(!deck) return;
+      if(!window.confirm(`Delete deck "${deck.name}" and its ${deck.cards?.length || 0} cards? This cannot be undone.`)) return;
+      delete appState.decks[deckId];
+      if(appState.activeStudyDeckId===deckId) {
+        appState.activeStudyDeckId=null;
+        appState.studyQueue=[];
+        appState.studyIndex=0;
+        switchTab('decks');
+      }
+      saveLocalState();
+      renderDecks();
+      showToast('Deck deleted.');
     }
 
     
@@ -3555,6 +3696,11 @@ function startStudy(deckId, practiceAll = false) {
       showStudyCard();
     }
 
+    function ankiCardStatus(card) {
+      const rating=String(card?.reviewData?.lastRating || '').toLowerCase();
+      return ['again','hard','good','easy'].includes(rating) ? rating : 'new';
+    }
+
     function renderSidebarList() {
       const listEl = document.getElementById('slide-list');
       const countEl = document.getElementById('sidebarCardCount');
@@ -3566,7 +3712,7 @@ function startStudy(deckId, practiceAll = false) {
       appState.studyQueue.forEach((card, index) => {
         const li = document.createElement('li');
         const isChecked = selectedSidebarCardIds.has(card.id);
-        li.className = `slide-item ${index === appState.studyIndex ? 'active' : ''}`;
+        li.className = `slide-item anki-nav-${ankiCardStatus(card)} ${index === appState.studyIndex ? 'active' : ''}`;
         li.draggable = true;
         li.dataset.cardId = String(card.id);
         li.addEventListener('dragstart', onAnkiSidebarDragStart);
@@ -5398,23 +5544,8 @@ function saveCardEdits() {
       const card = appState.studyQueue[appState.studyIndex];
       if (!card) return;
 
-      // Pure front-side cloze cards have no back answer to flip to.
-      // Keep the flip requirement for Basic and hybrid cards with back content.
-      const frontProbe = document.createElement('div');
-      frontProbe.innerHTML = card.front || '';
-      const backProbe = document.createElement('div');
-      backProbe.innerHTML = card.back || '';
-      const isPureFrontCloze =
-        /\{\{c\d+::/.test(frontProbe.textContent || '') &&
-        !(backProbe.textContent || '').trim() &&
-        !backProbe.querySelector('img, audio, video, iframe, object, embed') &&
-        !(card.clozeText || '').trim();
-
-      if (!isPureFrontCloze &&
-          !document.getElementById('studyCard').classList.contains('card-flipped')) {
-        showToast('Flip the card to see the answer before rating it.');
-        return;
-      }
+      // Rating is allowed from either side of the card; keep the existing
+      // intervals, review tracking and navigation unchanged.
 
       const ratingDetails = {
         1: { key: 'again', intervalMs: 60 * 1000, label: 'Again' },
@@ -5477,412 +5608,6 @@ function saveCardEdits() {
       renderDecks();
     }
 
-    // Store folder hierarchy as slash-delimited category paths, so the existing
-    // deck grouping, study state, and backup format continue to work unchanged.
-    function createNestedSubject() {
-      const parent = document.getElementById('organizerParentSubject')?.value || '';
-      const input = document.getElementById('organizerNewSubject');
-      const name = input?.value.trim().replace(/\s*\/\s*/g, ' / ');
-      if (!name || name.includes('/') || name.length > 80) {
-        showToast('Enter one subject name without a slash (up to 80 characters).');
-        return;
-      }
-      const path = parent ? `${parent} / ${name}` : name;
-      if (appState.categories.includes(path)) {
-        showToast('That subject already exists.');
-        return;
-      }
-      appState.categories.push(path);
-      input.value = '';
-      saveLocalState();
-      renderNestedSubjects();
-      renderCategories();
-      renderDecks();
-      showToast('Subject created. Assign a deck to it using the group dropdown.');
-      ankiOrganizerScheduleAutosave();
-    }
-
-    // Existing portable manifests use category paths for nested decks. A path that
-    // equals "parent category / parent deck name" is an implicit deck node, not a
-    // visible folder. This renderer preserves that data and avoids duplicate folders.
-    function ankiDeckVirtualPath(deck) {
-      return [deck.category || '', deck.name || 'Untitled'].filter(Boolean).join(' / ');
-    }
-    function ankiIsImplicitDeckFolder(path) {
-      return !!path && Object.values(appState.decks || {}).some(deck => ankiDeckVirtualPath(deck) === path);
-    }
-    const ankiCollapsedTreeNodes = (() => {
-      try {
-        const saved = JSON.parse(localStorage.getItem('anki_organizer_collapsed_v2') || '[]');
-        return new Set(Array.isArray(saved) ? saved : []);
-      } catch (e) { return new Set(); }
-    })();
-    function toggleAnkiOrganizerCollapse(kind, id) {
-      const key = kind + ':' + id;
-      if (ankiCollapsedTreeNodes.has(key)) ankiCollapsedTreeNodes.delete(key);
-      else ankiCollapsedTreeNodes.add(key);
-      try { localStorage.setItem('anki_organizer_collapsed_v2', JSON.stringify([...ankiCollapsedTreeNodes])); } catch (e) {}
-      renderNestedSubjects();
-    }
-    function deleteAnkiOrganizerFolder(path) {
-      if (!path || ankiIsImplicitDeckFolder(path)) return;
-      if (!appState.categories.includes(path) && !Object.values(appState.decks).some(d => d.category === path || d.category?.startsWith(path+' / '))) return;
-      const label = path.split(' / ').at(-1);
-      if (!window.confirm(`Delete group/folder "${label}"?\n\nAny decks and subfolders inside it will be moved up one level. No cards or review progress will be deleted.`)) return;
-      const pieces = path.split(' / ');
-      pieces.pop();
-      const parent = pieces.join(' / ');
-      const prefix = path + ' / ';
-      const moveUp = value => {
-        const v = String(value || '');
-        if (v === path) return parent;
-        if (v.startsWith(prefix)) return [parent, v.slice(prefix.length)].filter(Boolean).join(' / ');
-        return v;
-      };
-      appState.categories = [...new Set(appState.categories.filter(v => v !== path).map(moveUp).filter(Boolean))];
-      for (const deck of Object.values(appState.decks)) deck.category = moveUp(deck.category);
-      if (appState.selectedCategory === path || appState.selectedCategory.startsWith(prefix)) appState.selectedCategory = 'ALL';
-      ankiCollapsedTreeNodes.delete('folder:'+path);
-      saveLocalState();
-      renderCategories(); renderDecks(); renderNestedSubjects();
-      ankiOrganizerStatus('Folder/group removed; its decks were preserved. Use Save Hierarchy As... to update the manifest.');
-      showToast('Folder/group deleted; all contained decks and cards were kept.');
-      ankiOrganizerScheduleAutosave();
-    }
-    const ankiOrganizerSelectedDeckIds = new Set();
-    function updateAnkiOrganizerSelectionCount() {
-      const status = document.getElementById('ankiOrganizerSelectionCount');
-      if (status) {
-        const n = ankiOrganizerSelectedDeckIds.size;
-        status.textContent = `${n} deck${n === 1 ? '' : 's'} selected`;
-      }
-      const button = document.getElementById('ankiOrganizerMoveSelectedBtn');
-      if (button) button.disabled = ankiOrganizerSelectedDeckIds.size === 0;
-    }
-    function moveSelectedAnkiOrganizerDecks() {
-      const selected = [...ankiOrganizerSelectedDeckIds].filter(id => appState.decks[id]);
-      if (!selected.length) {
-        ankiOrganizerStatus('Select at least one deck with its checkbox first.', true);
-        return;
-      }
-      const choice = document.getElementById('ankiOrganizerMoveTarget')?.value || 'folder:';
-      const kind = choice.startsWith('deck:') ? 'deck' : 'folder';
-      const id = choice.slice(kind === 'deck' ? 5 : 7);
-      moveAnkiOrganizerDeckBatch(selected, kind, id);
-    }
-    function deleteAnkiOrganizerDeck(deckId) {
-      const deck = appState.decks[deckId];
-      if (!deck) return;
-      if (!window.confirm(`Delete the deck "${deck.name}" and its ${deck.cards?.length || 0} cards?\n\nNested decks will be moved up one level, not deleted. This cannot be undone.`)) return;
-      // A deleted parent deck cannot leave its child decks under a phantom
-      // parent folder. Promote its descendant paths while preserving their cards.
-      const oldPath = ankiDeckVirtualPath(deck);
-      const parent = String(deck.category || '');
-      const prefix = oldPath + ' / ';
-      const promote = value => {
-        const path = String(value || '');
-        if (path === oldPath) return parent;
-        if (path.startsWith(prefix)) return [parent, path.slice(prefix.length)].filter(Boolean).join(' / ');
-        return path;
-      };
-      appState.categories = [...new Set(appState.categories.filter(path => path !== oldPath).map(promote).filter(Boolean))];
-      for (const child of Object.values(appState.decks)) {
-        if (child.id !== deckId) child.category = promote(child.category);
-      }
-      delete appState.decks[deckId];
-      ankiOrganizerSelectedDeckIds.delete(deckId);
-      ankiCollapsedTreeNodes.delete('deck:' + deckId);
-      if (appState.selectedCategory !== 'ALL' && !appState.categories.includes(appState.selectedCategory)) appState.selectedCategory = 'ALL';
-      saveLocalState(); renderCategories(); renderDecks(); populateOrganizerDropdowns();
-      ankiOrganizerStatus(`Deleted deck "${deck.name}". Any nested decks were preserved. Save Hierarchy As... to update your manifest.`);
-      showToast(`Deleted ${deck.name}; nested decks were kept.`);
-      ankiOrganizerScheduleAutosave();
-    }
-    function toggleAnkiOrganizerDeckSelection(deckId, checked) {
-      if (!appState.decks[deckId]) return;
-      if (checked) ankiOrganizerSelectedDeckIds.add(deckId);
-      else ankiOrganizerSelectedDeckIds.delete(deckId);
-      renderNestedSubjects();
-    }
-    function selectVisibleAnkiOrganizerDecks() {
-      document.querySelectorAll('#organizerSubjectTree [data-kind="deck"][data-id]').forEach(row => {
-        if (appState.decks[row.dataset.id]) ankiOrganizerSelectedDeckIds.add(row.dataset.id);
-      });
-      renderNestedSubjects();
-    }
-    function clearAnkiOrganizerDeckSelection() {
-      ankiOrganizerSelectedDeckIds.clear();
-      renderNestedSubjects();
-    }
-    function renderNestedSubjects() {
-      const tree = document.getElementById('organizerSubjectTree');
-      const select = document.getElementById('organizerParentSubject');
-      if (!tree || !select) return;
-      const old = select.value;
-      const availableDecks=ankiOrganizerDisplayedDecks();
-      // Discard removed decks from the selection without touching saved cards.
-      for (const id of ankiOrganizerSelectedDeckIds) {
-        if (!appState.decks[id]) ankiOrganizerSelectedDeckIds.delete(id);
-      }
-      updateAnkiOrganizerSelectionCount();
-      select.replaceChildren(new Option('Top level (specialty)', ''));
-      tree.replaceChildren();
-
-      // Include ancestor paths for older saved collections and nested Anki files.
-      const allPaths = new Set((appState.categories || []).filter(Boolean));
-      availableDecks.forEach(deck => { if (deck.category) allPaths.add(deck.category); });
-      for (const path of [...allPaths]) {
-        const segments = path.split(' / ');
-        for (let i=1; i<segments.length; i++) allPaths.add(segments.slice(0,i).join(' / '));
-      }
-      // Hide a deck's implicit category path: the parent deck itself is the tree node.
-      const realFolders = [...allPaths].filter(path => !ankiIsImplicitDeckFolder(path));
-      realFolders.sort((a,b)=>a.localeCompare(b));
-      for (const path of realFolders) {
-        const depth = path.split(' / ').length-1;
-        select.add(new Option('  '.repeat(depth)+path.split(' / ').at(-1),path));
-      }
-
-      const folderChildren = new Map(), deckChildren = new Map();
-      const parentPath = p => p.includes(' / ') ? p.slice(0,p.lastIndexOf(' / ')) : '';
-      const add = (map,key,value) => {
-        if (!map.has(key)) map.set(key,[]);
-        map.get(key).push(value);
-      };
-      realFolders.forEach(folder => add(folderChildren,parentPath(folder),folder));
-      availableDecks.forEach(deck => add(deckChildren,deck.category || '',deck));
-      for (const list of folderChildren.values()) list.sort((a,b)=>a.localeCompare(b));
-      for (const list of deckChildren.values()) list.sort((a,b)=>(a.name||'').localeCompare(b.name||''));
-      const hasChildren = path => !!((folderChildren.get(path)||[]).length || (deckChildren.get(path)||[]).length);
-      const folderCount = path => availableDecks.filter(deck => deck.category===path || deck.category?.startsWith(path+' / ')).length;
-      const visitedDecks = new Set(), visitedFolders = new Set();
-
-      function appendRow(kind,id,title,depth,count,expandable) {
-        const row = document.createElement('div');
-        row.className='anki-organizer-row';
-        // Cap indentation so the trash button stays visible on narrow devices.
-        row.style.paddingLeft = `${9 + Math.min(depth, 6)*14}px`;
-        const missingDeck=kind==='deck' && id.startsWith('anki_missing_manifest_');
-        row.draggable=!missingDeck;
-        if(missingDeck) {
-          row.title='Listed in hierarchy JSON; import the .apkg package to study this deck.';
-          row.style.opacity='0.75';
-        }
-        if (kind === 'deck' && ankiOrganizerSelectedDeckIds.has(id)) row.classList.add('anki-selected');
-        row.dataset.kind=kind;
-        row.dataset.id=id;
-        row.title = kind==='folder' ? 'Drag folders or decks here; click its name to filter' : 'Drag this Anki deck onto a folder or another deck';
-        const isRoot = kind==='folder' && !id;
-        const key=kind+':'+id;
-        if (!isRoot && expandable) {
-          const toggle=document.createElement('button');
-          toggle.type='button'; toggle.className='anki-organizer-toggle';
-          const collapsed=ankiCollapsedTreeNodes.has(key);
-          toggle.title=collapsed?'Expand':'Collapse';
-          toggle.setAttribute('aria-label',`${collapsed?'Expand':'Collapse'} ${title}`);
-          toggle.setAttribute('aria-expanded',String(!collapsed));
-          toggle.innerHTML=`<i class="fa-solid ${collapsed?'fa-plus':'fa-minus'} text-[10px]" aria-hidden="true"></i>`;
-          toggle.addEventListener('click',event=>{event.stopPropagation();toggleAnkiOrganizerCollapse(kind,id);});
-          row.appendChild(toggle);
-        } else {
-          const spacer=document.createElement('span');
-          spacer.className='anki-organizer-toggle-placeholder';
-          row.appendChild(spacer);
-        }
-        if (kind === 'deck' && !missingDeck) {
-          const checkbox = document.createElement('input');
-          checkbox.type='checkbox';
-          checkbox.className='anki-organizer-checkbox';
-          checkbox.checked=ankiOrganizerSelectedDeckIds.has(id);
-          checkbox.setAttribute('aria-label', `Select ${title} for group move`);
-          checkbox.title='Select this deck for a group drag-and-drop move';
-          checkbox.addEventListener('click',event=>event.stopPropagation());
-          checkbox.addEventListener('change',event=>{
-            event.stopPropagation();
-            toggleAnkiOrganizerDeckSelection(id,checkbox.checked);
-          });
-          row.appendChild(checkbox);
-        }
-        const symbol=document.createElement('i');
-        symbol.className=kind==='folder' ? 'fa-solid fa-folder text-amber-400' : 'fa-solid fa-file-zipper text-indigo-400';
-        const label=document.createElement(kind==='folder'?'button':'span');
-        label.className='anki-organizer-label text-left flex-1';
-        label.textContent=title;
-        if (kind==='folder') {
-          label.type='button';
-          label.onclick=()=>{appState.selectedCategory=id||'ALL';renderCategories();renderDecks();switchTab('decks');};
-        }
-        const countNode=document.createElement('span');
-        countNode.className='text-[10px] text-slate-500 shrink-0';
-        countNode.textContent=missingDeck ? 'Needs .apkg' : (kind==='folder' ? `${count} deck${count===1?'':'s'}` : `${count} cards`);
-        row.append(symbol,label,countNode);
-        if((kind==='folder' && !isRoot) || (kind==='deck' && !missingDeck)) {
-          const remove=document.createElement('button');
-          remove.type='button';remove.className='anki-organizer-delete';
-          remove.title=kind==='deck' ? 'Delete this deck and its cards; preserve nested decks' : 'Delete folder; keep all decks';
-          remove.setAttribute('aria-label',`${kind==='deck'?'Delete deck':'Delete folder'} ${title}`);
-          remove.innerHTML='<i class="fa-solid fa-trash-can" aria-hidden="true"></i>';
-          remove.addEventListener('click',e=>{
-            e.preventDefault(); e.stopPropagation();
-            if (kind==='deck') deleteAnkiOrganizerDeck(id);
-            else deleteAnkiOrganizerFolder(id);
-          });
-          row.appendChild(remove);
-        }
-        if(!missingDeck) row.addEventListener('dragstart',e=>{
-          e.dataTransfer.effectAllowed='move';
-          // Dragging one of the checked decks moves all checked decks together.
-          // Dragging an unchecked deck still moves only that deck.
-          const payload=kind==='deck'
-            ? {kind:'decks',ids:ankiOrganizerSelectedDeckIds.has(id)
-                ? [...ankiOrganizerSelectedDeckIds] : [id]}
-            : {kind,id};
-          e.dataTransfer.setData('text/plain',JSON.stringify(payload));
-        });
-        row.addEventListener('dragover',e=>{e.preventDefault();e.stopPropagation();e.dataTransfer.dropEffect='move';row.classList.add('anki-drop-target');});
-        row.addEventListener('dragleave',e=>{if (!row.contains(e.relatedTarget)) row.classList.remove('anki-drop-target');});
-        row.addEventListener('drop',e=>{
-          e.preventDefault();e.stopPropagation();row.classList.remove('anki-drop-target');
-          try {
-            const payload=JSON.parse(e.dataTransfer.getData('text/plain'));
-            if (missingDeck) { showToast('Import this deck before using it as a move destination.'); return; }
-          if (payload.kind==='decks') moveAnkiOrganizerDeckBatch(payload.ids,kind,id);
-            else moveAnkiOrganizerNode(payload,kind,id);
-          } catch(error) {showToast(error.message||'Could not move item.');}
-        });
-        tree.appendChild(row);
-      }
-      appendRow('folder','','Top level (drop here)',0,availableDecks.length,true);
-      function branch(path,depth) {
-        for(const folder of folderChildren.get(path)||[]) {
-          if (visitedFolders.has(folder)) continue;
-          visitedFolders.add(folder);
-          const title=folder.split(' / ').at(-1);
-          const expandable=hasChildren(folder);
-          appendRow('folder',folder,title,depth,folderCount(folder),expandable);
-          if(expandable && !ankiCollapsedTreeNodes.has('folder:'+folder)) branch(folder,depth+1);
-        }
-        for(const deck of deckChildren.get(path)||[]) {
-          if(visitedDecks.has(deck.id)) continue;
-          visitedDecks.add(deck.id);
-          const virtual=ankiDeckVirtualPath(deck);
-          const expandable=hasChildren(virtual);
-          appendRow('deck',deck.id,deck.name||'Untitled',depth,(deck.cards||[]).length,expandable);
-          if(expandable && !ankiCollapsedTreeNodes.has('deck:'+deck.id)) branch(virtual,depth+1);
-        }
-      }
-      branch('',1);
-      if([...select.options].some(opt=>opt.value===old)) select.value=old;
-      // Explicit move destination works on touch screens and when native
-      // HTML5 dragging is blocked by the browser or an embedded iframe.
-      const target = document.getElementById('ankiOrganizerMoveTarget');
-      if (target) {
-        const prior = target.value;
-        target.replaceChildren(new Option('Top level', 'folder:'));
-        for (const path of realFolders) {
-          target.add(new Option(`📁 ${path}`, 'folder:' + path));
-        }
-        for (const deck of availableDecks) {
-          if(!deck.ankiMissingPackage)
-            target.add(new Option(`↳ ${ankiDeckVirtualPath(deck)}`, 'deck:' + deck.id));
-        }
-        if ([...target.options].some(option => option.value === prior)) target.value = prior;
-      }
-    }
-
-    function populateOrganizerDropdowns() {
-      const sourceSelect = document.getElementById('organizerSourceDeck');
-      const targetSelect = document.getElementById('organizerTargetDeck');
-      
-      sourceSelect.innerHTML = '<option value="ALL">All Decks</option>';
-      targetSelect.innerHTML = '';
-
-      Object.keys(appState.decks).forEach(id => {
-        const deck = appState.decks[id];
-        sourceSelect.add(new Option(deck.name, id));
-        targetSelect.add(new Option(deck.name, id));
-      });
-
-      renderOrganizerCards();
-      renderNestedSubjects();
-    }
-
-    function renderOrganizerCards() {
-      const sourceDeckId = document.getElementById('organizerSourceDeck').value;
-      const container = document.getElementById('organizerCardList');
-      container.innerHTML = '';
-      appState.selectedCardIds.clear();
-      updateSelectedCount();
-
-      let cardsToDisplay = [];
-      Object.keys(appState.decks).forEach(deckId => {
-        if (sourceDeckId === 'ALL' || sourceDeckId === deckId) {
-          const deck = appState.decks[deckId];
-          if (deck.cards) {
-            deck.cards.forEach(c => cardsToDisplay.push({ ...c, deckName: deck.name, deckId: deck.id }));
-          }
-        }
-      });
-
-      cardsToDisplay.forEach(card => {
-        const row = document.createElement('div');
-        row.className = "p-3 flex items-center justify-between hover:bg-slate-700/40 transition";
-        row.innerHTML = `
-          <div class="flex items-center space-x-3 overflow-hidden">
-            <input type="checkbox" onchange="toggleCardSelection('${card.id}', this.checked)" class="w-4 h-4 rounded bg-slate-900 border-slate-700 text-indigo-600 focus:ring-0 cursor-pointer" />
-            <div class="truncate">
-              <span class="text-xs font-semibold text-slate-200 block truncate">${card.title || card.front.replace(/<[^>]*>?/gm, '') || 'Empty Question'}</span>
-              <span class="text-[10px] text-slate-400 block truncate">${card.deckName}</span>
-            </div>
-          </div>
-        `;
-        container.appendChild(row);
-      });
-    }
-
-    function toggleCardSelection(cardId, isChecked) {
-      if (isChecked) appState.selectedCardIds.add(cardId);
-      else appState.selectedCardIds.delete(cardId);
-      updateSelectedCount();
-    }
-
-    function toggleSelectAllCards(isChecked) {
-      document.querySelectorAll('#organizerCardList input[type="checkbox"]').forEach(cb => {
-        cb.checked = isChecked;
-        cb.dispatchEvent(new Event('change'));
-      });
-    }
-
-    function updateSelectedCount() {
-      document.getElementById('selectedCardCount').innerText = `${appState.selectedCardIds.size} Cards Selected`;
-    }
-
-    function moveSelectedCards() {
-      const targetDeckId = document.getElementById('organizerTargetDeck').value;
-      if (!targetDeckId || appState.selectedCardIds.size === 0) {
-        alert("Select at least one card and a destination deck.");
-        return;
-      }
-
-      const targetDeck = appState.decks[targetDeckId];
-      appState.selectedCardIds.forEach(cardId => {
-        Object.keys(appState.decks).forEach(deckId => {
-          const deck = appState.decks[deckId];
-          const idx = deck.cards.findIndex(c => c.id === cardId);
-          if (idx !== -1) {
-            const [movedCard] = deck.cards.splice(idx, 1);
-            if (deckId !== targetDeckId) {
-              targetDeck.cards.push(movedCard);
-            }
-          }
-        });
-      });
-
-      saveLocalState();
-      renderOrganizerCards();
-      alert("Cards moved successfully!");
-    }
-
     function populateCreateDropdown() {
       const select = document.getElementById('createCardDeck');
       select.innerHTML = '';
@@ -5921,8 +5646,9 @@ function saveCardEdits() {
       document.getElementById('createCardBack').innerHTML = '<br>';
 
       alert("Flashcard saved successfully!");
+      renderDecks(); // Refresh the new card count in the updated deck tiles.
       switchTab('decks');
-    } // <-- THIS CLOSING BRACE WAS MISSING AND BROKE THE SCRIPT
+    }
 
     // --- ANKI IMPORT ENGINE ---
     async function handleAnkiFileUpload(event, options = {}) {
@@ -6200,6 +5926,25 @@ function saveCardEdits() {
           }
         }
 
+        const linkedLastCardIdByDeck={};
+        // Optional linked-autosave snapshot: restore the exact AnkiSync card
+        // rendering/edit state from the sidecar, while leaving Anki's original
+        // SQLite collection and media entries intact for Anki Desktop.
+        if (zip.file && zip.file('ankisync-linked-state.json')) {
+          try {
+            const linkedState=JSON.parse(await zip.file('ankisync-linked-state.json').async('string'));
+            if (linkedState.format==='AnkiSyncLinkedDeckState' && linkedState.version===1 &&
+                linkedState.sourceFileName===file.name && Array.isArray(linkedState.cards) &&
+                linkedState.cards.every(c=>c && c.id !== undefined && typeof c.front==='string') &&
+                Object.keys(importedCardsByDeck).length===1) {
+              const onlyName=Object.keys(importedCardsByDeck)[0];
+              importedCardsByDeck[onlyName]=linkedState.cards;
+              importedLastIndexByDeck[onlyName]=Number(linkedState.lastIndex)||0;
+              linkedLastCardIdByDeck[onlyName]=linkedState.lastCardId||null;
+            }
+          } catch(err) {console.warn('AnkiSync linked-state snapshot was not restored:',err);}
+        }
+
         // Prompt user to select which decks to import (bypass automatically if only 1 deck)
         const deckNames = Object.keys(importedCardsByDeck);
         if (deckNames.length === 0) {
@@ -6277,11 +6022,10 @@ function saveCardEdits() {
 
 
         if (selectedDecks.length > 0 && folderBatch) {
-          const sourceFilePath=ankiOrganizerNormalizePath(options.relativePath || file.name);
-          const sourceFingerprint=options.sourceFingerprint || await ankiOrganizerFingerprintFile(file);
-          const importedName=ankiOrganizerFileStem(file.name);
-          const manifestEntry=ankiOrganizerEntryForFile(sourceFilePath,sourceFingerprint,importedName);
-          const canonicalPath=manifestEntry ? ankiOrganizerNormalizePath(manifestEntry.path) : sourceFilePath;
+          const sourceFilePath=ankiImportNormalizePath(options.relativePath || file.name);
+          const sourceFingerprint=options.sourceFingerprint || await ankiImportFingerprintFile(file);
+          const importedName=ankiImportFileStem(file.name);
+          const canonicalPath=sourceFilePath;
           // Namespace card IDs by source file to prevent two packages with
           // overlapping Anki note IDs from mixing cards across decks.
           let hash = 2166136261;
@@ -6289,9 +6033,9 @@ function saveCardEdits() {
           const sourceNamespace = (hash >>> 0).toString(36);
           const allCards = selectedDecks.flatMap(name => importedCardsByDeck[name] || [])
             .map(card => ({...card, id: `file_${sourceNamespace}_${card.id}`}));
-          let existing=ankiOrganizerFindExistingDeck(canonicalPath,sourceFingerprint,importedName,allCards);
+          let existing=ankiImportFindExistingDeck(canonicalPath,sourceFingerprint,importedName,allCards);
           if(existing) {
-            ankiOrganizerMergeCards(existing,allCards);
+            ankiImportMergeCards(existing,allCards);
           } else {
             const deckId = 'deck_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
             const parentPath = sourceFilePath.split('/').slice(0,-1).filter(Boolean).join(' / ');
@@ -6307,9 +6051,6 @@ function saveCardEdits() {
           existing.sourceFilePath=canonicalPath;
           existing.sourceFileName=file.name;
           existing.sourceFingerprint=sourceFingerprint;
-          if(manifestEntry?.name) existing.name=manifestEntry.name;
-          const category=findAnkiOrganizerManifestCategory(canonicalPath,sourceFingerprint,importedName);
-          if(category!==null) existing.category=category;
           ensureAnkiCategoryPath(existing.category);
           saveLocalState();
         } else if (selectedDecks.length > 0) {
@@ -6320,6 +6061,7 @@ function saveCardEdits() {
           const targetDeckId = document.getElementById('ankiImportTargetDeck')?.value || '__new__';
           if (targetDeckId !== '__new__' && appState.decks[targetDeckId]) {
             const targetDeck = appState.decks[targetDeckId];
+            if (!targetDeck.sourceFileName && /\.apkg$/i.test(file.name)) targetDeck.sourceFileName=file.name;
             if (!Array.isArray(targetDeck.cards)) targetDeck.cards = [];
             selectedDecks.forEach(deckName => {
               // Re-import of the same AnkiSync cards updates their progress
@@ -6355,10 +6097,13 @@ function saveCardEdits() {
                 name: selectedDecks.length === 1 && importedFileDeckName
                   ? importedFileDeckName : deckName,
                 category: appState.selectedCategory === 'ALL' ? 'General' : appState.selectedCategory,
+                sourceFileName: file.name,
                 cards: importedCardsByDeck[deckName],
                 lastIndex: Math.min(importedLastIndexByDeck[deckName] || 0, Math.max(0, importedCardsByDeck[deckName].length - 1)),
-                ...(portableProgress && portableProgress.decks.find(d => d.name === deckName)?.lastCardId
-                  ? { lastCardId: portableProgress.decks.find(d => d.name === deckName).lastCardId }
+                ...((linkedLastCardIdByDeck[deckName] ||
+                  (portableProgress && portableProgress.decks.find(d => d.name === deckName)?.lastCardId))
+                  ? {lastCardId: linkedLastCardIdByDeck[deckName] ||
+                    portableProgress.decks.find(d=>d.name===deckName).lastCardId}
                   : {})
               };
             });
@@ -6416,15 +6161,6 @@ function saveCardEdits() {
 
         return match;
       });
-    }
-
-    function connectFirebaseSync() {
-      const key = document.getElementById('syncUserKey').value;
-      if (key) {
-        localStorage.setItem('anki_sync_key', key);
-        document.getElementById('syncText').innerText = "Connected: " + key;
-        alert("Sync Key Connected successfully!");
-      }
     }
 
     function toggleAppTheme() {
@@ -6496,32 +6232,15 @@ function updateDeckCategory(deckId, newCategory) {
     saveLocalState();
     renderDecks();
     showToast("Deck group updated successfully!");
-    ankiOrganizerScheduleAutosave();
   }
 }
 
 
-    // --- Focused enhancements: folder organizer, resets, floating edit and size buttons ---
-    function ankiOrganizerEscapeHtml(value) {
+    // --- Deck resets, floating edit control, and editor text sizing ---
+    function ankiEscapeHtml(value) {
       return String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     }
-    const ANKI_ORGANIZER_MANIFEST = 'AnkiSync-Organizer.json';
-    let ankiOrganizerFolderHandle = null;
-    let ankiOrganizerLoadedManifest = null;
-    let ankiOrganizerFolderBusy = false;
-    // Null means no folder/files have been verified in this session.
-    // An inventory contains ONLY packages successfully opened in the selected folder.
-    let ankiOrganizerVerifiedFiles = null;
-    // Only a complete folder scan is evidence that an unselected file is absent.
-    // iPhone file selection may include just a subset of the iCloud folder.
-    let ankiOrganizerInventoryComplete = false;
-    let ankiOrganizerAutoSaveTimer = null;
-    let ankiOrganizerAutoSaveRunning = false;
-    let ankiOrganizerAutoSaveEnabled = true;
-
     let pendingAnkiHardResetDeckId = null;
-    let ankiFloatingDrag = null;
-    let ankiFloatingSuppressClick = false;
 
     function applyEditorFontSize(editorId, preset) {
       const editor = document.getElementById(editorId);
@@ -6550,46 +6269,11 @@ function updateDeckCategory(deckId, newCategory) {
     function setupFloatingEditButton() {
       const button=document.getElementById('floatingEditCardButton');
       if (!button) return;
-      try {
-        const pos=JSON.parse(localStorage.getItem('anki_floating_edit_pos')||'null');
-        if (pos && Number.isFinite(pos.x) && Number.isFinite(pos.y)) {
-          button.style.left=Math.max(0,Math.min(window.innerWidth-115,pos.x))+'px';
-          button.style.top=Math.max(0,Math.min(window.innerHeight-40,pos.y))+'px';
-          button.style.right='auto';
-        }
-      } catch(e) {}
-      button.addEventListener('pointerdown',e=>{
-        if(e.button!==0) return;
-        const rect=button.getBoundingClientRect();
-        ankiFloatingDrag={id:e.pointerId,x:e.clientX,y:e.clientY,left:rect.left,top:rect.top,moved:false};
-        button.setPointerCapture(e.pointerId);
-      });
-      button.addEventListener('pointermove',e=>{
-        if (!ankiFloatingDrag || ankiFloatingDrag.id!==e.pointerId) return;
-        const dx=e.clientX-ankiFloatingDrag.x,dy=e.clientY-ankiFloatingDrag.y;
-        if(!ankiFloatingDrag.moved && Math.hypot(dx,dy)>5) ankiFloatingDrag.moved=true;
-        if(!ankiFloatingDrag.moved) return;
-        e.preventDefault();
-        button.classList.add('anki-dragging');
-        const left=Math.max(0,Math.min(window.innerWidth-button.offsetWidth,ankiFloatingDrag.left+dx));
-        const top=Math.max(0,Math.min(window.innerHeight-button.offsetHeight,ankiFloatingDrag.top+dy));
-        button.style.left=left+'px'; button.style.top=top+'px'; button.style.right='auto';
-      });
-      const finish=e=>{
-        if(!ankiFloatingDrag || ankiFloatingDrag.id!==e.pointerId) return;
-        if(ankiFloatingDrag.moved) {
-          ankiFloatingSuppressClick=true;
-          localStorage.setItem('anki_floating_edit_pos',JSON.stringify({x:button.offsetLeft,y:button.offsetTop}));
-        }
-        ankiFloatingDrag=null;
-        button.classList.remove('anki-dragging');
-      };
-      button.addEventListener('pointerup',finish);
-      button.addEventListener('pointercancel',finish);
-      button.addEventListener('click',e=>{
+      // Edit is intentionally anchored beside Reveal (including on iPhone).
+      // Do not restore an old floating position or bind drag handlers here.
+      button.addEventListener('click', e => {
         e.stopPropagation();
-        if(ankiFloatingSuppressClick) {ankiFloatingSuppressClick=false;return;}
-        if(appState.studyQueue.length) toggleEditCurrentCard();
+        if (appState.studyQueue.length) toggleEditCurrentCard();
       });
     }
 
@@ -6613,6 +6297,7 @@ function updateDeckCategory(deckId, newCategory) {
       deck.lastIndex=0;
       deck.lastCardId=null;
       saveLocalState();
+      ankiMarkDirty(deckId);
       renderDecks();
       if(appState.activeStudyDeckId===deckId && !document.getElementById('view-study').classList.contains('hidden')) startStudy(deckId,false);
       showToast(`Hard Reset complete for ${deck.name}. All cards are available again.`);
@@ -6626,98 +6311,17 @@ function updateDeckCategory(deckId, newCategory) {
         if(!appState.categories.includes(p)) appState.categories.push(p);
       }
     }
-    function ankiOrganizerNormalizePath(value) {
+    function ankiImportNormalizePath(value) {
       return String(value || '').replace(/\\/g,'/').replace(/^\.\//,'').replace(/^\/+|\/+$/g,'')
         .split('/').filter(part=>part && part!=='.').join('/');
     }
-    function ankiOrganizerBaseName(path) {
-      return ankiOrganizerNormalizePath(path).split('/').pop() || '';
+    function ankiImportBaseName(path) {
+      return ankiImportNormalizePath(path).split('/').pop() || '';
     }
-    function ankiOrganizerFileStem(path) {
-      return ankiOrganizerBaseName(path).replace(/\.(?:apkg|colpkg|anki|anki2|anki21)$/i,'');
+    function ankiImportFileStem(path) {
+      return ankiImportBaseName(path).replace(/\.(?:apkg|colpkg|anki|anki2|anki21)$/i,'');
     }
-    // One manifest item represents one physical .apkg. Never assume that two
-    // cached decks with similar paths are the same package; prefer a unique
-    // exact deck/file name and content fingerprint over stale browser metadata.
-    function ankiOrganizerIdentity(value) {
-      return String(value || '').trim().replace(/\s+/g,' ').toLocaleLowerCase();
-    }
-    function ankiOrganizerEntryForFile(filePath, fingerprint = '', deckName = '') {
-      const entries=ankiOrganizerLoadedManifest?.decks;
-      if(!Array.isArray(entries) || !entries.length) return null;
-      const path=ankiOrganizerNormalizePath(filePath);
-      const basename=ankiOrganizerBaseName(path).toLocaleLowerCase();
-      const fp=String(fingerprint||'');
-      const stem=ankiOrganizerIdentity(deckName);
-      function candidates(test) {return entries.filter(e=>e && test(e));}
-      // The physical, selected package's exact filename is authoritative.
-      if(path) {
-        const exact=candidates(e=>ankiOrganizerNormalizePath(e.path)===path);
-        if(exact.length===1) return exact[0];
-      }
-      if(fp) {
-        const matched=candidates(e=>e.fingerprint && e.fingerprint===fp);
-        if(matched.length===1) return matched[0];
-      }
-      if(basename) {
-        const matched=candidates(e=>ankiOrganizerBaseName(e.path).toLocaleLowerCase()===basename);
-        if(matched.length===1) return matched[0];
-      }
-      if(stem) {
-        const matched=candidates(e=>ankiOrganizerIdentity(e.name)===stem || ankiOrganizerIdentity(ankiOrganizerFileStem(e.path))===stem);
-        if(matched.length===1) return matched[0];
-      }
-      return null;
-    }
-    // Reconcile all browser-cached decks against the JSON as a single assignment.
-    // A stale TB sourceFilePath must NOT override the exact name of the ILD deck.
-    function ankiOrganizerMatchCachedDecks() {
-      const entries=ankiOrganizerLoadedManifest?.decks;
-      const matches=new Map();
-      if(!Array.isArray(entries)) return matches;
-      const scored=[];
-      for(const [i,entry] of entries.entries()) {
-        const expectedName=ankiOrganizerIdentity(entry.name||ankiOrganizerFileStem(entry.path));
-        const expectedStem=ankiOrganizerIdentity(ankiOrganizerFileStem(entry.path));
-        const expectedPath=ankiOrganizerNormalizePath(entry.path);
-        const expectedFile=ankiOrganizerBaseName(expectedPath).toLocaleLowerCase();
-        for(const deck of Object.values(appState.decks)) {
-          const deckName=ankiOrganizerIdentity(deck.name);
-          const sameName=!!deckName && (deckName===expectedName || deckName===expectedStem);
-          const sameFingerprint=!!entry.fingerprint && !!deck.sourceFingerprint && entry.fingerprint===deck.sourceFingerprint;
-          const samePath=!!expectedPath && ankiOrganizerNormalizePath(deck.sourceFilePath)===expectedPath;
-          const sameFile=!!expectedFile && (
-            ankiOrganizerBaseName(deck.sourceFilePath).toLocaleLowerCase()===expectedFile ||
-            ankiOrganizerBaseName(deck.sourceFileName).toLocaleLowerCase()===expectedFile);
-          const remembered=deck.ankiOrganizerManifestPath && ankiOrganizerNormalizePath(deck.ankiOrganizerManifestPath)===expectedPath;
-          // Never match using a conflicting filename alone when two known
-          // content fingerprints disagree and the deck name does not match.
-          if(entry.fingerprint && deck.sourceFingerprint && !sameFingerprint && !sameName) continue;
-          const score=(sameName?1000000:0)+(sameFingerprint?100000:0)+
-            (samePath?10000:0)+(sameFile?5000:0)+(remembered?1000:0);
-          if(score) scored.push({deck,entry,i,score});
-        }
-      }
-      scored.sort((a,b)=>b.score-a.score ||
-        (b.deck.cards||[]).filter(c=>!!c.reviewData).length-(a.deck.cards||[]).filter(c=>!!c.reviewData).length ||
-        (b.deck.cards||[]).length-(a.deck.cards||[]).length ||
-        a.i-b.i || String(a.deck.id).localeCompare(String(b.deck.id)));
-      const claimedEntries=new Set();
-      for(const item of scored) {
-        if(matches.has(item.deck.id) || claimedEntries.has(item.i)) continue;
-        matches.set(item.deck.id,item.entry);
-        claimedEntries.add(item.i);
-      }
-      return matches;
-    }
-    function findAnkiOrganizerManifestCategory(filePath, fingerprint = '', deckName = '') {
-      const item=ankiOrganizerEntryForFile(filePath, fingerprint, deckName);
-      return item ? (typeof item.category==='string' ? item.category : '') : null;
-    }
-    // Small, portable, content-derived identity. Read three bounded samples,
-    // rather than requiring the browser to load a huge .apkg twice. Includes
-    // size; independent of the iPhone's directory and last-modified timestamp.
-    async function ankiOrganizerFingerprintFile(file) {
+    async function ankiImportFingerprintFile(file) {
       const size=Number(file.size||0), length=65536;
       const offsets=[0,Math.max(0,Math.floor((size-length)/2)),Math.max(0,size-length)];
       const seen=new Set();
@@ -6735,49 +6339,47 @@ function updateDeckCategory(deckId, newCategory) {
       }
       return 'sample-v1:'+size+':'+(h1>>>0).toString(16)+':'+(h2>>>0).toString(16);
     }
-    // A package reselected under a different directory used to obtain a new
-    // file_* namespace. Normalize only that import prefix, never note content.
-    function ankiOrganizerCardKey(card) {
+    function ankiImportCardKey(card) {
       return String(card?.id ?? '').replace(/^file_[a-z0-9]+_/i,'');
     }
-    function ankiOrganizerSameCardOverlap(a,b) {
-      const ids=new Set((a.cards||[]).map(ankiOrganizerCardKey).filter(Boolean));
-      return (b.cards||[]).some(card=>ids.has(ankiOrganizerCardKey(card)));
+    function ankiImportSameCardOverlap(a,b) {
+      const ids=new Set((a.cards||[]).map(ankiImportCardKey).filter(Boolean));
+      return (b.cards||[]).some(card=>ids.has(ankiImportCardKey(card)));
     }
-    function ankiOrganizerFindExistingDeck(path,fingerprint,name,cards=[]) {
+    function ankiImportFindExistingDeck(path,fingerprint,name,cards=[]) {
       const decks=Object.values(appState.decks);
-      const normalized=ankiOrganizerNormalizePath(path);
+      const normalized=ankiImportNormalizePath(path);
       const fp=String(fingerprint||'');
-      const exact=decks.find(d=>d.sourceFilePath && ankiOrganizerNormalizePath(d.sourceFilePath)===normalized &&
+      const exact=decks.find(d=>d.sourceFilePath && ankiImportNormalizePath(d.sourceFilePath)===normalized &&
         !(fp && d.sourceFingerprint && d.sourceFingerprint!==fp));
       if(exact) return exact;
       if(fp) {
         const byFp=decks.find(d=>d.sourceFingerprint===fp);
         if(byFp) return byFp;
       }
-      const basename=ankiOrganizerBaseName(normalized).toLowerCase();
+      const basename=ankiImportBaseName(normalized).toLowerCase();
       const byName=decks.filter(d=>d.sourceFilePath &&
-        ankiOrganizerBaseName(d.sourceFilePath).toLowerCase()===basename &&
+        ankiImportBaseName(d.sourceFilePath).toLowerCase()===basename &&
         !(fp && d.sourceFingerprint && d.sourceFingerprint!==fp));
       if(byName.length===1) return byName[0];
       if(byName.length>1 && cards.length) {
         const imported={cards};
-        const overlap=byName.filter(d=>ankiOrganizerSameCardOverlap(d,imported));
+        const overlap=byName.filter(d=>ankiImportSameCardOverlap(d,imported));
         if(overlap.length===1) return overlap[0];
       }
       // Single-file imports predate folder identities; attach them only if the
       // card identities overlap, avoiding false merges of manually named decks.
       const imported={cards};
       const old=decks.filter(d=>!d.sourceFilePath &&
-        (d.name===name || d.name===ankiOrganizerFileStem(path)) &&
-        cards.length && ankiOrganizerSameCardOverlap(d,imported));
+        (d.name===name || d.name===ankiImportFileStem(path)) &&
+        cards.length && ankiImportSameCardOverlap(d,imported));
       return old.length===1 ? old[0] : null;
     }
-    function ankiOrganizerMergeCards(target,otherCards) {
+    function ankiImportMergeCards(target,otherCards) {
       if(!Array.isArray(target.cards)) target.cards=[];
-      const map=new Map(target.cards.map((c,i)=>[ankiOrganizerCardKey(c),i]));
+      const map=new Map(target.cards.map((c,i)=>[ankiImportCardKey(c),i]));
       for(const card of otherCards||[]) {
-        const key=ankiOrganizerCardKey(card);
+        const key=ankiImportCardKey(card);
         if(!key || !map.has(key)) {
           map.set(key,target.cards.length);
           target.cards.push(card);
@@ -6788,750 +6390,7 @@ function updateDeckCategory(deckId, newCategory) {
         }
       }
     }
-    // Consolidate only provable duplicate imports. A shared/incorrect category
-    // or file path is not evidence that two different packages are identical.
-    function ankiOrganizerReconcileDuplicates() {
-      let removed=0;
-      const values=Object.values(appState.decks);
-      const groups=new Map();
-      for(const deck of values) {
-        if(!deck.sourceFingerprint) continue;
-        const key=deck.sourceFingerprint;
-        if(!groups.has(key)) groups.set(key,[]);
-        groups.get(key).push(deck);
-      }
-      for(const group of groups.values()) {
-        if(group.length<2) continue;
-        group.sort((a,b)=>(b.cards||[]).filter(c=>!!c.reviewData).length-(a.cards||[]).filter(c=>!!c.reviewData).length || (b.cards||[]).length-(a.cards||[]).length);
-        const keeper=group[0];
-        for(const other of group.slice(1)) {
-          // Even matching fingerprints can describe separate internal Anki
-          // decks from one .colpkg; merge only identical deck names or cards.
-          if(ankiOrganizerIdentity(keeper.name)!==ankiOrganizerIdentity(other.name) && !ankiOrganizerSameCardOverlap(keeper,other)) continue;
-          ankiOrganizerMergeCards(keeper,other.cards);
-          if(!keeper.lastCardId && other.lastCardId) keeper.lastCardId=other.lastCardId;
-          delete appState.decks[other.id];
-          ankiOrganizerSelectedDeckIds.delete(other.id);
-          removed++;
-        }
-      }
-      return removed;
-    }
-    function ankiOrganizerIsInManifest(deck) {
-      if(!Array.isArray(ankiOrganizerLoadedManifest?.decks)) return false;
-      const path=ankiOrganizerNormalizePath(deck?.ankiOrganizerManifestPath);
-      return !!path && ankiOrganizerLoadedManifest.decks.some(e=>ankiOrganizerNormalizePath(e.path)===path);
-    }
-    function ankiOrganizerPhysicalDeckPresent(deck) {
-      if(!ankiOrganizerVerifiedFiles || !deck?.sourceFilePath) return false;
-      const path=ankiOrganizerNormalizePath(deck.sourceFilePath);
-      const fp=String(deck.sourceFingerprint||'');
-      return [...ankiOrganizerVerifiedFiles.values()].some(item =>
-        (fp && item.fingerprint && fp===item.fingerprint) ||
-        (ankiOrganizerNormalizePath(item.path)===path && !(fp && item.fingerprint && fp!==item.fingerprint)) ||
-        (ankiOrganizerBaseName(item.path).toLocaleLowerCase()===ankiOrganizerBaseName(path).toLocaleLowerCase() &&
-          !(fp && item.fingerprint && fp!==item.fingerprint)));
-    }
-    // The Decks view keeps locally saved cards accessible. A complete physical
-    // scan may hide packages absent from the selected folder without erasing data.
-    function ankiOrganizerIsVerifiedDeck(deck) {
-      if(!ankiOrganizerInventoryComplete || !ankiOrganizerVerifiedFiles || !deck?.sourceFilePath) return true;
-      return ankiOrganizerPhysicalDeckPresent(deck);
-    }
-    function ankiOrganizerAvailableDecks() {
-      // Applying a JSON shows ONLY its one-to-one resolved entries. Cached old
-      // packages that were not listed must not reappear beneath stale folders.
-      if(!Array.isArray(ankiOrganizerLoadedManifest?.decks))
-        return Object.values(appState.decks).filter(ankiOrganizerIsVerifiedDeck);
-      const matched = ankiOrganizerMatchCachedDecks();
-      const ids = new Set(matched.keys());
-      // A verified physical package not described by the JSON is a genuine new
-      // file. The importer labels it Unassigned, so it can be organized safely.
-      return Object.values(appState.decks).filter(deck =>
-        (ids.has(deck.id) && ankiOrganizerIsVerifiedDeck(deck)) ||
-        // Only a fresh, complete folder inventory can establish that a file
-        // absent from the JSON is a genuine additional package.
-        (ankiOrganizerInventoryComplete && ankiOrganizerVerifiedFiles &&
-         ankiOrganizerPhysicalDeckPresent(deck) && !ids.has(deck.id) &&
-         !ankiOrganizerEntryForFile(deck.sourceFilePath,deck.sourceFingerprint,deck.name)));
-    }
-    function ankiOrganizerDisplayedDecks() {
-      const real=ankiOrganizerAvailableDecks();
-      if(!Array.isArray(ankiOrganizerLoadedManifest?.decks)) return real;
-      const matched=ankiOrganizerMatchCachedDecks();
-      const claimed=new Set([...matched.values()].map(e=>ankiOrganizerNormalizePath(e.path)));
-      const missing=ankiOrganizerLoadedManifest.decks
-        .filter(e=>!claimed.has(ankiOrganizerNormalizePath(e.path)))
-        .map((entry,index)=>({
-          id:'anki_missing_manifest_'+index,
-          name:entry.name||ankiOrganizerFileStem(entry.path),
-          category:typeof entry.category==='string'?entry.category:'',
-          sourceFilePath:ankiOrganizerNormalizePath(entry.path),
-          sourceFingerprint:entry.fingerprint||'',
-          cards:[],
-          ankiMissingPackage:true
-        }));
-      return real.concat(missing);
-    }
-    function ankiOrganizerPhysicalMatch(entry) {
-      if (!ankiOrganizerVerifiedFiles) return true;
-      const path=ankiOrganizerNormalizePath(entry?.path);
-      const fp=String(entry?.fingerprint||'');
-      return [...ankiOrganizerVerifiedFiles.values()].some(item=>
-        (fp && item.fingerprint===fp) ||
-        (path===ankiOrganizerNormalizePath(item.path) && !(fp && item.fingerprint && fp!==item.fingerprint)) ||
-        (ankiOrganizerBaseName(path).toLowerCase()===ankiOrganizerBaseName(item.path).toLowerCase() &&
-         !(fp && item.fingerprint && fp!==item.fingerprint)));
-    }
-    function ankiOrganizerCountMissingManifestFiles() {
-      if (!ankiOrganizerVerifiedFiles || !ankiOrganizerInventoryComplete || !ankiOrganizerLoadedManifest) return [];
-      return ankiOrganizerLoadedManifest.decks.filter(entry=>!ankiOrganizerPhysicalMatch(entry));
-    }
-
-    function organizerPathForFile(file) {
-      const path=(file.webkitRelativePath||file.name).replace(/\\/g,'/');
-      const parts=path.split('/');
-      // webkitdirectory adds the selected folder's name at the start.
-      return file.webkitRelativePath && parts.length>1 ? parts.slice(1).join('/') : path;
-    }
-    function validateAnkiOrganizerManifest(data) {
-      return data && data.format==='AnkiSyncOrganizer' && data.version===1 &&
-        Array.isArray(data.decks) && data.decks.every(e=>e && typeof e.path==='string');
-    }
-    function applyAnkiOrganizerManifest(data) {
-      if(!validateAnkiOrganizerManifest(data)) throw new Error('Invalid AnkiSync organizer manifest.');
-      ankiOrganizerLoadedManifest=data;
-      // The JSON is a guide to existing decks, not a source of new cards.
-      // Clear stale links, then do a one-to-one match using the exact deck name
-      // or file identity. Do not allow a previously cached TB placement to win.
-      const assignments=ankiOrganizerMatchCachedDecks();
-      const savedCategories=Array.isArray(data.categories)
-        ? data.categories.filter(c=>typeof c==='string' && c.trim()) : [];
-      appState.categories=[...new Set(savedCategories)];
-      for(const deck of Object.values(appState.decks)) delete deck.ankiOrganizerManifestPath;
-      let updated=0;
-      for(const [id,entry] of assignments) {
-        const deck=appState.decks[id];
-        if(!deck) continue;
-        deck.ankiOrganizerManifestPath=ankiOrganizerNormalizePath(entry.path);
-        deck.sourceFilePath=ankiOrganizerNormalizePath(entry.path);
-        deck.sourceFileName=ankiOrganizerBaseName(entry.path);
-        if(entry.fingerprint) deck.sourceFingerprint=entry.fingerprint;
-        if(typeof entry.name==='string' && entry.name.trim()) deck.name=entry.name;
-        deck.category=typeof entry.category==='string' ? entry.category : '';
-        ensureAnkiCategoryPath(deck.category);
-        updated++;
-      }
-      // Do not import stale folders from unmatched browser caches. Their cards
-      // stay in IndexedDB and remain available in other app views.
-      const removed=ankiOrganizerReconcileDuplicates();
-      ankiOrganizerRestoreCollapse(data);
-      saveLocalState();renderCategories();renderDecks();renderNestedSubjects();
-      return {updated,removed,unmatched:Object.keys(appState.decks).length-updated-removed};
-    }
-    function ankiOrganizerRestoreCollapse(data) {
-      if(!Array.isArray(data.collapsed)) return;
-      ankiCollapsedTreeNodes.clear();
-      for(const node of data.collapsed) {
-        if(!node || typeof node!=='object') continue;
-        if(node.kind==='folder' && typeof node.path==='string')
-          ankiCollapsedTreeNodes.add('folder:'+node.path);
-        if(node.kind==='deck') {
-          const deck=Object.values(appState.decks).find(d=>
-            (node.path && ankiOrganizerNormalizePath(d.sourceFilePath)===ankiOrganizerNormalizePath(node.path)) ||
-            (node.fingerprint && d.sourceFingerprint===node.fingerprint));
-          if(deck) ankiCollapsedTreeNodes.add('deck:'+deck.id);
-        }
-      }
-      try {localStorage.setItem('anki_organizer_collapsed_v2',JSON.stringify([...ankiCollapsedTreeNodes]));}catch(e){}
-    }
-    function ankiOrganizerStatus(message,isError=false) {
-      const el=document.getElementById('ankiOrganizerFolderStatus');
-      if(el) {el.textContent=message;el.className='text-xs '+(isError?'text-rose-300':'text-slate-400');}
-    }
-    // Keep the primary organizer toolbar compact. iPhone Safari does not have
-    // a persistent directory handle; folder-only utilities stay on desktop.
-    function ankiOrganizerUpdateFolderControls() {
-      const isIOS = /iPad|iPhone|iPod/i.test(navigator.userAgent) ||
-        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-      const openBtn = document.getElementById('ankiOrganizerOpenFolderButton');
-      const desktop = document.getElementById('ankiOrganizerDesktopOptions');
-      const refresh = document.getElementById('ankiOrganizerRefreshButton');
-      if (openBtn) openBtn.classList.toggle('hidden',isIOS);
-      if (desktop) desktop.classList.toggle('hidden',isIOS || typeof window.showDirectoryPicker !== 'function');
-      if (refresh) refresh.classList.toggle('hidden',!ankiOrganizerFolderHandle);
-    }
-    function ankiOrganizerToggleAutoSave(enabled) {
-      ankiOrganizerAutoSaveEnabled=!!enabled;
-      try{localStorage.setItem('anki_organizer_folder_autosave_v1',String(!!enabled));}catch(e){}
-      ankiOrganizerStatus(enabled ? 'Auto-save enabled for the linked desktop folder.' : 'Auto-save disabled; use Save Hierarchy As... for manual saves.');
-    }
-    async function ankiOrganizerRememberHandle(handle) {
-      if(!idbDB || !handle) return;
-      try {
-        await new Promise(resolve=>{
-          const tx=idbDB.transaction('state','readwrite');
-          tx.objectStore('state').put(handle,'anki_organizer_directory_handle');
-          tx.oncomplete=resolve;tx.onerror=resolve;tx.onabort=resolve;
-        });
-      }catch(error){console.warn('Could not remember folder access:',error);}
-    }
-    async function ankiOrganizerRestoreHandle() {
-      try {
-        const setting=localStorage.getItem('anki_organizer_folder_autosave_v1');
-        ankiOrganizerAutoSaveEnabled=setting!== 'false';
-        const checkbox=document.getElementById('ankiOrganizerAutoSave');
-        if(checkbox) checkbox.checked=ankiOrganizerAutoSaveEnabled;
-        if(!idbDB || typeof window.showDirectoryPicker!=='function') return;
-        const handle=await new Promise(resolve=>{
-          const tx=idbDB.transaction('state','readonly');
-          const req=tx.objectStore('state').get('anki_organizer_directory_handle');
-          req.onsuccess=()=>resolve(req.result || null);req.onerror=()=>resolve(null);
-        });
-        if(!handle || handle.kind!=='directory') return;
-        const state=await handle.queryPermission({mode:'readwrite'});
-        if(state==='granted') {
-          ankiOrganizerFolderHandle=handle;
-          ankiOrganizerUpdateFolderControls();
-          // Read without a permission prompt. Changes made on another device
-          // appear here next time this page is opened/refreshed.
-          await ankiOrganizerLoadFromHandle(handle);
-        } else {
-          ankiOrganizerStatus('A previous linked folder needs permission again. Click Open Folder and select your iCloud Drive/Anki folder.');
-        }
-      } catch(error) {console.warn('Linked-folder reconnection unavailable:',error);}
-    }
-    async function ankiOrganizerLoadAdjacentManifest() {
-      // Only attempt a same-origin sibling file on HTTP(S) pages. Never fetch
-      // an arbitrary remote location or attempt to read the iPhone's iCloud Files.
-      if (!/^https?:$/.test(window.location.protocol)) return false;
-      try {
-        const url=new URL(ANKI_ORGANIZER_MANIFEST, window.location.href);
-        if(url.origin!==window.location.origin) return false;
-        const response=await fetch(url.href,{cache:'no-store'});
-        if(!response.ok) return false;
-        const data=await response.json();
-        if(!validateAnkiOrganizerManifest(data)) return false;
-        const result=applyAnkiOrganizerManifest(data);
-        ankiOrganizerStatus('Automatically loaded '+ANKI_ORGANIZER_MANIFEST+
-          ' beside this HTML: '+result.updated+'/'+data.decks.length+' deck(s) matched.');
-        return true;
-      } catch(error) {
-        // Missing sibling files, blocked fetches, and offline usage are normal.
-        return false;
-      }
-    }
-    async function ankiOrganizerCollectFolderFiles(handle) {
-      const files=[];
-      async function walk(folder,prefix='') {
-        for await(const [name,item] of folder.entries()) {
-          const path=prefix ? prefix+'/'+name : name;
-          if(item.kind==='directory') await walk(item,path);
-          else if(/\.(apkg|colpkg|anki|anki2|anki21)$/i.test(name) || /^AnkiSync-Organizer(?:\s*\(\d+\))?\.json$/i.test(name))
-            files.push({file:await item.getFile(),path});
-        }
-      }
-      await walk(handle);
-      return files;
-    }
-    async function ankiOrganizerLoadFromHandle(handle) {
-      if(ankiOrganizerFolderBusy) return;
-      const files=await ankiOrganizerCollectFolderFiles(handle);
-      await importAnkiOrganizerItems(files,{complete:true});
-    }
-    async function ankiOrganizerRefreshLinkedFolder() {
-      if(!ankiOrganizerFolderHandle) {
-        ankiOrganizerStatus('No linked folder. Click Open Folder to select your iCloud Drive/Anki folder.',true);
-        return;
-      }
-      try {
-        if(await ankiOrganizerFolderHandle.queryPermission({mode:'readwrite'})!=='granted') {
-          ankiOrganizerStatus('Folder permission expired. Click Open Folder to reauthorize.',true);return;
-        }
-        await ankiOrganizerLoadFromHandle(ankiOrganizerFolderHandle);
-      } catch(error) {ankiOrganizerStatus('Unable to refresh linked folder: '+error.message,true);}
-    }
-    async function ankiOrganizerWriteLinkedFolder() {
-      if(!ankiOrganizerFolderHandle || !ankiOrganizerAutoSaveEnabled || ankiOrganizerAutoSaveRunning || !ankiOrganizerInventoryComplete) return;
-      ankiOrganizerAutoSaveRunning=true;
-      try {
-        if(await ankiOrganizerFolderHandle.queryPermission({mode:'readwrite'})!=='granted') {
-          ankiOrganizerStatus('Folder write permission expired. Click Open Folder to reconnect. Changes remain local.',true);return;
-        }
-        const data=buildAnkiOrganizerManifest();
-        if(!data.decks.length) return;
-        const handle=await ankiOrganizerFolderHandle.getFileHandle(ANKI_ORGANIZER_MANIFEST,{create:true});
-        const writable=await handle.createWritable();
-        await writable.write(JSON.stringify(data,null,2));
-        await writable.close();
-        ankiOrganizerLoadedManifest=data;
-        ankiOrganizerStatus(`Automatically updated ${ANKI_ORGANIZER_MANIFEST} in your linked desktop folder (${data.decks.length} verified packages).`);
-      } catch(error) {console.warn('Automatic manifest save failed:',error);
-        ankiOrganizerStatus('Automatic folder save failed: '+error.message+'; use Save Hierarchy As...',true);
-      } finally {ankiOrganizerAutoSaveRunning=false;}
-    }
-    function ankiOrganizerScheduleAutosave() {
-      if(!ankiOrganizerFolderHandle || !ankiOrganizerAutoSaveEnabled || !ankiOrganizerInventoryComplete) return;
-      clearTimeout(ankiOrganizerAutoSaveTimer);
-      ankiOrganizerAutoSaveTimer=setTimeout(ankiOrganizerWriteLinkedFolder,900);
-    }
-
-    async function pickAnkiOrganizerFolder() {
-      if(ankiOrganizerFolderBusy) return;
-      if(typeof window.showDirectoryPicker==='function') {
-        try {
-          const handle=await window.showDirectoryPicker({mode:'readwrite'});
-          ankiOrganizerFolderHandle=handle;
-          ankiOrganizerUpdateFolderControls();
-          await ankiOrganizerRememberHandle(handle);
-          await ankiOrganizerLoadFromHandle(handle);
-          return;
-        }catch(error){
-          if(error.name==='AbortError') return;
-          ankiOrganizerStatus('Folder access unavailable; use Select Files / Manifest or fallback folder picker. '+error.message,true);
-        }
-      }
-      document.getElementById('ankiOrganizerFolderInput')?.click();
-    }
-    async function importAnkiOrganizerFileSelection(event,isFolder) {
-      const selected=[...(event.target.files||[])];
-      event.target.value='';
-      if(!selected.length) return;
-      if(isFolder) {ankiOrganizerFolderHandle=null;ankiOrganizerUpdateFolderControls();} // Browser file inputs cannot grant write permission.
-      await importAnkiOrganizerItems(selected.map(file=>({file,path:organizerPathForFile(file)})),{complete:!!isFolder});
-    }
-    async function ankiOrganizerReadSelectedText(file) {
-      // Safari's document-provider File objects can vary; support both modern
-      // File.text() and the older FileReader route without changing the format.
-      if (typeof file.text === 'function') {
-        try { return await file.text(); } catch(error) {
-          console.warn('File.text failed; retrying with FileReader:', error);
-        }
-      }
-      return await new Promise((resolve,reject)=>{
-        const reader=new FileReader();
-        reader.onload=()=>resolve(String(reader.result||''));
-        reader.onerror=()=>reject(reader.error||new Error('Could not read the selected file.'));
-        reader.readAsText(file);
-      });
-    }
-    async function ankiOrganizerReadManifestFile(file) {
-      const json=JSON.parse(await ankiOrganizerReadSelectedText(file));
-      if(!validateAnkiOrganizerManifest(json))
-        throw new Error('This JSON is not an AnkiSync organizer hierarchy. Select the AnkiSync-Organizer.json file.');
-      return json;
-    }
-    function ankiOrganizerReportAppliedManifest(data, result) {
-      const visible=ankiOrganizerAvailableDecks();
-      const missing=Math.max(0,data.decks.length-result.updated);
-      const example=data.decks.find(e=>ankiOrganizerFileStem(e.path)==='01. Diffuse Lung Diseases');
-      const detail=example ? ` Diffuse Lung Diseases → ${example.category.split(' / ').at(-1)}.` : '';
-      return `Hierarchy JSON applied: ${result.updated}/${data.decks.length} deck(s) matched; ${missing} need their .apkg imported.${detail} ${missing?'Missing decks are displayed as read-only placeholders. Use Select Files / Manifest to add their .apkg packages, or Import Library + Hierarchy from a PC backup.':'All manifest decks are available.'} Unlisted browser-cached decks are hidden, not deleted.`;
-    }
-    async function ankiOrganizerApplySelectedManifest(event) {
-      const file=event.target.files?.[0];
-      event.target.value='';
-      if(!file) return;
-      try {
-        const data=await ankiOrganizerReadManifestFile(file);
-        // A previously scanned folder is not evidence about the selected JSON
-        // on another device. It must not let unrelated old decks leak back in.
-        ankiOrganizerVerifiedFiles=null;
-        ankiOrganizerInventoryComplete=false;
-        // The selected JSON is authoritative immediately, not on the next reload.
-        // Reconcile against browser-stored decks before redrawing.
-        const result=applyAnkiOrganizerManifest(data);
-        saveLocalState();
-        renderCategories();renderDecks();populateOrganizerDropdowns();renderNestedSubjects();
-        const message=ankiOrganizerReportAppliedManifest(data,result);
-        ankiOrganizerStatus(message);
-        showToast(`Hierarchy applied to ${result.updated} matching deck(s).`);
-      }catch(error){
-        console.error('Could not apply hierarchy JSON:',error);
-        ankiOrganizerStatus('Hierarchy was not applied: '+error.message,true);
-      }
-    }
-    async function importAnkiOrganizerItems(items, options = {}) {
-      if(ankiOrganizerFolderBusy) return;
-      ankiOrganizerFolderBusy=true;
-      const packages=items.filter(v=>/\.(apkg|colpkg|anki|anki2|anki21)$/i.test(v.file.name));
-      const jsonFiles=items.filter(v=>/\.json$/i.test(v.file.name));
-      const likely=jsonFiles.filter(v=>/^AnkiSync-Organizer(?:\s*\(\d+\))?\.json$/i.test(v.file.name));
-      const sorted=[...likely.filter(v=>v.file.name===ANKI_ORGANIZER_MANIFEST),
-                    ...likely.filter(v=>v.file.name!==ANKI_ORGANIZER_MANIFEST),
-                    ...jsonFiles.filter(v=>!likely.includes(v))];
-      let selectedManifest=null, invalidNamed=null;
-      // Each picker operation is fresh evidence. Do not carry a deleted file
-      // forward from an earlier scan merely because it was selected once.
-      const newVerifiedFiles=packages.length ? new Map() : null;
-      let successes=0;const failed=[];
-      try {
-        // Verify JSON CONTENT, not just its name. iCloud and the iPhone Files
-        // picker may rename files, or create numbered copies.
-        for(const candidate of sorted){
-          try {
-            const data=await ankiOrganizerReadManifestFile(candidate.file);
-            selectedManifest={data,file:candidate.file};
-            break;
-          }catch(error){
-            if(likely.includes(candidate)) invalidNamed=error.message;
-          }
-        }
-        let applied=null;
-        if(selectedManifest) applied=applyAnkiOrganizerManifest(selectedManifest.data);
-        if (!packages.length) {
-          if(selectedManifest){
-            ankiOrganizerVerifiedFiles=null;
-            ankiOrganizerInventoryComplete=false;
-            saveLocalState();renderCategories();renderDecks();populateOrganizerDropdowns();renderNestedSubjects();
-            ankiOrganizerStatus(ankiOrganizerReportAppliedManifest(selectedManifest.data,applied));
-            showToast(`Hierarchy applied to ${applied.updated} matching deck(s).`);
-          }else{
-            ankiOrganizerStatus(jsonFiles.length
-              ? 'Hierarchy was not applied: '+(invalidNamed||'No selected JSON has the AnkiSyncOrganizer format.')
-              : 'No supported Anki package files found.',true);
-          }
-          return;
-        }
-        for(let index=0;index<packages.length;index++) {
-          const {file,path}=packages[index];
-          ankiOrganizerStatus(`Importing ${index+1} of ${packages.length}: ${path}…`);
-          try {
-            const fingerprint=await ankiOrganizerFingerprintFile(file);
-            await handleAnkiFileUpload({target:{files:[file],value:''}},{folderBatch:true,relativePath:path,sourceFingerprint:fingerprint});
-            newVerifiedFiles.set(ankiOrganizerNormalizePath(path),{path:ankiOrganizerNormalizePath(path),fingerprint});
-            successes++;
-          } catch(error) {
-            failed.push(`${path}: ${error.message}`);
-          }
-        }
-        // Once package imports succeed, physical file inventory is authoritative.
-        // Unlisted stale imported decks remain in browser storage for safety,
-        // but are hidden rather than misleadingly appearing in the folder view.
-        if(newVerifiedFiles) {
-          ankiOrganizerVerifiedFiles=newVerifiedFiles;
-          ankiOrganizerInventoryComplete=!!options.complete;
-        }
-        // The manifest determines placement, not the directory the iPhone opened.
-        // Reconcile the whole imported collection; repeated loads cannot
-        // create another deck for the same known package.
-        const reconciled=ankiOrganizerLoadedManifest
-          ? applyAnkiOrganizerManifest(ankiOrganizerLoadedManifest)
-          : {updated:0,removed:0};
-        if(ankiOrganizerLoadedManifest && ankiOrganizerVerifiedFiles){
-          for(const deck of Object.values(appState.decks)){
-            if(ankiOrganizerIsInManifest(deck) || !ankiOrganizerPhysicalDeckPresent(deck)) continue;
-            // Old placement in TB is not evidence about a newly selected file.
-            if(!deck.ankiOrganizerUnlistedMarked){
-              deck.category='Unassigned Packages';
-              deck.ankiOrganizerUnlistedMarked=true;
-            }
-          }
-        }
-        saveLocalState();renderCategories();renderDecks();populateOrganizerDropdowns();renderNestedSubjects();
-        const missing=ankiOrganizerCountMissingManifestFiles();
-        const hidden=Object.values(appState.decks).filter(deck=>!ankiOrganizerAvailableDecks().includes(deck)).length;
-        const coverage=ankiOrganizerInventoryComplete ? 'Complete folder scan' : 'Selected files only (other files were not checked)';
-        const jsonNotice=jsonFiles.length && !selectedManifest ? ' IMPORTANT: The selected JSON was not recognized, so no new hierarchy was applied.' : '';
-        ankiOrganizerStatus(`${successes}/${packages.length} package(s) loaded. ${coverage}. ${reconciled.updated} deck(s) positioned by the hierarchy. ${reconciled.removed} duplicate(s) consolidated. ${missing.length ? missing.length+' manifest entry/entries not found in this full scan: '+missing.slice(0,3).map(e=>e.path).join(', ')+'. ':''}${hidden?' '+hidden+' older local package deck(s) hidden (cards preserved).':''}${failed.length?' Failed: '+failed.slice(0,2).join(' · '):''}${jsonNotice}`,!!failed.length||!!jsonNotice);
-        if(failed.length) console.warn('Anki folder import errors:',failed);
-      } catch(error) {
-        console.error(error);
-        ankiOrganizerStatus('Could not read organizer: '+error.message,true);
-      } finally {
-        ankiOrganizerFolderBusy=false;
-      }
-    }
-
-    // Move multiple decks as one operation. Selected parent decks carry their
-    // descendants, preventing double-moves when both parent and child are checked.
-    function moveAnkiOrganizerDeckBatch(ids,targetKind,targetId) {
-      const selected=[...new Set(Array.isArray(ids) ? ids : [])].filter(id=>appState.decks[id]);
-      if(!selected.length) return;
-      if(selected.length===1) {
-        // Do not discard the checkbox when a drop is rejected as invalid.
-        const moved = moveAnkiOrganizerNode({kind:'deck',id:selected[0]},targetKind,targetId);
-        if (moved) {
-          ankiOrganizerSelectedDeckIds.clear();
-          renderNestedSubjects();
-        }
-        return;
-      }
-      if(targetKind!=='deck' && targetKind!=='folder') return;
-      const targetDeck=targetKind==='deck' ? appState.decks[targetId] : null;
-      if(targetKind==='deck' && !targetDeck) return;
-      if(targetKind==='deck' && selected.includes(targetId)) {
-        const msg='The destination deck is selected. Uncheck it before moving other decks under it.';
-        ankiOrganizerStatus(msg,true);showToast(msg);return;
-      }
-      const targetFolder=targetKind==='folder' ? String(targetId || '') : ankiDeckVirtualPath(targetDeck);
-      const roots=selected.filter(id=>{
-        const path=String(appState.decks[id].category || '');
-        return !selected.some(other=>other!==id && path.startsWith(ankiDeckVirtualPath(appState.decks[other])+' / '))
-          && !selected.some(other=>other!==id && path===ankiDeckVirtualPath(appState.decks[other]));
-      });
-      if(!roots.length) {showToast('Could not identify a movable deck selection.');return;}
-      const changes=[];
-      for(const id of roots) {
-        const deck=appState.decks[id];
-        const oldPath=ankiDeckVirtualPath(deck);
-        const newPath=[targetFolder,deck.name].filter(Boolean).join(' / ');
-        if(targetFolder===oldPath || targetFolder.startsWith(oldPath+' / ')) {
-          showToast('Cannot move a parent deck inside itself or one of its children.');return;
-        }
-        if(deck.category!==targetFolder) changes.push({id,oldPath,newPath});
-      }
-      if(!changes.length) {showToast('Those decks are already in that location.');return;}
-      // Reject ambiguous new virtual folders before mutating anything.
-      const newPaths=changes.map(c=>c.newPath);
-      if(new Set(newPaths).size!==newPaths.length) {
-        showToast('Two selected decks have the same name at the destination. Move them separately.');return;
-      }
-      const changingIds=new Set(changes.map(c=>c.id));
-      if(Object.values(appState.decks).some(d=> !changingIds.has(d.id) &&
-          newPaths.includes(ankiDeckVirtualPath(d)) &&
-          !changes.some(c=>ankiDeckVirtualPath(d).startsWith(c.oldPath+' / ')))) {
-        showToast('A deck with that name already exists at the destination.');return;
-      }
-      const replacePath=value=>{
-        const path=String(value||'');
-        const match=changes.find(c=>path===c.oldPath || path.startsWith(c.oldPath+' / '));
-        return match ? match.newPath+path.slice(match.oldPath.length) : path;
-      };
-      // Compute from the original hierarchy so successive moves cannot disturb
-      // each other's source paths; commit only after all checks have passed.
-      const categories=[...new Set(appState.categories.map(replacePath))];
-      const updatedCategories=new Map(Object.values(appState.decks).map(deck=>[
-        deck.id, changes.some(c=>c.id===deck.id) ? targetFolder : replacePath(deck.category)
-      ]));
-      appState.categories=categories;
-      for(const deck of Object.values(appState.decks)) deck.category=updatedCategories.get(deck.id);
-      ensureAnkiCategoryPath(targetFolder);
-      for(const c of changes) {
-        if(Object.values(appState.decks).some(d=>d.category===c.newPath || d.category?.startsWith(c.newPath+' / '))) {
-          ensureAnkiCategoryPath(c.newPath);
-        }
-      }
-      ankiOrganizerSelectedDeckIds.clear();
-      saveLocalState();renderCategories();renderDecks();renderNestedSubjects();
-      ankiOrganizerStatus(`${changes.length} deck${changes.length === 1 ? '' : 's'} moved (including any nested decks). Use Save Hierarchy As... to save their new positions.`);
-      showToast(`${changes.length} deck${changes.length === 1 ? '' : 's'} moved together.`);
-      ankiOrganizerScheduleAutosave();
-    }
-
-    function moveAnkiOrganizerNode(source,targetKind,targetId) {
-      if(!source || !['deck','folder'].includes(source.kind)) return;
-      if(source.kind===targetKind && source.id===targetId) {
-        const msg='The destination deck is selected. Choose a different deck or folder to move it under.';
-        ankiOrganizerStatus(msg,true); showToast(msg); return false;
-      }
-      const destination=targetKind==='folder' ? targetId : appState.decks[targetId];
-      if(destination===undefined && targetKind==='deck') return;
-      const targetFolder=targetKind==='folder' ? targetId :
-        [destination.category,destination.name].filter(Boolean).join(' / ');
-      if(source.kind==='folder') {
-        const oldPath=source.id;
-        if(!oldPath || !appState.categories.includes(oldPath)) return;
-        if(targetFolder===oldPath || targetFolder.startsWith(oldPath+' / ')) {showToast('A folder cannot be moved inside itself.');return;}
-        const title=oldPath.split(' / ').at(-1);
-        const newPath=targetFolder ? targetFolder+' / '+title : title;
-        if(newPath===oldPath) return;
-        if(appState.categories.includes(newPath)) {showToast('A folder with that name already exists at the destination.');return;}
-        const replacePath=path=>path===oldPath ? newPath : path.startsWith(oldPath+' / ') ? newPath+path.slice(oldPath.length) : path;
-        appState.categories=[...new Set(appState.categories.map(replacePath))];
-        for(const deck of Object.values(appState.decks)) deck.category=replacePath(deck.category||'');
-        ensureAnkiCategoryPath(targetFolder);
-        ensureAnkiCategoryPath(newPath);
-      } else {
-        const deck=appState.decks[source.id];
-        if(!deck) return;
-        const oldFolder=[deck.category,deck.name].filter(Boolean).join(' / ');
-        const newFolder=[targetFolder,deck.name].filter(Boolean).join(' / ');
-        if(targetFolder===oldFolder || targetFolder.startsWith(oldFolder+' / ')) {
-          const msg='A deck cannot be moved inside itself or one of its child decks.';
-          ankiOrganizerStatus(msg,true);showToast(msg);return false;
-        }
-        if(targetFolder === String(deck.category || '')) {
-          const msg='That deck is already in the selected destination.';
-          ankiOrganizerStatus(msg,true);showToast(msg);return false;
-        }
-        const followChildren=path=>path===oldFolder ? newFolder : path.startsWith(oldFolder+' / ') ? newFolder+path.slice(oldFolder.length) : path;
-        appState.categories=[...new Set(appState.categories.map(followChildren))];
-        for(const child of Object.values(appState.decks)) {
-          if(child.id!==deck.id) child.category=followChildren(child.category||'');
-        }
-        // Dropping onto Top level means root, not an automatically created General folder.
-        deck.category=targetFolder;
-        ensureAnkiCategoryPath(deck.category);
-        if(Object.values(appState.decks).some(child=>child.category?.startsWith(newFolder+' / '))) ensureAnkiCategoryPath(newFolder);
-      }
-      saveLocalState();renderCategories();renderDecks();renderNestedSubjects();
-      ankiOrganizerStatus('Hierarchy updated locally. Click Save Hierarchy As... (or auto-save to the linked folder) to make it portable.');
-      ankiOrganizerScheduleAutosave();
-      return true;
-    }
-
-    function buildAnkiOrganizerManifest() {
-      const entries = new Map();
-      const verified=ankiOrganizerVerifiedFiles;
-      if (verified && ankiOrganizerInventoryComplete) {
-        // The complete physical folder inventory, not IndexedDB, decides existence.
-        for(const item of verified.values()) {
-          const path=ankiOrganizerNormalizePath(item.path), fp=String(item.fingerprint||'');
-          const matching=ankiOrganizerAvailableDecks().filter(deck =>
-            (fp && deck.sourceFingerprint === fp) ||
-            (ankiOrganizerNormalizePath(deck.sourceFilePath) === path &&
-              !(fp && deck.sourceFingerprint && fp !== deck.sourceFingerprint)));
-          if(matching.length!==1) continue; // Never guess when identity is ambiguous.
-          const deck=matching[0];
-          entries.set(path,{path,name:deck.name,category:deck.category??'',...(fp?{fingerprint:fp}:{})});
-        }
-      } else {
-        // On iPhone a file picker is frequently a PARTIAL selection, so never
-        // infer that unselected manifest entries have been deleted from iCloud.
-        // The loaded JSON remains the authority; only update matching records.
-        if(ankiOrganizerLoadedManifest?.decks?.length) {
-          for(const item of ankiOrganizerLoadedManifest.decks) {
-            const path=ankiOrganizerNormalizePath(item.path);
-            if(path) entries.set(path,{...item,path});
-          }
-          for(const deck of Object.values(appState.decks)) {
-            if(!ankiOrganizerIsInManifest(deck)) continue;
-            const path=ankiOrganizerNormalizePath(deck.ankiOrganizerManifestPath);
-            if(entries.has(path)) entries.set(path,{...entries.get(path),name:deck.name,category:deck.category??''});
-          }
-        } else {
-          // No authoritative JSON was loaded: older manual imports can still
-          // be saved, with a warning that existence was not verified.
-          for(const deck of Object.values(appState.decks)) {
-            if(!deck.sourceFilePath) continue;
-            const path=ankiOrganizerNormalizePath(deck.sourceFilePath);
-            if(!path) continue;
-            if(!entries.has(path)) entries.set(path,{path,name:deck.name,category:deck.category??'',
-              ...(deck.sourceFingerprint?{fingerprint:deck.sourceFingerprint}:{})});
-          }
-        }
-        // Include physically selected packages not yet described by this JSON.
-        if(verified) {
-          for(const item of verified.values()) {
-            const path=ankiOrganizerNormalizePath(item.path);
-            if([...entries.values()].some(e=>e.path===path || (e.fingerprint && e.fingerprint===item.fingerprint))) continue;
-            const deck=Object.values(appState.decks).find(d=>d.sourceFingerprint===item.fingerprint ||
-              ankiOrganizerBaseName(d.sourceFilePath).toLowerCase()===ankiOrganizerBaseName(path).toLowerCase());
-            if(deck) entries.set(path,{path,name:deck.name,category:deck.category??'',fingerprint:item.fingerprint});
-          }
-        }
-      }
-      const collapsed=[];
-      for(const key of ankiCollapsedTreeNodes) {
-        if(key.startsWith('folder:')) collapsed.push({kind:'folder',path:key.slice(7)});
-        else if(key.startsWith('deck:')) {
-          const deck=appState.decks[key.slice(5)];
-          if(deck?.sourceFilePath && ankiOrganizerIsVerifiedDeck(deck)) {
-            const fp=deck.sourceFingerprint;
-            const fileEntry=[...entries.values()].find(e=>(fp && e.fingerprint===fp) ||
-              ankiOrganizerNormalizePath(e.path)===ankiOrganizerNormalizePath(deck.sourceFilePath));
-            if(fileEntry) collapsed.push({kind:'deck',path:fileEntry.path,...(fileEntry.fingerprint?{fingerprint:fileEntry.fingerprint}:{})});
-          }
-        }
-      }
-      return {format:'AnkiSyncOrganizer',version:1,exportedAt:new Date().toISOString(),
-        categories:[...new Set((appState.categories||[]).filter(c=>c && !ankiIsImplicitDeckFolder(c)))],
-        collapsed,decks:[...entries.values()].sort((a,b)=>a.path.localeCompare(b.path))};
-    }
-    function downloadAnkiOrganizerManifest(textData) {
-      const blob=new Blob([textData],{type:'application/json'});
-      const link=document.createElement('a');link.href=URL.createObjectURL(blob);
-      link.download=ANKI_ORGANIZER_MANIFEST;document.body.appendChild(link);link.click();link.remove();
-      setTimeout(()=>URL.revokeObjectURL(link.href),2000);
-    }
-    async function saveAnkiOrganizerHierarchy() {
-      const data=buildAnkiOrganizerManifest();
-      if(!data.decks.length) {
-        ankiOrganizerStatus('No folder-imported Anki packages to save yet. Open a folder and arrange its decks.',true);
-        return;
-      }
-      if(!ankiOrganizerInventoryComplete) {
-        const proceed=window.confirm('The entire Anki folder has not been scanned in this session (iPhone file selection may be partial). Unselected packages will be preserved in the JSON, not assumed deleted. To remove nonexistent entries, perform a full folder scan on PC. Save this hierarchy anyway?');
-        if(!proceed) return;
-      }
-      const json=JSON.stringify(data,null,2);
-      // Chromium desktop exposes a real Save As dialog with a starting file name.
-      // Re-select the existing AnkiSync-Organizer.json to replace its content.
-      if(typeof window.showSaveFilePicker==='function') {
-        try {
-          const options={
-            id:'ankisync-organizer-json',
-            suggestedName:ANKI_ORGANIZER_MANIFEST,
-            types:[{description:'AnkiSync Organizer Manifest',accept:{'application/json':['.json']}}]
-          };
-          if(ankiOrganizerFolderHandle) options.startIn=ankiOrganizerFolderHandle;
-          let handle;
-          try { handle=await window.showSaveFilePicker(options); }
-          catch(e) {
-            // Some browser builds reject the startIn hint; keep Save As available.
-            if(e instanceof TypeError && options.startIn) {
-              delete options.startIn;
-              handle=await window.showSaveFilePicker(options);
-            } else throw e;
-          }
-          if(handle.name!==ANKI_ORGANIZER_MANIFEST) {
-            ankiOrganizerStatus(`Please save using the exact fixed name ${ANKI_ORGANIZER_MANIFEST}. The hierarchy was not written.`,true);
-            showToast('Use the fixed file name '+ANKI_ORGANIZER_MANIFEST);
-            return;
-          }
-          const writable=await handle.createWritable();
-          await writable.write(json);
-          await writable.close();
-          ankiOrganizerLoadedManifest=data;
-          ankiOrganizerStatus(`Saved ${ANKI_ORGANIZER_MANIFEST} in your chosen folder. Choose that same file next time to replace the old hierarchy.`);
-          showToast('Hierarchy saved successfully.');
-          return;
-        } catch(error) {
-          if(error?.name==='AbortError') {
-            ankiOrganizerStatus('Save As canceled. Your local hierarchy is unchanged.');
-            return;
-          }
-          console.warn('Native Save As unavailable:',error);
-          ankiOrganizerStatus('Native Save As was unavailable. Using the browser file-save option instead.',true);
-        }
-      }
-      // Safari/iPhone do not expose showSaveFilePicker. Where supported, the
-      // Share sheet offers Save to Files; otherwise the browser handles a download.
-      if(typeof navigator.share==='function' && typeof navigator.canShare==='function') {
-        try {
-          const file=new File([json],ANKI_ORGANIZER_MANIFEST,{type:'application/json'});
-          if(navigator.canShare({files:[file]})) {
-            await navigator.share({files:[file],title:ANKI_ORGANIZER_MANIFEST});
-            ankiOrganizerLoadedManifest=data;
-            ankiOrganizerStatus('Hierarchy shared. To save it on iPhone, choose Save to Files and replace the previous manifest if prompted.');
-            return;
-          }
-        } catch(error) {
-          if(error?.name==='AbortError') {
-            ankiOrganizerStatus('File sharing canceled. Your local hierarchy is unchanged.');
-            return;
-          }
-          console.warn('File sharing unavailable:',error);
-        }
-      }
-      downloadAnkiOrganizerManifest(json);
-      ankiOrganizerLoadedManifest=data;
-      ankiOrganizerStatus(`Downloaded ${ANKI_ORGANIZER_MANIFEST}. Choose your destination if your browser asks; otherwise move it from Downloads to the Anki folder and replace the old file there.`);
-      showToast('Hierarchy file downloaded with its fixed name.');
-    }
-
-    window.addEventListener('DOMContentLoaded',()=>{
-      setupFloatingEditButton();
-      ankiOrganizerUpdateFolderControls();
-      // Some iOS Files pickers grey out .apkg/.colpkg when an accept filter
-      // contains unknown extensions. The importer still validates filenames.
-      if (/iPhone|iPad|iPod/i.test(navigator.userAgent) ||
-          (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1)) {
-        const picker=document.getElementById('ankiOrganizerSelectedFiles');
-        if (picker) picker.removeAttribute('accept');
-      }
-    });
+    window.addEventListener('DOMContentLoaded', setupFloatingEditButton);
 
   </script>
 </body>
