@@ -1636,13 +1636,14 @@ body.light-mode #studyEditMode .anki-card-save-footer { background: #ffffff; }
 <div id="view-import" class="tab-view hidden space-y-6">
  <div class="bg-slate-800 p-6 rounded-3xl border border-slate-700 shadow-xl space-y-3">
   <h2 class="font-bold text-white"><i class="fa-solid fa-file-import text-indigo-400"></i> Open Anki Package</h2>
-  <p class="text-xs text-slate-300">Open .apkg remains read-only. Review progress autosaves to this browser (IndexedDB), not to the source file. On Windows, <b>Save As .apkg</b> opens Chrome/Edge’s Save As dialog. On iPhone/iPad, it prepares your package and offers <b>Save to Files</b> via the iOS share sheet, where you choose iCloud Drive → Anki. The package is validated before saving or sharing. Because you previously experienced 0 KB files in iCloud, <b>keep an independent backup outside iCloud</b> before replacing an existing package.</p>
+  <p class="text-xs text-slate-300">Open .apkg remains read-only. Review progress autosaves to this browser (IndexedDB), not to the source file. On Windows, <b>Save As .apkg</b> opens Chrome/Edge’s Save As dialog. On iPhone/iPad, it prepares your package and offers <b>Replace via Shortcuts</b> in the iOS Share Sheet, or ordinary <b>Save to Files</b>. The package is validated before saving or sharing. Because you previously experienced 0 KB files in iCloud, <b>keep an independent backup outside iCloud</b> before replacing an existing package.</p>
   <button type="button" onclick="openApkgFiles()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold">Open .apkg from Files</button>
   <button type="button" onclick="saveActiveApkg()" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold">Save As .apkg</button>
+  <button type="button" onclick="ankiIOSOpenShortcutGuide()" class="px-4 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-semibold"><i class="fa-solid fa-arrows-rotate"></i> iPhone: Set Up Replace Existing (Once)</button>
   <button type="button" onclick="document.getElementById('legacyBackupInput').click()" class="px-4 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-semibold">Import Earlier AnkiSync Backup (optional)</button>
   <input type="file" id="legacyBackupInput" accept=".json,application/json" class="hidden" onchange="importEarlierAnkiSyncBackup(event)">
   <div id="importProgress" class="hidden space-y-2"><div class="flex justify-between text-xs text-slate-300"><span id="importStatusText">Importing file...</span><span id="importPercent">0%</span></div><div class="w-full bg-slate-900 rounded-full h-2"><div id="importProgressBar" class="bg-indigo-500 h-2" style="width:0%"></div></div></div>
-  <div id="fileSaveExplanation" class="text-xs text-amber-200 rounded-xl bg-amber-500/10 p-3 border border-amber-500/20"><b>Native Save As:</b> Available in Chrome and Edge on Windows; no Downloads settings change is needed. To open Save As in <b>E:\ICLOUD sync folder\iCloudDrive\Anki</b>, click <b>Set Anki Folder</b> once and select that folder (read-only folder permission). The browser cannot use the Windows path automatically without selection. Save As is a manual file write: a failed overwrite or iCloud conflict can still damage a destination. Keep a separate verified backup outside iCloud before selecting an existing file. On iPhone, tap Save As, then Choose Destination → Save to Files → iCloud Drive → Anki; iOS cannot preselect that folder from HTML. The app will never write automatically when opening a deck.</div>
+  <div id="fileSaveExplanation" class="text-xs text-amber-200 rounded-xl bg-amber-500/10 p-3 border border-amber-500/20"><b>Native Save As:</b> Available in Chrome and Edge on Windows; no Downloads settings change is needed. To open Save As in <b>E:\ICLOUD sync folder\iCloudDrive\Anki</b>, click <b>Set Anki Folder</b> once and select that folder (read-only folder permission). The browser cannot use the Windows path automatically without selection. Save As is a manual file write: a failed overwrite or iCloud conflict can still damage a destination. Keep a separate verified backup outside iCloud before selecting an existing file. On iPhone, use the one-time <b>Replace Anki File</b> Shortcut (Share Sheet → Shortcut) to overwrite the same-named package in iCloud Drive → Anki. Ordinary Save to Files may instead create a duplicate. The app will never write automatically when opening a deck.</div>
  </div>
 </div>
 <!-- Hidden Replacement Input -->
@@ -1650,19 +1651,41 @@ body.light-mode #studyEditMode .anki-card-save-footer { background: #ffffff; }
 
   </main>
 
-  <!-- iPhone / iPad Save to Files: prepare large APKG first, then share from a fresh tap. -->
-  <div id="ankiIOSSaveModal" class="hidden fixed inset-0 z-[9999] bg-slate-950/80 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="ankiIOSSaveModalTitle">
-    <div class="w-full max-w-sm bg-slate-800 border border-slate-600 rounded-2xl p-5 shadow-2xl space-y-4 text-slate-100">
+  <!-- iPhone: prepare/validate APKG first, then hand it to the iOS Share Sheet.
+       A Share Sheet Shortcut with Save File > Overwrite is needed to replace
+       an existing iCloud file; Safari cannot directly write that path. -->
+  <div id="ankiIOSSaveModal" class="hidden fixed inset-0 z-[9999] bg-slate-950/80 flex items-center justify-center p-3" role="dialog" aria-modal="true" aria-labelledby="ankiIOSSaveModalTitle">
+    <div class="w-full max-w-sm max-h-[90dvh] overflow-y-auto bg-slate-800 border border-slate-600 rounded-2xl p-5 shadow-2xl space-y-3 text-slate-100">
       <div class="flex items-center gap-2">
-        <i class="fa-solid fa-folder-open text-emerald-400 text-xl"></i>
-        <h3 id="ankiIOSSaveModalTitle" class="text-base font-bold">Save to Files on iPhone</h3>
+        <i class="fa-solid fa-file-circle-check text-emerald-400 text-xl"></i>
+        <h3 id="ankiIOSSaveModalTitle" class="text-base font-bold">Replace an existing .apkg on iPhone</h3>
       </div>
       <p id="ankiIOSSaveModalDetails" class="text-xs text-slate-200 break-words"></p>
-      <p class="text-xs text-slate-300">Tap <b>Choose Destination</b>, then select <b>Save to Files</b> in the iPhone sharing sheet. Navigate to <b>iCloud Drive → Anki</b> and tap Save. If Files offers to replace an existing package, keep a separate backup before confirming.</p>
-      <p class="text-xs text-amber-200">iOS does not support the Windows Save As file picker. The original imported archive is never opened for writing by this app.</p>
-      <button id="ankiIOSShareButton" type="button" onclick="ankiIOSSharePrepared()" class="w-full px-4 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold"><i class="fa-solid fa-share-from-square"></i> Choose Destination (Save to Files)</button>
-      <button type="button" onclick="ankiIOSDownloadPrepared()" class="w-full px-4 py-2 rounded-xl border border-slate-500 bg-slate-700 text-slate-100 text-xs font-semibold">If Save to Files is unavailable: Download .apkg</button>
+      <p class="text-xs text-slate-300">To <b>replace</b> your previous package, tap the green button and select <b>Replace Anki File</b> in the iOS Share Sheet (not Save to Files). Set up that Shortcut once using the guide below.</p>
+      <p class="text-xs text-amber-200">Keep an independent backup first. The Shortcut will overwrite any same-named file in its chosen iCloud folder; AnkiSync cannot verify the replacement after iOS runs it.</p>
+      <button id="ankiIOSShareButton" type="button" onclick="ankiIOSSharePrepared('replace')" class="w-full px-4 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold"><i class="fa-solid fa-arrows-rotate"></i> Replace Existing .apkg (Share to Shortcut)</button>
+      <button type="button" onclick="ankiIOSSharePrepared('files')" class="w-full px-4 py-2 rounded-xl border border-slate-500 bg-slate-700 text-slate-100 text-xs font-semibold"><i class="fa-solid fa-folder-open"></i> Save to Files (regular copy)</button>
+      <button type="button" onclick="ankiIOSOpenShortcutGuide()" class="w-full px-4 py-2 rounded-xl border border-indigo-500 text-indigo-200 text-xs font-semibold"><i class="fa-solid fa-circle-question"></i> One-time Shortcut setup instructions</button>
+      <button type="button" onclick="ankiIOSDownloadPrepared()" class="w-full px-4 py-2 rounded-xl border border-slate-500 bg-slate-700 text-slate-100 text-xs font-semibold">Fallback: Download .apkg</button>
       <button type="button" onclick="ankiIOSCancelPreparedSave()" class="w-full px-4 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-semibold">Close</button>
+    </div>
+  </div>
+  <!-- Can be opened before preparing a 50+ MB APKG, avoiding Safari reloads
+       while configuring the iOS Shortcuts app. -->
+  <div id="ankiIOSShortcutGuideModal" class="hidden fixed inset-0 z-[10000] bg-slate-950/90 flex items-center justify-center p-3" role="dialog" aria-modal="true" aria-labelledby="ankiIOSShortcutGuideTitle">
+    <div class="w-full max-w-md max-h-[92dvh] overflow-y-auto bg-slate-800 border border-indigo-500/60 rounded-2xl p-5 shadow-2xl space-y-3 text-slate-100">
+      <h3 id="ankiIOSShortcutGuideTitle" class="text-base font-bold"><i class="fa-solid fa-apple-whole text-indigo-300"></i> Set up “Replace Anki File” (once)</h3>
+      <p class="text-xs text-slate-300">iOS Safari does not provide Windows-style Save As overwrite permissions. Apple Shortcuts can save a shared file into a chosen folder and replace an existing file with the <b>same filename</b>.</p>
+      <ol class="list-decimal pl-5 text-xs leading-relaxed space-y-2 text-slate-200">
+        <li>On your iPhone open <b>Shortcuts</b>, tap <b>+</b>, and name the shortcut <b>Replace Anki File</b>.</li>
+        <li>In the shortcut <b>Details</b>, enable <b>Show in Share Sheet</b> and set accepted input type to <b>Files</b>.</li>
+        <li>Add a <b>Save File</b> action, with <b>Shortcut Input</b> as the file to save.</li>
+        <li>Set <b>Ask Where to Save</b> to <b>Off</b>. Set its destination folder to <b>iCloud Drive → Anki</b> (choose the same folder holding your existing .apkg).</li>
+        <li>Expand the Save File options and turn <b>Overwrite If File Exists</b> to <b>On</b>. Do not change the input file's name.</li>
+        <li>Tap <b>Done</b>. Back in AnkiSync, tap <b>Save As .apkg</b>, then <b>Replace Existing .apkg</b>, and choose <b>Replace Anki File</b> in the Share Sheet.</li>
+      </ol>
+      <p class="text-xs text-amber-200"><b>Safety:</b> Before the first replacement, copy your original .apkg to a separate backup folder. After using the Shortcut, confirm the package size in Files and open the updated .apkg to verify it. The Share Sheet closing does <b>not</b> confirm a successful overwrite.</p>
+      <button type="button" onclick="ankiIOSCloseShortcutGuide()" class="w-full px-4 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold">Done / Return to AnkiSync</button>
     </div>
   </div>
 
@@ -6429,8 +6452,8 @@ async function ankiDownloadThroughBrowserSaveAs(blob,filename){
   return name;
 }
 // iPhone/iPad cannot use the native desktop showSaveFilePicker() API.
-// The iOS Web Share API opens the system share sheet, whose "Save to Files"
- // action lets the user choose iCloud Drive / On My iPhone / another folder.
+// iOS Web Share opens the system sheet. The user selects either an iOS Shortcut
+ // with Save File > Overwrite enabled, or Save to Files (copy only).
  // IMPORTANT: file sharing MUST happen in a fresh user-tap handler. Large APKG
  // ZIP generation can take longer than iOS's transient user activation, so the
  // first click prepares/validates the archive and the second tap opens the sheet.
@@ -6464,7 +6487,19 @@ function ankiIOSDownloadPrepared(){
   ankiIOSPreparedSave=null;
   return true;
 }
-function ankiIOSSharePrepared(){
+function ankiIOSOpenShortcutGuide(){
+  const guide=document.getElementById('ankiIOSShortcutGuideModal');
+  if(guide)guide.classList.remove('hidden');
+}
+function ankiIOSCloseShortcutGuide(){
+  const guide=document.getElementById('ankiIOSShortcutGuideModal');
+  if(guide)guide.classList.add('hidden');
+}
+function ankiIOSSharePrepared(mode='replace'){
+  // Both modes share the validated File. iOS—not Safari—chooses whether to
+  // run the overwrite-enabled Shortcut or the normal Save to Files action.
+  // The app never receives a writable handle to the iCloud source file.
+
   // Synchronous call from a DIRECT tap is required by the iOS Web Share API.
   const ready=ankiIOSPreparedSave;
   if(!ready || ankiIOSSharing){setFileStatus('Prepare the .apkg first by tapping Save As.',true);return false;}
@@ -6487,14 +6522,14 @@ function ankiIOSSharePrepared(){
     sharing=navigator.share({files:[ready.file],title:ready.filename});
   }catch(error){sharing=Promise.reject(error);}
   Promise.resolve(sharing).then(()=>{
-    setFileStatus('iPhone sharing sheet completed for '+ready.filename+'. CHECK Files → iCloud Drive for the saved package.');
+    setFileStatus((mode==='replace'?'Replace shortcut':'Save to Files')+' share sheet closed for '+ready.filename+'. Verify Files → iCloud Drive → Anki; Safari cannot confirm an overwrite.');
     // Promise resolution is not proof of a successful iCloud overwrite.
     const modal=document.getElementById('ankiIOSSaveModal');
     if(modal)modal.classList.add('hidden');
     ankiIOSPreparedSave=null;
   }).catch(error=>{
     if(error?.name==='AbortError'){
-      setFileStatus('Save to Files canceled. Prepared .apkg is still available; tap Choose Destination again.');
+      setFileStatus('Share canceled. Prepared .apkg is still available; tap Replace Existing or Save to Files again.');
     }else{
       console.error('iOS file sharing failed',error);
       setFileStatus('Cannot open Save to Files: '+(error?.message||String(error)),true);
@@ -6544,7 +6579,7 @@ async function ankiPrepareIOSSave(id){
     document.getElementById('ankiIOSSaveModalDetails').textContent=
       filename+' — '+(file.size/1048576).toFixed(1)+' MB. Package validated and ready to save.';
     if(modal)modal.classList.remove('hidden');
-    setFileStatus('APKG ready ('+(file.size/1048576).toFixed(1)+' MB). Tap Choose Destination → Save to Files → iCloud Drive → Anki.');
+    setFileStatus('APKG ready ('+(file.size/1048576).toFixed(1)+' MB). On iPhone, tap Replace Existing and select the Replace Anki File Shortcut in the Share Sheet.');
     return true;
   }catch(error){
     console.error('iPhone APKG preparation failed:',error);
