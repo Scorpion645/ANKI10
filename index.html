@@ -1106,9 +1106,9 @@ body.light-mode #studyEditMode .anki-card-save-footer { background: #ffffff; }
  <button onclick="toggleAppTheme()" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-xl text-xs font-semibold" title="Toggle Theme"><i id="themeIcon" class="fa-solid fa-sun"></i> <span id="themeText">Light Mode</span></button>
  <button id="preferredAnkiFolderButton" type="button" onclick="choosePreferredAnkiFolder()" class="hidden px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-xl text-xs font-semibold" title="One-time setup: select E:\ICLOUD sync folder\iCloudDrive\Anki, so Open and Save As start there"><i class="fa-solid fa-folder-tree"></i> Set Anki Folder</button>
  <button onclick="openApkgFiles()" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold" title="Open an Anki file from the remembered PC folder, or Files → iCloud Drive → Anki on iPhone/iPad"><i class="fa-solid fa-folder-open"></i> Open .apkg</button>
- <button type="button" onclick="saveActiveApkg()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold" title="Native Windows Save As dialog (Chrome/Edge). You may select an existing file to replace it after validation."><i class="fa-solid fa-floppy-disk"></i> Save As .apkg</button>
+ <button type="button" onclick="saveActiveApkg()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold" title="Windows: native Save As dialog. iPhone/iPad: Save to Files via the iOS sharing sheet after preparing the package."><i class="fa-solid fa-floppy-disk"></i> Save As .apkg</button>
 
- <span id="fileSaveStatus" role="status" class="text-[11px] text-slate-300 bg-slate-700/50 rounded-lg px-2 py-1" style="max-width:240px;overflow-wrap:anywhere">Read-only opening • manual native Save As</span>
+ <span id="fileSaveStatus" role="status" class="text-[11px] text-slate-300 bg-slate-700/50 rounded-lg px-2 py-1" style="max-width:240px;overflow-wrap:anywhere">Read-only opening • Save As (Windows) / Save to Files (iPhone)</span>
  <input id="apkgOpenInput" type="file" class="hidden" multiple accept=".apkg,.colpkg,.anki,.anki2,.anki21" onchange="onApkgFilePicker(event)">
 </div>
 </div>
@@ -1221,7 +1221,7 @@ body.light-mode #studyEditMode .anki-card-save-footer { background: #ffffff; }
             <i class="fa-solid fa-expand"></i>
             <span id="immersiveBtnText">Full Screen</span>
           </button>
-          <button type="button" onclick="saveCurrentDeckToApkg()" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition shadow-md" title="Open native Save As dialog in desktop Chrome/Edge and manually save the selected .apkg">
+          <button type="button" onclick="saveCurrentDeckToApkg()" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition shadow-md" title="Windows: native Save As. iPhone/iPad: choose iCloud Drive folder through Save to Files.">
             <i class="fa-solid fa-file-export"></i>
             <span>Save As .apkg</span>
           </button>
@@ -1636,19 +1636,35 @@ body.light-mode #studyEditMode .anki-card-save-footer { background: #ffffff; }
 <div id="view-import" class="tab-view hidden space-y-6">
  <div class="bg-slate-800 p-6 rounded-3xl border border-slate-700 shadow-xl space-y-3">
   <h2 class="font-bold text-white"><i class="fa-solid fa-file-import text-indigo-400"></i> Open Anki Package</h2>
-  <p class="text-xs text-slate-300">Open .apkg remains read-only. Review progress autosaves to this browser (IndexedDB), not to the source file. On Windows, <b>Save As .apkg</b> directly opens the native Chrome/Edge Save As dialog: choose the iCloud folder, enter a filename, and confirm replacement if desired. The generated package is checked before writing. Because you previously experienced 0 KB files in iCloud, <b>keep an independent backup outside iCloud</b> before replacing an existing package.</p>
+  <p class="text-xs text-slate-300">Open .apkg remains read-only. Review progress autosaves to this browser (IndexedDB), not to the source file. On Windows, <b>Save As .apkg</b> opens Chrome/Edge’s Save As dialog. On iPhone/iPad, it prepares your package and offers <b>Save to Files</b> via the iOS share sheet, where you choose iCloud Drive → Anki. The package is validated before saving or sharing. Because you previously experienced 0 KB files in iCloud, <b>keep an independent backup outside iCloud</b> before replacing an existing package.</p>
   <button type="button" onclick="openApkgFiles()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold">Open .apkg from Files</button>
   <button type="button" onclick="saveActiveApkg()" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold">Save As .apkg</button>
   <button type="button" onclick="document.getElementById('legacyBackupInput').click()" class="px-4 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-semibold">Import Earlier AnkiSync Backup (optional)</button>
   <input type="file" id="legacyBackupInput" accept=".json,application/json" class="hidden" onchange="importEarlierAnkiSyncBackup(event)">
   <div id="importProgress" class="hidden space-y-2"><div class="flex justify-between text-xs text-slate-300"><span id="importStatusText">Importing file...</span><span id="importPercent">0%</span></div><div class="w-full bg-slate-900 rounded-full h-2"><div id="importProgressBar" class="bg-indigo-500 h-2" style="width:0%"></div></div></div>
-  <div id="fileSaveExplanation" class="text-xs text-amber-200 rounded-xl bg-amber-500/10 p-3 border border-amber-500/20"><b>Native Save As:</b> Available in Chrome and Edge on Windows; no Downloads settings change is needed. To open Save As in <b>E:\ICLOUD sync folder\iCloudDrive\Anki</b>, click <b>Set Anki Folder</b> once and select that folder (read-only folder permission). The browser cannot use the Windows path automatically without selection. Save As is a manual file write: a failed overwrite or iCloud conflict can still damage a destination. Keep a separate verified backup outside iCloud before selecting an existing file. The app will never write automatically when opening a deck.</div>
+  <div id="fileSaveExplanation" class="text-xs text-amber-200 rounded-xl bg-amber-500/10 p-3 border border-amber-500/20"><b>Native Save As:</b> Available in Chrome and Edge on Windows; no Downloads settings change is needed. To open Save As in <b>E:\ICLOUD sync folder\iCloudDrive\Anki</b>, click <b>Set Anki Folder</b> once and select that folder (read-only folder permission). The browser cannot use the Windows path automatically without selection. Save As is a manual file write: a failed overwrite or iCloud conflict can still damage a destination. Keep a separate verified backup outside iCloud before selecting an existing file. On iPhone, tap Save As, then Choose Destination → Save to Files → iCloud Drive → Anki; iOS cannot preselect that folder from HTML. The app will never write automatically when opening a deck.</div>
  </div>
 </div>
 <!-- Hidden Replacement Input -->
     <input type="file" id="imageReplaceInput" accept="image/*" class="hidden" onchange="processImageReplacement(event)" />
 
   </main>
+
+  <!-- iPhone / iPad Save to Files: prepare large APKG first, then share from a fresh tap. -->
+  <div id="ankiIOSSaveModal" class="hidden fixed inset-0 z-[9999] bg-slate-950/80 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="ankiIOSSaveModalTitle">
+    <div class="w-full max-w-sm bg-slate-800 border border-slate-600 rounded-2xl p-5 shadow-2xl space-y-4 text-slate-100">
+      <div class="flex items-center gap-2">
+        <i class="fa-solid fa-folder-open text-emerald-400 text-xl"></i>
+        <h3 id="ankiIOSSaveModalTitle" class="text-base font-bold">Save to Files on iPhone</h3>
+      </div>
+      <p id="ankiIOSSaveModalDetails" class="text-xs text-slate-200 break-words"></p>
+      <p class="text-xs text-slate-300">Tap <b>Choose Destination</b>, then select <b>Save to Files</b> in the iPhone sharing sheet. Navigate to <b>iCloud Drive → Anki</b> and tap Save. If Files offers to replace an existing package, keep a separate backup before confirming.</p>
+      <p class="text-xs text-amber-200">iOS does not support the Windows Save As file picker. The original imported archive is never opened for writing by this app.</p>
+      <button id="ankiIOSShareButton" type="button" onclick="ankiIOSSharePrepared()" class="w-full px-4 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold"><i class="fa-solid fa-share-from-square"></i> Choose Destination (Save to Files)</button>
+      <button type="button" onclick="ankiIOSDownloadPrepared()" class="w-full px-4 py-2 rounded-xl border border-slate-500 bg-slate-700 text-slate-100 text-xs font-semibold">If Save to Files is unavailable: Download .apkg</button>
+      <button type="button" onclick="ankiIOSCancelPreparedSave()" class="w-full px-4 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-semibold">Close</button>
+    </div>
+  </div>
 
   <!-- QUICK ADD CARD MODAL -->
   <div id="quickAddModal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
@@ -6412,12 +6428,140 @@ async function ankiDownloadThroughBrowserSaveAs(blob,filename){
   setTimeout(()=>URL.revokeObjectURL(url),120000);
   return name;
 }
+// iPhone/iPad cannot use the native desktop showSaveFilePicker() API.
+// The iOS Web Share API opens the system share sheet, whose "Save to Files"
+ // action lets the user choose iCloud Drive / On My iPhone / another folder.
+ // IMPORTANT: file sharing MUST happen in a fresh user-tap handler. Large APKG
+ // ZIP generation can take longer than iOS's transient user activation, so the
+ // first click prepares/validates the archive and the second tap opens the sheet.
+let ankiIOSPreparedSave=null;
+let ankiIOSSharing=false;
+function ankiIsAppleMobile(){
+  const ua=String(navigator.userAgent||'');
+  return /iPhone|iPad|iPod/i.test(ua) ||
+    (/Macintosh/i.test(ua) && Number(navigator.maxTouchPoints||0)>1);
+}
+function ankiIOSCancelPreparedSave(){
+  const modal=document.getElementById('ankiIOSSaveModal');
+  if(modal)modal.classList.add('hidden');
+  // Release large package from memory. Browser progress remains independently saved.
+  ankiIOSPreparedSave=null;
+  setFileStatus('iPhone Save to Files panel closed. No Anki file was modified.');
+}
+function ankiIOSDownloadPrepared(){
+  const ready=ankiIOSPreparedSave;
+  if(!ready){setFileStatus('Prepare the .apkg first by tapping Save As.',true);return false;}
+  // Last-resort fallback: no File System Access writes or access to the original.
+  // User moves the resulting file in Apple's Files app.
+  const url=URL.createObjectURL(ready.file);
+  const a=document.createElement('a');
+  a.href=url;a.download=ready.filename;
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),120000);
+  setFileStatus('Downloaded '+ready.filename+'. In iPhone Files, move it from Downloads to iCloud Drive → Anki and confirm replacement if offered.');
+  const modal=document.getElementById('ankiIOSSaveModal');
+  if(modal)modal.classList.add('hidden');
+  ankiIOSPreparedSave=null;
+  return true;
+}
+function ankiIOSSharePrepared(){
+  // Synchronous call from a DIRECT tap is required by the iOS Web Share API.
+  const ready=ankiIOSPreparedSave;
+  if(!ready || ankiIOSSharing){setFileStatus('Prepare the .apkg first by tapping Save As.',true);return false;}
+  if(typeof navigator.share!=='function'){
+    setFileStatus('This browser cannot open the iOS Save to Files sheet. Open the HTML in Safari and retry.',true);
+    alert('Save to Files is unavailable in this browser. Try iPhone Safari, or tap Download .apkg in this panel and move it with Files. No original file was modified.');
+    return false;
+  }
+  if(typeof navigator.canShare==='function' && !navigator.canShare({files:[ready.file]})){
+    setFileStatus('iPhone cannot share this APKG here. Try Safari or Download .apkg from the panel.',true);
+    alert('This browser cannot share the prepared .apkg as a file. Try Safari, or tap Download .apkg in this panel, then move it into iCloud Drive using Files. No original file was modified.');
+    return false;
+  }
+  ankiIOSSharing=true;
+  const button=document.getElementById('ankiIOSShareButton');
+  if(button)button.disabled=true;
+  let sharing;
+  try{
+    // Do not await ANY other async operation before this native share call.
+    sharing=navigator.share({files:[ready.file],title:ready.filename});
+  }catch(error){sharing=Promise.reject(error);}
+  Promise.resolve(sharing).then(()=>{
+    setFileStatus('iPhone sharing sheet completed for '+ready.filename+'. CHECK Files → iCloud Drive for the saved package.');
+    // Promise resolution is not proof of a successful iCloud overwrite.
+    const modal=document.getElementById('ankiIOSSaveModal');
+    if(modal)modal.classList.add('hidden');
+    ankiIOSPreparedSave=null;
+  }).catch(error=>{
+    if(error?.name==='AbortError'){
+      setFileStatus('Save to Files canceled. Prepared .apkg is still available; tap Choose Destination again.');
+    }else{
+      console.error('iOS file sharing failed',error);
+      setFileStatus('Cannot open Save to Files: '+(error?.message||String(error)),true);
+      alert('Could not open iOS Save to Files: '+(error?.message||String(error))+'\n\nOriginal archive was not modified.');
+    }
+  }).finally(()=>{
+    ankiIOSSharing=false;
+    if(button)button.disabled=false;
+  });
+  return true;
+}
+async function ankiPrepareIOSSave(id){
+  const deck=appState.decks[id];
+  if(!deck){setFileStatus('Choose a deck first.',true);return false;}
+  if(ankiManualSaveRunning){setFileStatus('A save is already being prepared.');return false;}
+  ankiManualSaveRunning=true;
+  ankiIOSPreparedSave=null;
+  try{
+    const needsOriginal=Boolean(deck.sourceFileName)&&!ankiIsNeverSavedNewDeck(id,deck);
+    if(needsOriginal&&!openedApkgByteSnapshots.has(id)&&!openedApkgSources.has(id)){
+      throw new Error('This tab has no original Anki archive. Use Reconnect Original .apkg (Read Only) for this deck first. Browser cards and progress are unchanged.');
+    }
+    const filename=ankiBrowserSaveAsFilename(deck);
+    setFileStatus('Preparing and verifying '+filename+' for iPhone Save to Files…');
+    const source=needsOriginal ? await ankiGetReadableSource(id) : null;
+    if(needsOriginal&&!source)
+      throw new Error('Original Anki archive is missing or damaged. Reconnect the intact package read-only before saving.');
+    let output;
+    if(source){
+      output=await buildPreservedApkg(id,source);
+      const before=await JSZip.loadAsync(source);
+      const after=await JSZip.loadAsync(output);
+      const missing=Object.keys(before.files).filter(n=>!after.files[n]);
+      if(missing.length)throw new Error('Export missing '+missing.length+' original archive members. No save attempted.');
+    }else{
+      output=await saveAllDecksToFile(id,null,true);
+    }
+    if(!(output instanceof Blob)||output.size<256)
+      throw new Error('Prepared APKG is empty or too small. No save attempted.');
+    const zip=await JSZip.loadAsync(output);
+    if(!['collection.anki2','collection.anki21','collection.anki21b'].some(n=>zip.file(n))||!zip.file('media'))
+      throw new Error('Prepared APKG is missing the Anki collection or media index.');
+    const file=new File([output],filename,{type:'application/zip',lastModified:Date.now()});
+    // The file must be ready BEFORE requesting a share sheet; iOS requires a tap.
+    ankiIOSPreparedSave={id,filename,file};
+    const modal=document.getElementById('ankiIOSSaveModal');
+    document.getElementById('ankiIOSSaveModalDetails').textContent=
+      filename+' — '+(file.size/1048576).toFixed(1)+' MB. Package validated and ready to save.';
+    if(modal)modal.classList.remove('hidden');
+    setFileStatus('APKG ready ('+(file.size/1048576).toFixed(1)+' MB). Tap Choose Destination → Save to Files → iCloud Drive → Anki.');
+    return true;
+  }catch(error){
+    console.error('iPhone APKG preparation failed:',error);
+    const message='Could not prepare iPhone Save to Files: '+(error?.message||String(error));
+    setFileStatus(message,true);
+    alert(message+'\n\nNo original file was modified.');
+    return false;
+  }finally{ankiManualSaveRunning=false;}
+}
+
 // Actual native Save As: call showSaveFilePicker DIRECTLY from the click handler,
 // before ANY awaited ZIP generation or IndexedDB operation (transient activation).
 // The original Open/import path never receives or uses this write handle.
 async function saveDeckToFile(id){
   const deck=appState.decks[id];
   if(!deck){setFileStatus('Select a deck before saving.',true);return false;}
+  if(ankiIsAppleMobile()) return ankiPrepareIOSSave(id);
   if(ankiManualSaveRunning){setFileStatus('Save As is already in progress.',true);return false;}
   if(!window.isSecureContext||typeof window.showSaveFilePicker!=='function'){
     const explanation='A real Save As dialog is available in desktop Chrome/Edge on Windows. This browser cannot open it. Your original file was not written.';
