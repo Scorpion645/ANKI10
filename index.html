@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -277,6 +276,11 @@ body.light-mode .color-palette-bar {
       align-items: center;
       justify-content: center;
     }
+
+    /* Only the added save action changes layout: right aligned in its editor toolbar. */
+    .anki-toolbar-save { margin-left: auto; flex: 0 0 auto; white-space: nowrap; }
+    body.light-mode .anki-toolbar-save { color: #ffffff !important; background-color: #4f46e5 !important; }
+    body.light-mode .anki-toolbar-save:hover { background-color: #4338ca !important; }
 
     .toolbar-btn:hover {
       background: #334155;
@@ -1034,6 +1038,25 @@ body:not(.focus-study-active) #view-study #studyViewMode > .perspective-1000 {
   #ankiRevealAtCardBottom { bottom:10px; }
   #view-study #frontContent, #view-study #backContent { padding-bottom:53px; }
 }
+    /* Hide global search while in distraction-free study or immersive modes. */
+    body.focus-study-active #ankiGlobalSearchPanel,
+    body.zen-mode #ankiGlobalSearchPanel { display: none !important; }
+
+/* Review schedule overview: reuses the existing deck and grading palette. */
+#ankiReviewOverview .anki-review-status { display:inline-flex; align-items:center; gap:5px; border-radius:999px; padding:4px 9px; font-size:11px; font-weight:700; }
+#ankiReviewOverview .anki-review-again { color:#fda4af; background:rgba(244,63,94,.14); border:1px solid rgba(244,63,94,.32); }
+#ankiReviewOverview .anki-review-hard { color:#fcd34d; background:rgba(245,158,11,.14); border:1px solid rgba(245,158,11,.32); }
+#ankiReviewOverview .anki-review-good { color:#6ee7b7; background:rgba(16,185,129,.14); border:1px solid rgba(16,185,129,.32); }
+#ankiReviewOverview .anki-review-easy { color:#c7d2fe; background:rgba(99,102,241,.14); border:1px solid rgba(99,102,241,.32); }
+#ankiReviewOverview .anki-review-new { color:#67e8f9; background:rgba(8,145,178,.14); border:1px solid rgba(8,145,178,.32); }
+#ankiReviewOverview .anki-review-other { color:#cbd5e1; background:rgba(100,116,139,.14); border:1px solid rgba(100,116,139,.32); }
+#ankiReviewOverview .anki-review-row { padding:9px 12px; border-bottom:1px solid #334155; }
+#ankiReviewOverview .anki-review-row:last-child {border-bottom:0;}
+body.light-mode #ankiReviewOverview .anki-review-again {color:#be123c;}
+body.light-mode #ankiReviewOverview .anki-review-hard {color:#92400e;}
+body.light-mode #ankiReviewOverview .anki-review-good {color:#047857;}
+body.light-mode #ankiReviewOverview .anki-review-easy {color:#4338ca;}
+body.light-mode #ankiReviewOverview .anki-review-new {color:#0e7490;}
 </style>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col font-sans antialiased selection:bg-indigo-500 selection:text-white">
@@ -1087,19 +1110,20 @@ body:not(.focus-study-active) #view-study #studyViewMode > .perspective-1000 {
       </button>
     </div>
 
+    <!-- Search all decks and their cards from any tab; this never changes review progress. -->
+    <div id="ankiGlobalSearchPanel" class="bg-slate-800/40 p-3 rounded-2xl border border-slate-700/60 space-y-2 mb-6">
+      <label for="allDeckCardSearch" class="block text-xs font-semibold text-slate-400">Search all decks and cards</label>
+      <div class="flex items-center gap-2">
+        <i class="fa-solid fa-magnifying-glass text-slate-400" aria-hidden="true"></i>
+        <input id="allDeckCardSearch" type="search" autocomplete="off" placeholder="Search deck names, questions, answers, card titles, or cloze text…"
+          oninput="scheduleAnkiGlobalSearch()" onfocus="searchAnkiCards('all')" onkeydown="ankiGlobalSearchKeydown(event)" aria-controls="allDeckCardSearchResults"
+          class="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100" />
+      </div>
+      <div id="allDeckCardSearchResults" aria-live="polite" class="hidden space-y-1 max-h-72 overflow-y-auto"></div>
+    </div>
+
     <!-- VIEW 1: DECKS & STUDY HUB -->
     <div id="view-decks" class="tab-view space-y-6">
-      <!-- Search cards in all decks; results are temporary and never modify progress. -->
-      <div class="bg-slate-800/40 p-3 rounded-2xl border border-slate-700/60 space-y-2">
-        <label for="allDeckCardSearch" class="block text-xs font-semibold text-slate-400">Search all decks</label>
-        <div class="flex items-center gap-2">
-          <i class="fa-solid fa-magnifying-glass text-slate-400"></i>
-          <input id="allDeckCardSearch" type="search" placeholder="Search card titles, questions, answers, or cloze text…"
-            oninput="searchAnkiCards('all')" class="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100" />
-        </div>
-        <div id="allDeckCardSearchResults" class="hidden space-y-1 max-h-72 overflow-y-auto"></div>
-      </div>
-
       <div class="flex items-center justify-between gap-4 flex-wrap bg-slate-800/40 p-3 rounded-2xl border border-slate-800">
         <div class="flex items-center space-x-2 overflow-x-auto py-1 scrollbar-none" id="categoryFilterContainer">
           <button onclick="filterCategory('ALL')" class="cat-filter-btn px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-indigo-600 text-white shadow-sm transition">All Decks</button>
@@ -1197,7 +1221,8 @@ body:not(.focus-study-active) #view-study #studyViewMode > .perspective-1000 {
               </div>
               <div class="flex items-center space-x-2">
                 <span id="sidebarCardCount" class="text-xs font-normal text-slate-400 bg-slate-800 px-2 py-0.5 rounded-full">0</span>
-                <button onclick="pasteCardToActiveDeck()" id="sidebarPasteBtn" class="hidden text-xs text-indigo-400 hover:text-white px-2 py-0.5 bg-indigo-950 border border-indigo-800 rounded" title="Paste Copied Card">Paste</button>
+                <button type="button" onclick="ankiOpenCopyCardsPicker()" class="text-xs text-indigo-400 hover:text-white px-2 py-0.5 bg-indigo-950 border border-indigo-800 rounded" title="Choose any cards in this deck, including cards not yet due">Copy Cards…</button>
+                <button onclick="pasteCardToActiveDeck()" id="sidebarPasteBtn" class="hidden text-xs text-indigo-400 hover:text-white px-2 py-0.5 bg-indigo-950 border border-indigo-800 rounded" title="Paste copied cards into this deck">Paste</button>
               </div>
             </div>
 
@@ -1205,6 +1230,7 @@ body:not(.focus-study-active) #view-study #studyViewMode > .perspective-1000 {
             <div id="sidebarBatchToolbar" class="hidden flex items-center justify-between bg-slate-900 px-2 py-1.5 rounded-lg border border-slate-700 text-xs">
               <span id="sidebarSelectedCount" class="text-indigo-400 font-bold">0 selected</span>
               <div class="flex items-center space-x-1">
+                <button type="button" onclick="ankiCopySelectedSidebarCards()" class="p-1 px-1.5 bg-indigo-600 hover:bg-indigo-500 rounded text-white" title="Copy selected cards to another deck without deleting them"><i class="fa-solid fa-copy"></i><span class="ml-1">Copy Selected</span></button>
                 <button type="button" onclick="deleteSelectedSidebarCards()" class="p-1 px-1.5 bg-rose-600 hover:bg-rose-500 rounded text-white" title="Delete selected cards"><i class="fa-solid fa-trash"></i><span class="ml-1">Delete</span></button>
               </div>
             </div>
@@ -1347,6 +1373,8 @@ body:not(.focus-study-active) #view-study #studyViewMode > .perspective-1000 {
                   <button type="button" onmousedown="event.preventDefault()" onclick="execCmd('insertUnorderedList', 'editCardFront')" class="toolbar-btn" title="Bullet List"><i class="fa-solid fa-list-ul"></i></button>
                   <button type="button" onmousedown="event.preventDefault()" onclick="execCmd('insertOrderedList', 'editCardFront')" class="toolbar-btn" title="Numbered List"><i class="fa-solid fa-list-ol"></i></button>
                   <button type="button" onmousedown="event.preventDefault()" onclick="clearSelectedEditorFormatting('editCardFront')" class="toolbar-btn" title="Clear Formatting (selected front text only)"><i class="fa-solid fa-eraser"></i></button>
+                  <button type="button" onmousedown="event.preventDefault()" onclick="ankiSelectAllEditorText('editCardFront')" class="toolbar-btn" title="Select all content in Front" aria-label="Select all Front text"><i class="fa-solid fa-object-group"></i> Select All</button>
+                  <button type="button" onpointerdown="ankiRememberPunctuationCaret('editCardFront')" onmousedown="event.preventDefault()" onclick="ankiSelectToNextPunctuation('editCardFront')" class="toolbar-btn" title="Select from the cursor through the next comma or period" aria-label="Select text up to next comma or period"><i class="fa-solid fa-i-cursor"></i> To , / .</button>
                 </div>
                 <button type="button" onmousedown="event.preventDefault()" onclick="insertBackClozeField('editCardFront')" class="toolbar-btn mb-1" title="Convert selected front text to a cloze, or insert a new cloze field"><i class="fa-solid fa-square-plus"></i> Add Cloze Field</button>
 <button type="button" onmousedown="event.preventDefault()" onclick="toggleClozeTogether('editCardFront')" class="toolbar-btn mb-1" title="Link this cloze to the preceding cloze so both reveal together"><i class="fa-solid fa-link"></i> Reveal Together</button>
@@ -1406,6 +1434,9 @@ body:not(.focus-study-active) #view-study #studyViewMode > .perspective-1000 {
                   <button type="button" onmousedown="event.preventDefault()" onclick="execCmd('insertUnorderedList', 'editCardBack')" class="toolbar-btn" title="Bullet List"><i class="fa-solid fa-list-ul"></i></button>
                   <button type="button" onmousedown="event.preventDefault()" onclick="execCmd('insertOrderedList', 'editCardBack')" class="toolbar-btn" title="Numbered List"><i class="fa-solid fa-list-ol"></i></button>
                   <button type="button" onmousedown="event.preventDefault()" onclick="clearSelectedEditorFormatting('editCardBack')" class="toolbar-btn" title="Clear Formatting"><i class="fa-solid fa-eraser"></i></button>
+                  <button type="button" onmousedown="event.preventDefault()" onclick="ankiSelectAllEditorText('editCardBack')" class="toolbar-btn" title="Select all content in Back" aria-label="Select all Back text"><i class="fa-solid fa-object-group"></i> Select All</button>
+                  <button type="button" onpointerdown="ankiRememberPunctuationCaret('editCardBack')" onmousedown="event.preventDefault()" onclick="ankiSelectToNextPunctuation('editCardBack')" class="toolbar-btn" title="Select from the cursor through the next comma or period" aria-label="Select text up to next comma or period"><i class="fa-solid fa-i-cursor"></i> To , / .</button>
+                  <button type="button" id="ankiSaveChangesToolbar" onclick="saveCardEdits()" class="anki-toolbar-save px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold shadow-sm transition" title="Save Changes"><i class="fa-solid fa-floppy-disk"></i> Save Changes</button>
                 </div>
                 <button type="button" onmousedown="event.preventDefault()" onclick="insertBackClozeField('editCardBack')" class="toolbar-btn mb-1" title="Insert a numbered cloze field"><i class="fa-solid fa-square-plus"></i> Add Cloze Field</button>
 <button type="button" onmousedown="event.preventDefault()" onclick="toggleClozeTogether('editCardBack')" class="toolbar-btn mb-1" title="Link this cloze to the preceding cloze so both reveal together"><i class="fa-solid fa-link"></i> Reveal Together</button>
@@ -1421,7 +1452,6 @@ body:not(.focus-study-active) #view-study #studyViewMode > .perspective-1000 {
               <button type="button" onclick="ankiNavigateFromEditor(1)" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition flex items-center space-x-1.5"><span>Next</span><i class="fa-solid fa-chevron-right"></i></button>
             </div>
             <div class="flex space-x-3 pt-2">
-              <button onclick="saveCardEdits()" class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold transition shadow-md">Save Changes</button>
               <button onclick="toggleEditCurrentCard()" class="px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-xl text-xs font-semibold transition">Cancel</button>
             </div>
           </div>
@@ -1511,6 +1541,8 @@ body:not(.focus-study-active) #view-study #studyViewMode > .perspective-1000 {
 
 
               <button type="button" onmousedown="event.preventDefault()" onclick="clearSelectedEditorFormatting('createCardFront')" class="toolbar-btn" title="Clear Formatting"><i class="fa-solid fa-eraser"></i></button>
+                  <button type="button" onmousedown="event.preventDefault()" onclick="ankiSelectAllEditorText('createCardFront')" class="toolbar-btn" title="Select all content in Front" aria-label="Select all Front text"><i class="fa-solid fa-object-group"></i> Select All</button>
+                  <button type="button" onpointerdown="ankiRememberPunctuationCaret('createCardFront')" onmousedown="event.preventDefault()" onclick="ankiSelectToNextPunctuation('createCardFront')" class="toolbar-btn" title="Select from the cursor through the next comma or period" aria-label="Select text up to next comma or period"><i class="fa-solid fa-i-cursor"></i> To , / .</button>
             </div>
             
 <button type="button" onmousedown="event.preventDefault()" onclick="insertBackClozeField('createCardFront')" class="toolbar-btn mb-1" title="Convert selected front text to a cloze, or insert a new cloze field"><i class="fa-solid fa-square-plus"></i> Add Cloze Field</button>
@@ -1572,19 +1604,15 @@ body:not(.focus-study-active) #view-study #studyViewMode > .perspective-1000 {
 
 
               <button type="button" onmousedown="event.preventDefault()" onclick="clearSelectedEditorFormatting('createCardBack')" class="toolbar-btn" title="Clear Formatting"><i class="fa-solid fa-eraser"></i></button>
+                  <button type="button" onmousedown="event.preventDefault()" onclick="ankiSelectAllEditorText('createCardBack')" class="toolbar-btn" title="Select all content in Back" aria-label="Select all Back text"><i class="fa-solid fa-object-group"></i> Select All</button>
+                  <button type="button" onpointerdown="ankiRememberPunctuationCaret('createCardBack')" onmousedown="event.preventDefault()" onclick="ankiSelectToNextPunctuation('createCardBack')" class="toolbar-btn" title="Select from the cursor through the next comma or period" aria-label="Select text up to next comma or period"><i class="fa-solid fa-i-cursor"></i> To , / .</button>
+                  <button type="button" id="ankiSaveNewToolbar" onclick="saveNewCard()" class="anki-toolbar-save px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold shadow-sm transition" title="Save Flashcard"><i class="fa-solid fa-floppy-disk"></i> Save Flashcard</button>
             </div>
             <button type="button" onmousedown="event.preventDefault()" onclick="insertBackClozeField('createCardBack')" class="toolbar-btn mb-1" title="Insert a numbered cloze field"><i class="fa-solid fa-square-plus"></i> Add Cloze Field</button>
 <button type="button" onmousedown="event.preventDefault()" onclick="toggleClozeTogether('createCardBack')" class="toolbar-btn mb-1" title="Link this cloze to the preceding cloze so both reveal together"><i class="fa-solid fa-link"></i> Reveal Together</button>
 <button type="button" onmousedown="event.preventDefault()" onclick="openImageClozeModal('createCardBack')" class="toolbar-btn mb-1" title="Draw reversible, numbered masks on an image; reveal them with Space"><i class="fa-solid fa-masks-theater"></i> Image Cloze</button>
             <div id="createCardBack" contenteditable="true" class="editor-canvas"></div>
           </div>
-
-
-
-          <button onclick="saveNewCard()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold transition shadow-lg shadow-indigo-500/25 flex items-center justify-center space-x-2">
-            <i class="fa-solid fa-floppy-disk"></i>
-            <span>Save Flashcard</span>
-          </button>
         </div>
       </div>
     </div>
@@ -1703,6 +1731,8 @@ body:not(.focus-study-active) #view-study #studyViewMode > .perspective-1000 {
 
 
             <button type="button" onmousedown="event.preventDefault()" onclick="clearSelectedEditorFormatting('modalCardFront')" class="toolbar-btn" title="Clear Formatting"><i class="fa-solid fa-eraser"></i></button>
+                  <button type="button" onmousedown="event.preventDefault()" onclick="ankiSelectAllEditorText('modalCardFront')" class="toolbar-btn" title="Select all content in Front" aria-label="Select all Front text"><i class="fa-solid fa-object-group"></i> Select All</button>
+                  <button type="button" onpointerdown="ankiRememberPunctuationCaret('modalCardFront')" onmousedown="event.preventDefault()" onclick="ankiSelectToNextPunctuation('modalCardFront')" class="toolbar-btn" title="Select from the cursor through the next comma or period" aria-label="Select text up to next comma or period"><i class="fa-solid fa-i-cursor"></i> To , / .</button>
           </div>
 <button type="button" onmousedown="event.preventDefault()" onclick="insertBackClozeField('modalCardFront')" class="toolbar-btn mb-1" title="Convert selected front text to a cloze, or insert a new cloze field"><i class="fa-solid fa-square-plus"></i> Add Cloze Field</button>
 <button type="button" onmousedown="event.preventDefault()" onclick="toggleClozeTogether('modalCardFront')" class="toolbar-btn mb-1" title="Link this cloze to the preceding cloze so both reveal together"><i class="fa-solid fa-link"></i> Reveal Together</button>
@@ -1774,6 +1804,9 @@ body:not(.focus-study-active) #view-study #studyViewMode > .perspective-1000 {
 
 
             <button type="button" onmousedown="event.preventDefault()" onclick="clearSelectedEditorFormatting('modalCardBack')" class="toolbar-btn" title="Clear Formatting"><i class="fa-solid fa-eraser"></i></button>
+                  <button type="button" onmousedown="event.preventDefault()" onclick="ankiSelectAllEditorText('modalCardBack')" class="toolbar-btn" title="Select all content in Back" aria-label="Select all Back text"><i class="fa-solid fa-object-group"></i> Select All</button>
+                  <button type="button" onpointerdown="ankiRememberPunctuationCaret('modalCardBack')" onmousedown="event.preventDefault()" onclick="ankiSelectToNextPunctuation('modalCardBack')" class="toolbar-btn" title="Select from the cursor through the next comma or period" aria-label="Select text up to next comma or period"><i class="fa-solid fa-i-cursor"></i> To , / .</button>
+                  <button type="button" id="ankiSaveAddToolbar" onclick="saveModalCard()" class="anki-toolbar-save px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold shadow-sm transition" title="Save & Add Card"><i class="fa-solid fa-floppy-disk"></i> Save & Add Card</button>
           </div>
           <button type="button" onmousedown="event.preventDefault()" onclick="insertBackClozeField('modalCardBack')" class="toolbar-btn mb-1" title="Insert a numbered cloze field"><i class="fa-solid fa-square-plus"></i> Add Cloze Field</button>
 <button type="button" onmousedown="event.preventDefault()" onclick="toggleClozeTogether('modalCardBack')" class="toolbar-btn mb-1" title="Link this cloze to the preceding cloze so both reveal together"><i class="fa-solid fa-link"></i> Reveal Together</button>
@@ -1785,9 +1818,6 @@ body:not(.focus-study-active) #view-study #studyViewMode > .perspective-1000 {
 
 
       <div class="flex space-x-3 pt-2">
-        <button onclick="saveModalCard()" class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold transition shadow-md">
-          Save & Add Card
-        </button>
         <button onclick="closeAddCardModal()" class="px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-xl text-xs font-semibold transition">
           Cancel
         </button>
@@ -1866,6 +1896,25 @@ body:not(.focus-study-active) #view-study #studyViewMode > .perspective-1000 {
           <button type="button" onclick="closeImageClozeModal()" class="toolbar-btn px-4">Cancel</button>
           <button type="button" onclick="saveImageClozeMasks()" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-semibold"><i class="fa-solid fa-floppy-disk"></i> Save image masks</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Only shown after successful import with due cards or on Review Schedule click. -->
+  <div id="ankiReviewOverview" class="hidden fixed inset-0 z-[100] bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-3 md:p-5" role="dialog" aria-modal="true" aria-labelledby="ankiReviewOverviewTitle">
+    <div class="bg-slate-800 border border-slate-700 rounded-3xl w-full max-w-4xl shadow-2xl flex flex-col" style="max-height:92dvh">
+      <div class="flex items-start justify-between gap-3 px-5 py-4 border-b border-slate-700">
+        <div>
+          <h2 id="ankiReviewOverviewTitle" class="text-lg font-bold text-slate-100">Due reviews</h2>
+          <p id="ankiReviewOverviewSubtitle" class="text-xs text-slate-400 mt-1"></p>
+        </div>
+        <button type="button" onclick="ankiCloseReviewOverview()" class="px-3 py-2 rounded-xl border border-slate-600 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-semibold" aria-label="Close review schedule">Close</button>
+      </div>
+      <div id="ankiReviewOverviewBody" class="px-5 py-4 space-y-5 overflow-y-auto overscroll-contain text-slate-200"></div>
+      <div class="border-t border-slate-700 px-5 py-3 flex items-center justify-between gap-3 flex-wrap">
+        <span class="text-xs text-slate-400">Times shown in your device’s local time.</span>
+        <button type="button" id="ankiReviewOverviewStart" onclick="ankiStudyFromReviewOverview()" class="hidden px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl">Study Due Cards</button>
       </div>
     </div>
   </div>
@@ -1961,6 +2010,56 @@ body:not(.focus-study-active) #view-study #studyViewMode > .perspective-1000 {
   <div id="toastContainer"></div>
 
   <!-- Portable state embedded into this HTML by the Save Progress Into HTML feature -->
+
+  <!-- Bulk copy and non-destructive deck combination. -->
+  <div id="ankiCopyCardsModal" class="hidden fixed inset-0 z-[110] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-3 md:p-6" role="dialog" aria-modal="true" aria-label="Copy multiple cards">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-4 md:p-6 shadow-2xl space-y-4">
+      <div class="flex items-start justify-between gap-3">
+        <div><h3 class="font-bold text-indigo-300 text-lg"><i class="fa-solid fa-copy"></i> Copy Cards</h3>
+          <p id="ankiCopySourceLabel" class="text-xs text-slate-400 mt-1"></p></div>
+        <button type="button" onclick="ankiCloseCopyCardsPicker()" class="toolbar-btn" aria-label="Close copy cards"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <input id="ankiCopySearch" type="search" oninput="ankiRenderCopyCardsPicker()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100" placeholder="Find cards by title, front or back…" aria-label="Search cards to copy" />
+      <div class="flex flex-wrap items-center gap-2">
+        <button type="button" onclick="ankiSetAllCopyPickerCards(true)" class="toolbar-btn">Select All</button>
+        <button type="button" onclick="ankiSetAllCopyPickerCards(false)" class="toolbar-btn">Clear Selection</button>
+        <span id="ankiCopyCount" class="text-xs text-indigo-300 font-semibold">0 selected</span>
+      </div>
+      <div id="ankiCopyCardsList" class="space-y-1 max-h-[46vh] overflow-y-auto rounded-xl border border-slate-700 p-2 bg-slate-900/50"></div>
+      <p class="text-xs text-slate-400">Copied cards retain their text, images, lists, cloze fields and formatting. Pasted copies start unreviewed; the original cards and schedules are unchanged.</p>
+      <div class="flex gap-3">
+        <button type="button" onclick="ankiConfirmCopyCardsPicker()" class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold">Copy Selected Cards</button>
+        <button type="button" onclick="ankiCloseCopyCardsPicker()" class="px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-xl text-xs font-semibold">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="ankiCombineDeckModal" class="hidden fixed inset-0 z-[110] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-3 md:p-6" role="dialog" aria-modal="true" aria-label="Combine two decks">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-5 md:p-6 shadow-2xl space-y-4">
+      <div class="flex justify-between items-start gap-3">
+        <h3 class="font-bold text-indigo-300 text-lg"><i class="fa-solid fa-layer-group"></i> Combine Two Decks</h3>
+        <button type="button" onclick="ankiCloseCombineDecks()" class="toolbar-btn" aria-label="Close combine decks"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div><label class="text-xs text-slate-300 font-semibold" for="ankiCombineFirst">First deck</label>
+        <select id="ankiCombineFirst" onchange="ankiUpdateCombineDeckOptions()" class="mt-1 w-full bg-slate-900 text-slate-100 border border-slate-700 rounded-lg px-3 py-2 text-sm"></select></div>
+      <div><label class="text-xs text-slate-300 font-semibold" for="ankiCombineSecond">Second deck</label>
+        <select id="ankiCombineSecond" class="mt-1 w-full bg-slate-900 text-slate-100 border border-slate-700 rounded-lg px-3 py-2 text-sm"></select></div>
+      <div><label class="text-xs text-slate-300 font-semibold" for="ankiCombineMode">Combination method</label>
+        <select id="ankiCombineMode" onchange="ankiUpdateCombineMode()" class="mt-1 w-full bg-slate-900 text-slate-100 border border-slate-700 rounded-lg px-3 py-2 text-sm">
+          <option value="into">Add second deck's cards into first deck</option>
+          <option value="new">Create a new deck containing both decks</option>
+        </select></div>
+      <div id="ankiCombineNewNameRow" class="hidden"><label class="text-xs text-slate-300 font-semibold" for="ankiCombineNewName">New combined deck name</label>
+        <input id="ankiCombineNewName" type="text" class="mt-1 w-full bg-slate-900 text-slate-100 border border-slate-700 rounded-lg px-3 py-2 text-sm" placeholder="Combined deck name" /></div>
+      <label class="flex items-center gap-2 text-xs text-slate-300"><input id="ankiCombineSkipDuplicates" type="checkbox" checked class="accent-indigo-500 w-4 h-4" /> Skip exact duplicate cards (same title, front and back)</label>
+      <p class="text-xs text-slate-400">Both original decks stay in place. Existing review progress and due dates are preserved for merged cards. Nothing is written to an .apkg file until the normal save workflow runs.</p>
+      <div class="flex gap-3">
+        <button type="button" onclick="ankiConfirmCombineDecks()" class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold">Combine Decks</button>
+        <button type="button" onclick="ankiCloseCombineDecks()" class="px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-xl text-xs font-semibold">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <script id="embeddedStudyBackup" type="application/json">{}</script>
 
   <!-- Application Logic JS -->
@@ -2120,35 +2219,81 @@ function clearSelectedEditorFormatting(editorId) {
   activeEditorId = editorId;
 }
 
-function execCmd(command, editorId = null, value = null) {
-  const targetId = editorId || activeEditorId;
-  if (!targetId) return;
-
-  const editor = document.getElementById(targetId);
-  if (!editor) return;
-
-  editor.focus();
-
-  // Restore last cursor position if available
-  if (savedRange) {
-    const sel = window.getSelection();
-    sel.removeAllRanges();
-    sel.addRange(savedRange);
-  }
-
-  if (command === 'removeFormat') {
-    clearSelectedEditorFormatting(targetId);
-  } else {
-    document.execCommand(command, false, value);
-  }
-
-  // Save updated selection
-  const sel = window.getSelection();
-  if (sel.rangeCount > 0) {
-    savedRange = sel.getRangeAt(0).cloneRange();
+/* Browser list commands can produce invalid <p><ul>...</ul></p>
+   markup. On saving/reloading, the HTML parser turns that into an empty <p>
+   BEFORE and AFTER the list. Hoist lists out of those wrappers immediately. */
+function ankiRepairEditorLists(editor, previousLists) {
+  const lists = [...editor.querySelectorAll('ul,ol')];
+  for (const list of lists) {
+    if (!list.isConnected) continue;
+    if (list.parentElement?.tagName === 'P') {
+      const p = list.parentElement;
+      const children = [...p.childNodes];
+      const index = children.indexOf(list);
+      const before = children.slice(0,index);
+      const after = children.slice(index + 1);
+      function meaningful(nodes) {
+        return nodes.some(n => n.nodeType === Node.ELEMENT_NODE
+          ? (n.tagName !== 'BR' && (n.textContent.trim() || n.querySelector('img,svg,video')))
+          : (n.nodeType === Node.TEXT_NODE && n.nodeValue.trim()));
+      }
+      // Retain real text preceding/following the list, but do not manufacture
+      // empty paragraphs solely to hold a wrapper or a placeholder <br>.
+      if (meaningful(before)) {
+        const pre = p.cloneNode(false);
+        before.forEach(n => pre.appendChild(n));
+        p.before(pre);
+      }
+      if (meaningful(after)) {
+        const post = p.cloneNode(false);
+        after.forEach(n => post.appendChild(n));
+        p.after(post);
+      }
+      // Keep paragraph-level colors/alignment when migrating its list.
+      for (const prop of Array.from(p.style)) {
+        if (!list.style.getPropertyValue(prop))
+          list.style.setProperty(prop, p.style.getPropertyValue(prop), p.style.getPropertyPriority(prop));
+      }
+      p.replaceWith(list);
+    }
+    // Only trim empty edge items generated by this list command, never
+    // remove a pre-existing empty item the user deliberately inserted.
+    if (!previousLists.has(list)) {
+      const items = () => [...list.children].filter(el => el.tagName === 'LI');
+      const empty = li => !li.textContent.replace(/[\u200b\ufeff\u00a0]/g,'').trim() &&
+        !li.querySelector('img,svg,video,iframe,.anki-image-cloze');
+      while (items().length > 1 && empty(items()[0])) items()[0].remove();
+      while (items().length > 1 && empty(items().at(-1))) items().at(-1).remove();
+    }
   }
 }
 
+function execCmd(command, editorId = null, value = null) {
+  const targetId = editorId || activeEditorId;
+  if (!targetId) return;
+  const editor = document.getElementById(targetId);
+  if (!editor) return;
+  const sel = window.getSelection();
+  const within = r => r && editor.contains(r.startContainer) && editor.contains(r.endContainer);
+  let range = sel.rangeCount ? sel.getRangeAt(0).cloneRange() : null;
+  if (!within(range) && within(savedRange)) range = savedRange.cloneRange();
+  editor.focus({preventScroll:true});
+  if (within(range)) {
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+  if (command === 'removeFormat') {
+    clearSelectedEditorFormatting(targetId);
+  } else {
+    const isList = command === 'insertUnorderedList' || command === 'insertOrderedList';
+    const previousLists = isList ? new Set(editor.querySelectorAll('ul,ol')) : null;
+    document.execCommand(command, false, value);
+    if (isList) ankiRepairEditorLists(editor, previousLists);
+  }
+  if (sel.rangeCount && within(sel.getRangeAt(0))) savedRange = sel.getRangeAt(0).cloneRange();
+  activeEditorId = targetId;
+  editor.dispatchEvent(new Event('input', {bubbles:true}));
+}
 
 function promptCreateDeck() {
   const deckName = prompt("Enter new deck name:");
@@ -3422,7 +3567,7 @@ const content = await zip.generateAsync({ type: "blob" });
                 <button type="button" onclick="deleteDeck('${deckId}')" class="text-slate-400 hover:text-rose-400" title="Delete deck" aria-label="Delete deck"><i class="fa-solid fa-trash"></i></button>
               </div>
             </div>
-            <div class="text-xs text-slate-400">${total} cards · ${due} due</div>
+            <div class="text-xs text-slate-400" data-anki-due-count="${ankiEscapeHtml(deckId)}" data-anki-due-current="${due}">${total} cards · ${due} due</div>
             <div class="flex items-center justify-between text-xs font-semibold text-slate-400">
               <span>Studied ${studied} / ${total}</span><span class="text-indigo-400">${percent}%</span>
             </div>
@@ -3448,6 +3593,13 @@ const content = await zip.generateAsync({ type: "blob" });
           <div class="flex items-center gap-2">
             <button type="button" onclick="startStudy('${deckId}')" class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl">Study</button>
             <button type="button" onclick="saveAllDecksToFile('${deckId}')" class="py-2.5 px-3 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl">Save As</button>
+          </div>
+          <div class="flex gap-2">
+            <button type="button" onclick="ankiShowReviewOverview(['${deckId}'])" class="flex-1 px-3 py-2 rounded-xl border border-indigo-500/40 bg-indigo-500/10 text-indigo-300 text-xs font-semibold hover:bg-indigo-500/20" title="Show due cards, last played times, and next review dates"><i class="fa-solid fa-calendar-check"></i> Review Schedule</button>
+          </div>
+          <div class="flex gap-2">
+            <button type="button" onclick="ankiOpenCopyCardsPicker('${deckId}')" class="flex-1 px-3 py-2 rounded-xl border border-indigo-500/40 bg-indigo-500/10 text-indigo-300 text-xs font-semibold hover:bg-indigo-500/20" title="Choose cards from this entire deck to copy into another deck"><i class="fa-solid fa-copy"></i> Copy Cards</button>
+            <button type="button" onclick="ankiOpenCombineDecks('${deckId}')" class="flex-1 px-3 py-2 rounded-xl border border-indigo-500/40 bg-indigo-500/10 text-indigo-300 text-xs font-semibold hover:bg-indigo-500/20" title="Combine this deck with a different deck, preserving originals"><i class="fa-solid fa-layer-group"></i> Combine</button>
           </div>`;
         grid.appendChild(cardEl);
       });
@@ -3473,12 +3625,48 @@ const content = await zip.generateAsync({ type: "blob" });
       showToast('Deck renamed. Your cards and progress are unchanged.');
     }
 
-    // Search existing card data without editing it or changing review progress.
+    // Search existing deck and card data without editing it or changing review progress.
     function ankiSearchPlainText(html) {
       const temp = document.createElement('div');
       temp.innerHTML = String(html || '');
       return (temp.textContent || '').replace(/\{\{c\d+::/gi, ' ')
         .replace(/::/g, ' ').replace(/\}\}/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+
+    // Avoid repeatedly parsing long card HTML and embedded images on each keystroke.
+    // Rebuild the cached search text if any of the card's fields have changed.
+    const ankiCardSearchCache = new WeakMap();
+    function ankiSearchCardContent(card) {
+      const title = String(card.title || '');
+      const front = String(card.front || '');
+      const back = String(card.back || '');
+      const cloze = String(card.clozeText || '');
+      const previous = ankiCardSearchCache.get(card);
+      if (previous && previous.title === title && previous.front === front &&
+          previous.back === back && previous.cloze === cloze) return previous.content;
+      const content = [title, ankiSearchPlainText(front), ankiSearchPlainText(back),
+        ankiSearchPlainText(cloze)].join(' ').replace(/\s+/g, ' ').trim();
+      ankiCardSearchCache.set(card, {title, front, back, cloze, content});
+      return content;
+    }
+
+    let ankiGlobalSearchTimer = null;
+    function scheduleAnkiGlobalSearch() {
+      if (ankiGlobalSearchTimer !== null) clearTimeout(ankiGlobalSearchTimer);
+      ankiGlobalSearchTimer = setTimeout(() => {
+        ankiGlobalSearchTimer = null;
+        searchAnkiCards('all');
+      }, 140);
+    }
+
+    function ankiGlobalSearchKeydown(event) {
+      if (event.key === 'Escape') {
+        const input = document.getElementById('allDeckCardSearch');
+        if (input) input.value = '';
+        if (ankiGlobalSearchTimer !== null) clearTimeout(ankiGlobalSearchTimer);
+        ankiGlobalSearchTimer = null;
+        searchAnkiCards('all');
+      }
     }
 
     function searchAnkiCards(scope) {
@@ -3490,36 +3678,88 @@ const content = await zip.generateAsync({ type: "blob" });
       results.replaceChildren();
       results.classList.toggle('hidden', !query);
       if (!query) return;
-      const found = [];
+
+      const matchingDecks = [];
+      const matchingCards = [];
       const decks = isCurrent
         ? [[appState.activeStudyDeckId, appState.decks[appState.activeStudyDeckId]]]
         : Object.entries(appState.decks || {});
       for (const [deckId, deck] of decks) {
-        if (!deck || !Array.isArray(deck.cards)) continue;
-        for (const card of deck.cards) {
-          const content = [card.title || '', ankiSearchPlainText(card.front),
-            ankiSearchPlainText(card.back), ankiSearchPlainText(card.clozeText)].join(' ');
-          if (content.toLocaleLowerCase().includes(query)) found.push({deckId, deck, card, content});
+        if (!deck) continue;
+        if (!isCurrent && [deck.name || '', deck.sourceFileName || ''].some(name =>
+          String(name).toLocaleLowerCase().includes(query))) matchingDecks.push({deckId, deck});
+        for (const card of (Array.isArray(deck.cards) ? deck.cards : [])) {
+          const content = ankiSearchCardContent(card);
+          if (content.toLocaleLowerCase().includes(query)) matchingCards.push({deckId, deck, card, content});
         }
       }
+
+      const limit = 100;
       const summary = document.createElement('p');
       summary.className = 'text-xs text-slate-400';
-      summary.textContent = `${found.length} matching card${found.length === 1 ? '' : 's'}` +
-        (found.length > 100 ? ' (showing first 100)' : '');
+      summary.textContent = isCurrent
+        ? `${matchingCards.length} matching card${matchingCards.length === 1 ? '' : 's'}`
+        : `${matchingDecks.length} matching deck${matchingDecks.length === 1 ? '' : 's'} · ${matchingCards.length} matching card${matchingCards.length === 1 ? '' : 's'}`;
+      if (matchingDecks.length + matchingCards.length > limit)
+        summary.textContent += ` (showing first ${limit} results)`;
       results.appendChild(summary);
-      found.slice(0, 100).forEach(({deckId, deck, card, content}) => {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'anki-search-result';
-        const title = document.createElement('strong');
-        title.className = 'text-sm';
-        title.textContent = `${deck.name} · ${card.title || 'Card'}`;
-        const snippet = document.createElement('small');
-        snippet.textContent = content.slice(0, 200);
-        button.append(title, snippet);
-        button.addEventListener('click', () => openAnkiSearchResult(deckId, card.id));
-        results.appendChild(button);
-      });
+
+      if (!matchingDecks.length && !matchingCards.length) {
+        const empty = document.createElement('p');
+        empty.className = 'text-xs text-slate-400 py-2';
+        empty.textContent = 'No matching decks or cards.';
+        results.appendChild(empty);
+        return;
+      }
+
+      let remaining = limit;
+      if (matchingDecks.length) {
+        const heading = document.createElement('p');
+        heading.className = 'text-[11px] uppercase tracking-wide font-bold text-indigo-400 pt-1';
+        heading.textContent = 'Decks';
+        results.appendChild(heading);
+        matchingDecks.slice(0, remaining).forEach(({deckId, deck}) => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'anki-search-result';
+          const title = document.createElement('strong');
+          title.className = 'text-sm';
+          title.textContent = deck.name || 'Untitled deck';
+          const detail = document.createElement('small');
+          const total = Array.isArray(deck.cards) ? deck.cards.length : 0;
+          detail.textContent = `Deck · ${total} card${total === 1 ? '' : 's'} · Open deck`;
+          button.append(title, detail);
+          button.addEventListener('click', () => {
+            results.classList.add('hidden');
+            startStudy(deckId, true);
+          });
+          results.appendChild(button);
+        });
+        remaining -= Math.min(matchingDecks.length, remaining);
+      }
+
+      if (remaining > 0 && matchingCards.length) {
+        const heading = document.createElement('p');
+        heading.className = 'text-[11px] uppercase tracking-wide font-bold text-indigo-400 pt-2';
+        heading.textContent = 'Cards';
+        results.appendChild(heading);
+        matchingCards.slice(0, remaining).forEach(({deckId, deck, card, content}) => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'anki-search-result';
+          const title = document.createElement('strong');
+          title.className = 'text-sm';
+          title.textContent = `${deck.name || 'Untitled deck'} · ${card.title || 'Card'}`;
+          const snippet = document.createElement('small');
+          snippet.textContent = content.slice(0, 200);
+          button.append(title, snippet);
+          button.addEventListener('click', () => {
+            results.classList.add('hidden');
+            openAnkiSearchResult(deckId, card.id);
+          });
+          results.appendChild(button);
+        });
+      }
     }
 
     function openAnkiSearchResult(deckId, cardId) {
@@ -3573,7 +3813,8 @@ function resetStudyDeck(deckId) {
 let ankiDueReviewInterval = null;
 let ankiWaitingForDue = false;
 function ankiCardIsDue(card, at=Date.now()) {
-  const due=Number(card?.reviewData?.dueAt);
+  const raw=card?.reviewData?.dueAt;
+  const due=raw == null || raw === '' ? NaN : Number(raw);
   return !Number.isFinite(due) || due <= 0 || due <= at;
 }
 function ankiEarliestUpcomingDue() {
@@ -3657,11 +3898,46 @@ function ankiStopDueReviewTimer() {
   ankiWaitingForDue=false;
 }
 function ankiStartDueReviewTimer() {
-  ankiStopDueReviewTimer();
+  // Starting the timer must NOT clear ankiWaitingForDue. That flag was set
+  // by ankiShowDueWaiting() when a deck had no due cards. Resetting it here
+  // prevented the timer from ever replaying the next 1m / 10m card.
+  if (ankiDueReviewInterval !== null) clearInterval(ankiDueReviewInterval);
+  ankiDueReviewInterval=null;
   if (!fullDeckPracticeMode) {
     ankiDueReviewInterval=setInterval(ankiCheckDueWhileStudying,1000);
+    ankiCheckDueWhileStudying();
   }
 }
+
+// Hidden Safari/Chrome tabs throttle timers. Re-check immediately when the
+// app becomes visible again rather than waiting for the next timer tick.
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) {
+    ankiCheckDueWhileStudying();
+    ankiRefreshDeckDueCounts();
+  }
+});
+window.addEventListener('focus', () => {
+  ankiCheckDueWhileStudying();
+  ankiRefreshDeckDueCounts();
+});
+
+// Due badges on deck tiles refresh while the Decks view stays open, even
+// after an Again/Hard interval passes. No archive/file write occurs here.
+function ankiRefreshDeckDueCounts() {
+  if (document.getElementById('view-decks')?.classList.contains('hidden')) return;
+  const now=Date.now();
+  for (const el of document.querySelectorAll('[data-anki-due-count]')) {
+    const deck=appState.decks[el.dataset.ankiDueCount];
+    if (!deck) continue;
+    const due=(deck.cards||[]).filter(card=>ankiCardIsDue(card,now)).length;
+    if (el.dataset.ankiDueCurrent !== String(due)) {
+      el.dataset.ankiDueCurrent=String(due);
+      el.textContent=`${(deck.cards||[]).length} cards · ${due} due`;
+    }
+  }
+}
+setInterval(ankiRefreshDeckDueCounts,15000);
 
 function startStudy(deckId, practiceAll = false) {
       ankiStopDueReviewTimer();
@@ -4037,21 +4313,18 @@ function startStudy(deckId, practiceAll = false) {
       if (!appState.clipboardCard) {
         try {
           const storedClip = localStorage.getItem('anki_shared_clipboard');
-          if (storedClip) {
-            appState.clipboardCard = JSON.parse(storedClip);
-          }
+          if (storedClip) appState.clipboardCard = JSON.parse(storedClip);
         } catch(e) {}
       }
-
       const pasteBtn = document.getElementById('sidebarPasteBtn');
       const globalPasteBtn = document.getElementById('globalPasteBtn');
-      
+      const batchCount = Array.isArray(ankiCardBatchClipboard?.cards) ? ankiCardBatchClipboard.cards.length : 0;
+      const available = batchCount > 0 || !!appState.clipboardCard;
       if (globalPasteBtn) globalPasteBtn.classList.remove('hidden');
-
-      if (appState.clipboardCard) {
-        if (pasteBtn) pasteBtn.classList.remove('hidden');
-      } else {
-        if (pasteBtn) pasteBtn.classList.add('hidden');
+      if (pasteBtn) {
+        pasteBtn.classList.toggle('hidden', !available);
+        pasteBtn.textContent = batchCount ? `Paste ${batchCount} Cards` : 'Paste';
+        pasteBtn.title = batchCount ? `Paste ${batchCount} independent copies into this deck` : 'Paste copied card';
       }
     }
 
@@ -4070,56 +4343,287 @@ function startStudy(deckId, practiceAll = false) {
       }, 1500);
     }
 
-    function copyCardToClipboard(cardId) {
-      const card = appState.studyQueue.find(c => c.id === cardId);
-      if (card) {
-        const clipboardPayload = { ...card, id: 'card_' + Date.now() };
-        appState.clipboardCard = clipboardPayload;
-        
-        try {
-          localStorage.setItem('anki_shared_clipboard', JSON.stringify(clipboardPayload));
-        } catch(e) {
-          console.error("Failed to save clipboard to localStorage", e);
-        }
+    // Selection clipboard is held in this running page. This avoids filling
+    // localStorage's small quota with embedded medical images or large decks.
+    let ankiCardBatchClipboard = null;
+    let ankiCopyPickerSourceId = null;
+    let ankiCopyPickerSelectedIds = new Set();
 
+    function ankiCopyCardData(card, keepReview = false) {
+      // Card front/back are HTML strings with inline base64 images and cloze tokens.
+      // Clone the complete JSON data so edits cannot change a source card.
+      const copied = typeof structuredClone === 'function'
+        ? structuredClone(card) : JSON.parse(JSON.stringify(card));
+      copied.id = 'card_' + Date.now() + '_' +
+        (typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID() : Math.random().toString(36).slice(2) + '_' + Math.random().toString(36).slice(2));
+      if (!keepReview) {
+        delete copied.reviewData;
+        delete copied.reviewHistory;
+      }
+      return copied;
+    }
+
+    function ankiCopyCardsFromDeck(deckId, selectedIds) {
+      const deck = appState.decks[deckId];
+      if (!deck || !Array.isArray(deck.cards)) return 0;
+      const ids = new Set([...selectedIds].map(String));
+      const cards = deck.cards.filter(card => ids.has(String(card.id)));
+      if (!cards.length) { showToast('Please select at least one card.'); return 0; }
+      try {
+        ankiCardBatchClipboard = {
+          sourceDeckId: deckId,
+          cards: cards.map(card => ankiCopyCardData(card, false))
+        };
+        appState.clipboardCard = null; // do not paste a stale single-card selection
+        try { localStorage.removeItem('anki_shared_clipboard'); } catch (_) {}
         checkPasteVisibility();
-        showToast("Card copied to clipboard!");
+        showToast(`${cards.length} card${cards.length === 1 ? '' : 's'} copied. Open the destination deck and press Paste.`);
+        return cards.length;
+      } catch (err) {
+        console.error('Could not copy selected cards', err);
+        showToast('Copy failed; source cards were not changed.');
+        return 0;
       }
     }
 
-    function pasteCardToActiveDeck() {
-      try {
-        const storedClip = localStorage.getItem('anki_shared_clipboard');
-        if (storedClip) {
-          appState.clipboardCard = JSON.parse(storedClip);
-        }
-      } catch(e) {}
+    function ankiCopySelectedSidebarCards() {
+      if (!appState.activeStudyDeckId) return;
+      ankiCopyCardsFromDeck(appState.activeStudyDeckId, selectedSidebarCardIds);
+    }
 
-      if (!appState.clipboardCard) {
-        showToast("Please copy a card first!");
-        return;
+    function ankiOpenCopyCardsPicker(deckId = appState.activeStudyDeckId) {
+      const deck = appState.decks[deckId];
+      if (!deck) { showToast('Choose a deck first.'); return; }
+      ankiCopyPickerSourceId = deckId;
+      ankiCopyPickerSelectedIds = new Set();
+      document.getElementById('ankiCopySearch').value = '';
+      document.getElementById('ankiCopySourceLabel').textContent = `${deck.name} · ${(deck.cards||[]).length} cards, including cards scheduled for later`;
+      document.getElementById('ankiCopyCardsModal').classList.remove('hidden');
+      ankiRenderCopyCardsPicker();
+    }
+
+    function ankiCloseCopyCardsPicker() {
+      document.getElementById('ankiCopyCardsModal').classList.add('hidden');
+      ankiCopyPickerSourceId = null;
+      ankiCopyPickerSelectedIds.clear();
+    }
+
+    function ankiRenderCopyCardsPicker() {
+      const deck = appState.decks[ankiCopyPickerSourceId];
+      const list = document.getElementById('ankiCopyCardsList');
+      const selectedCount = document.getElementById('ankiCopyCount');
+      if (!deck || !list) return;
+      const search = document.getElementById('ankiCopySearch').value.trim().toLowerCase();
+      list.replaceChildren();
+      (deck.cards || []).forEach((card,index) => {
+        if (search && ![card.title,card.front,card.back].some(text => ankiSearchPlainText(text || '').toLowerCase().includes(search))) return;
+        const label = document.createElement('label');
+        label.className = 'flex items-center gap-3 p-2 rounded-lg hover:bg-slate-700/60 text-xs text-slate-200 cursor-pointer';
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox'; checkbox.className = 'w-4 h-4 accent-indigo-500 shrink-0';
+        checkbox.checked = ankiCopyPickerSelectedIds.has(String(card.id));
+        checkbox.addEventListener('change', () => {
+          if(checkbox.checked) ankiCopyPickerSelectedIds.add(String(card.id));
+          else ankiCopyPickerSelectedIds.delete(String(card.id));
+          ankiUpdateCopyPickerCount();
+        });
+        const text = document.createElement('span');
+        text.className = 'truncate flex-1';
+        const summary = card.title || ankiSearchPlainText(card.front||'') || 'Untitled card';
+        text.textContent = `${index+1}. ${summary.slice(0,130)}`;
+        const rating = document.createElement('span');
+        rating.className = 'text-[10px] text-slate-400 shrink-0';
+        rating.textContent = ankiCardStatus(card).toUpperCase();
+        label.append(checkbox,text,rating);
+        list.appendChild(label);
+      });
+      if (!list.children.length) {
+        const empty = document.createElement('div');
+        empty.className = 'p-3 text-xs text-slate-400';
+        empty.textContent = 'No matching cards.';
+        list.appendChild(empty);
       }
-      if (!appState.activeStudyDeckId) {
-        showToast("Open a study deck first!");
-        return;
+      ankiUpdateCopyPickerCount();
+    }
+
+    function ankiUpdateCopyPickerCount() {
+      const count = document.getElementById('ankiCopyCount');
+      if(count) count.textContent = `${ankiCopyPickerSelectedIds.size} selected`;
+    }
+
+    function ankiSetAllCopyPickerCards(selectAll) {
+      const deck = appState.decks[ankiCopyPickerSourceId];
+      if(!deck) return;
+      if(!selectAll) ankiCopyPickerSelectedIds.clear();
+      else {
+        // Select all cards, including future-due cards and search-hidden cards.
+        for(const card of deck.cards || []) ankiCopyPickerSelectedIds.add(String(card.id));
       }
-      
+      ankiRenderCopyCardsPicker();
+    }
+
+    function ankiConfirmCopyCardsPicker() {
+      const deckId=ankiCopyPickerSourceId;
+      if(!deckId || !ankiCopyPickerSelectedIds.size) { showToast('Select cards first.'); return; }
+      const copied=ankiCopyCardsFromDeck(deckId,ankiCopyPickerSelectedIds);
+      if(copied) ankiCloseCopyCardsPicker();
+    }
+
+    function copyCardToClipboard(cardId) {
+      const card = appState.studyQueue.find(c => String(c.id) === String(cardId));
+      if (!card) return;
+      ankiCardBatchClipboard = null;
+      const clipboardPayload = ankiCopyCardData(card, false);
+      appState.clipboardCard = clipboardPayload;
+      try { localStorage.setItem('anki_shared_clipboard',JSON.stringify(clipboardPayload)); }
+      catch(e) { console.warn('Single-card clipboard not persisted; in-page copy still works:',e); }
+      checkPasteVisibility();
+      showToast('Card copied to clipboard!');
+    }
+
+    function pasteCardToActiveDeck() {
+      if (!appState.activeStudyDeckId) { showToast('Open the destination deck first!'); return; }
       const deck = appState.decks[appState.activeStudyDeckId];
-      if (deck) {
-        const clonedCard = { ...appState.clipboardCard, id: 'card_' + Date.now() + '_' + Math.random().toString(36).substr(2, 3) };
-        if (!deck.cards) deck.cards = [];
-        // Insert directly after the card selected in the sidebar/study view.
-        // If no card is selected in an empty deck, append as usual.
-        const selected = appState.studyQueue[appState.studyIndex];
-        const position = selected
-          ? deck.cards.findIndex(c => c.id === selected.id)
-          : -1;
-        const insertionIndex = position >= 0 ? position + 1 : deck.cards.length;
-        deck.cards.splice(insertionIndex, 0, clonedCard);
-        appState.studyQueue = [...deck.cards];
+      if (!deck) return;
+      let copied = ankiCardBatchClipboard?.cards;
+      if (!Array.isArray(copied) || !copied.length) {
+        if(!appState.clipboardCard) {
+          try {
+            const storedClip=localStorage.getItem('anki_shared_clipboard');
+            if(storedClip) appState.clipboardCard=JSON.parse(storedClip);
+          } catch (_) {}
+        }
+        copied = appState.clipboardCard ? [appState.clipboardCard] : [];
+      }
+      if(!copied.length) { showToast('Please copy cards first!'); return; }
+      try {
+        const clones=copied.map(card=>ankiCopyCardData(card,false));
+        if(!Array.isArray(deck.cards)) deck.cards=[];
+        const current=appState.studyQueue[appState.studyIndex];
+        const storedIndex=current ? deck.cards.findIndex(c=>String(c.id)===String(current.id)) : -1;
+        const insertAt=storedIndex>=0?storedIndex+1:deck.cards.length;
+        deck.cards.splice(insertAt,0,...clones);
+        // Only insert the newly due cards into the active queue. Do not replace
+        // a due-only study queue with future-due cards by accident.
+        const queueIndex=current?appState.studyQueue.findIndex(c=>String(c.id)===String(current.id)):-1;
+        if(queueIndex>=0) appState.studyQueue.splice(queueIndex+1,0,...clones);
+        else appState.studyQueue.push(...clones);
+        if(appState.studyQueue.length===clones.length) appState.studyIndex=0;
+        selectedSidebarCardIds.clear();
+        sidebarSelectionAnchorIndex=null;
         saveLocalState();
+        ankiMarkDirty(appState.activeStudyDeckId);
         renderSidebarList();
-        showToast("Card pasted below selected card!");
+        showStudyCard();
+        showToast(`${clones.length} card${clones.length===1?'':'s'} pasted. Source deck unchanged.`);
+      } catch(err) {
+        console.error('Paste failed:',err);
+        showToast('Could not paste cards; check browser storage capacity.');
+      }
+    }
+
+    // Combine entire decks non-destructively. Preserve grading/scheduling when
+    // merging, as opposed to the fresh unreviewed copies made by Copy/Paste.
+    function ankiOpenCombineDecks(firstDeckId) {
+      const ids=Object.keys(appState.decks || {});
+      if(ids.length<2) { showToast('Import or create a second deck before combining.'); return; }
+      const first=document.getElementById('ankiCombineFirst');
+      first.replaceChildren();
+      ids.forEach(id=>first.add(new Option(`${appState.decks[id].name} (${appState.decks[id].cards?.length||0} cards)`,id)));
+      first.value=ids.includes(firstDeckId)?firstDeckId:ids[0];
+      document.getElementById('ankiCombineMode').value='into';
+      document.getElementById('ankiCombineSkipDuplicates').checked=true;
+      ankiUpdateCombineDeckOptions();
+      ankiUpdateCombineMode();
+      document.getElementById('ankiCombineDeckModal').classList.remove('hidden');
+    }
+
+    function ankiCloseCombineDecks() {
+      document.getElementById('ankiCombineDeckModal').classList.add('hidden');
+    }
+
+    function ankiUpdateCombineDeckOptions() {
+      const first=document.getElementById('ankiCombineFirst');
+      const second=document.getElementById('ankiCombineSecond');
+      const old=second.value;
+      second.replaceChildren();
+      Object.keys(appState.decks||{}).filter(id=>id!==first.value).forEach(id=>
+        second.add(new Option(`${appState.decks[id].name} (${appState.decks[id].cards?.length||0} cards)`,id)));
+      if([...second.options].some(o=>o.value===old)) second.value=old;
+      else if(second.options.length) second.selectedIndex=0;
+      ankiUpdateCombineMode();
+    }
+
+    function ankiUpdateCombineMode() {
+      const newMode=document.getElementById('ankiCombineMode').value==='new';
+      const row=document.getElementById('ankiCombineNewNameRow');
+      row.classList.toggle('hidden',!newMode);
+      if(newMode) {
+        const a=appState.decks[document.getElementById('ankiCombineFirst').value]?.name||'First';
+        const b=appState.decks[document.getElementById('ankiCombineSecond').value]?.name||'Second';
+        document.getElementById('ankiCombineNewName').value=`${a} + ${b}`;
+      }
+    }
+
+    function ankiCardContentKey(card) {
+      return JSON.stringify([card.title||'',card.front||'',card.back||'']);
+    }
+
+    function ankiCombineDeckData(firstId, secondId, mode, newName, skipDuplicates=true) {
+      const first=appState.decks[firstId];
+      const second=appState.decks[secondId];
+      if(!first || !second || firstId===secondId) throw new Error('Choose two different decks.');
+      if(!['into','new'].includes(mode)) throw new Error('Invalid combination option.');
+      if(mode==='new' && !String(newName||'').trim()) throw new Error('Enter a name for the combined deck.');
+      const target = mode==='new'
+        ? {id:'deck_'+Date.now()+'_'+Math.random().toString(36).slice(2,8),
+           name:String(newName).trim(),category:first.category||'General',cards:[],lastIndex:0,lastCardId:null}
+        : first;
+      const initial = mode==='new' ? [first,second] : [second];
+      const seen = new Set((target.cards||[]).map(ankiCardContentKey));
+      const additions=[];
+      let skipped=0;
+      for(const source of initial) {
+        for(const card of (source.cards||[])) {
+          const key=ankiCardContentKey(card);
+          if(skipDuplicates && seen.has(key)) { skipped++; continue; }
+          const copy=ankiCopyCardData(card,true);
+          additions.push(copy);
+          seen.add(key);
+        }
+      }
+      if(mode==='new') {
+        target.cards=additions;
+        appState.decks[target.id]=target;
+      } else {
+        if(!Array.isArray(target.cards)) target.cards=[];
+        target.cards.push(...additions);
+      }
+      saveLocalState();
+      ankiMarkDirty(target.id);
+      renderDecks();
+      return { targetId:target.id, added:additions.length, skipped, total:target.cards.length };
+    }
+
+    function ankiConfirmCombineDecks() {
+      const firstId=document.getElementById('ankiCombineFirst').value;
+      const secondId=document.getElementById('ankiCombineSecond').value;
+      const mode=document.getElementById('ankiCombineMode').value;
+      const name=document.getElementById('ankiCombineNewName').value.trim();
+      const skip=document.getElementById('ankiCombineSkipDuplicates').checked;
+      const first=appState.decks[firstId],second=appState.decks[secondId];
+      if(!first||!second||firstId===secondId) { showToast('Choose two different decks.'); return; }
+      const desc=mode==='new' ? `Create a combined deck from "${first.name}" and "${second.name}"?`
+        : `Add cards from "${second.name}" into "${first.name}"?`;
+      if(!confirm(desc+'\n\nNeither original deck will be deleted.')) return;
+      try {
+        const result=ankiCombineDeckData(firstId,secondId,mode,name,skip);
+        ankiCloseCombineDecks();
+        showToast(`Combined: ${result.added} cards added${result.skipped?`, ${result.skipped} duplicates skipped`:''}.`);
+      } catch(err) {
+        console.error('Could not combine decks:',err);
+        alert('Could not combine decks: '+(err?.message||err));
       }
     }
 
@@ -4815,6 +5319,102 @@ document.addEventListener('pointerup', function(event) {
   }
 }, true);
 
+/* Explicit Select All toolbar control for rich Front/Back editors.
+   Uses a DOM Range, so formatting, cloze markup and images are not modified. */
+function ankiSelectAllEditorText(editorId) {
+  if (!ankiAutoSelectEditorIds.has(editorId)) return;
+  const editor = document.getElementById(editorId);
+  if (!editor || !editor.isContentEditable) return;
+  editor.focus({ preventScroll: true });
+  const selection = window.getSelection();
+  if (!selection) return;
+  const range = document.createRange();
+  range.selectNodeContents(editor);
+  selection.removeAllRanges();
+  selection.addRange(range);
+  activeEditorId = editorId;
+  savedRange = range.cloneRange();
+}
+
+
+/* Select through the next comma (,) or full stop (.) from the current caret.
+   Supports formatted text across nested spans, paragraphs and list items.
+   Selection only: never mutates editor HTML or card scheduling/saves. */
+const ankiPunctuationCaretByEditor = new Map();
+function ankiRememberPunctuationCaret(editorId) {
+  const editor = document.getElementById(editorId);
+  const sel = window.getSelection();
+  if (!editor || !sel || !sel.rangeCount) return;
+  const r = sel.getRangeAt(0);
+  if (editor.contains(r.startContainer) && editor.contains(r.endContainer)) {
+    ankiPunctuationCaretByEditor.set(editorId, r.cloneRange());
+  }
+}
+document.addEventListener('selectionchange', function () {
+  const sel = window.getSelection();
+  if (!sel || !sel.rangeCount) return;
+  const r = sel.getRangeAt(0);
+  const parent = r.startContainer.nodeType === Node.ELEMENT_NODE
+    ? r.startContainer : r.startContainer.parentElement;
+  const editor = parent?.closest?.('.editor-canvas[contenteditable="true"]');
+  if (editor && ankiAutoSelectEditorIds.has(editor.id) && editor.contains(r.endContainer)) {
+    ankiPunctuationCaretByEditor.set(editor.id, r.cloneRange());
+  }
+});
+function ankiSelectToNextPunctuation(editorId) {
+  if (!ankiAutoSelectEditorIds.has(editorId)) return;
+  const editor = document.getElementById(editorId);
+  const sel = window.getSelection();
+  if (!editor || !editor.isContentEditable || !sel) return;
+  const inside = r => !!r && editor.contains(r.startContainer) && editor.contains(r.endContainer);
+  const live = sel.rangeCount ? sel.getRangeAt(0) : null;
+  const prior = ankiPunctuationCaretByEditor.get(editorId);
+  const source = inside(live) ? live : inside(prior) ? prior : inside(savedRange) ? savedRange : null;
+  if (!source) {
+    if (typeof showToast === 'function') showToast('Place the cursor in this field first.');
+    return;
+  }
+  const caret = source.cloneRange();
+  // If there is already a selection, continue from its end.
+  caret.collapse(false);
+  const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+  let node, endNode = null, endOffset = 0;
+  while ((node = walker.nextNode())) {
+    if (!node.length || caret.comparePoint(node, node.length) < 0) continue;
+    let offset = 0;
+    if (caret.comparePoint(node, 0) < 0) {
+      // Cursor lies partway through this text node: binary-search the offset.
+      let low = 0, high = node.length;
+      while (low < high) {
+        const mid = (low + high) >> 1;
+        if (caret.comparePoint(node, mid) < 0) low = mid + 1;
+        else high = mid;
+      }
+      offset = low;
+    }
+    const match = /[,.]/.exec(node.data.slice(offset));
+    if (match) {
+      endNode = node;
+      endOffset = offset + match.index + 1; // Include the delimiter.
+      break;
+    }
+  }
+  const range = document.createRange();
+  range.setStart(caret.startContainer, caret.startOffset);
+  if (endNode) range.setEnd(endNode, endOffset);
+  else range.setEnd(editor, editor.childNodes.length);
+  if (range.collapsed) {
+    if (typeof showToast === 'function') showToast('No more text after the cursor.');
+    return;
+  }
+  editor.focus({preventScroll:true});
+  sel.removeAllRanges();
+  sel.addRange(range);
+  activeEditorId = editorId;
+  savedRange = range.cloneRange();
+  ankiPunctuationCaretByEditor.set(editorId, range.cloneRange());
+}
+
 function ankiResizeBackEditor(editor) {
   if (!editor || !editor.isConnected || editor.closest('.hidden')) return;
   editor.style.height = 'auto'; // permits shrinking after deleting text
@@ -5214,57 +5814,112 @@ document.addEventListener('focusin', (e) => {
     
 
 // Apply a preset to selected text only, preserving the remaining card contents.
+/* A formatting preset must not wrap multiple <p>/<div>/<li> blocks in
+   one <span>: that markup is invalid after the card HTML is saved/reparsed.
+   Instead, apply the same inline preset inside each selected paragraph/list
+   item, leaving its block structure and everything outside the selection intact. */
 function applyAnkiPreset(editorId, color, underline) {
   const editor = document.getElementById(editorId);
   if (!editor) return;
   const selection = window.getSelection();
-  let range = selection.rangeCount ? selection.getRangeAt(0).cloneRange() : null;
-  const inEditor = r => r && editor.contains(r.commonAncestorContainer);
-  if ((!inEditor(range) || range.collapsed) && inEditor(savedRange) && !savedRange.collapsed) {
-    range = savedRange.cloneRange();
-  }
-  if (!inEditor(range) || range.collapsed) return;
+  const within = r => r && editor.contains(r.startContainer) && editor.contains(r.endContainer);
+  let original = selection.rangeCount ? selection.getRangeAt(0).cloneRange() : null;
+  if ((!within(original) || original.collapsed) && within(savedRange) && !savedRange.collapsed)
+    original = savedRange.cloneRange();
+  if (!within(original) || original.collapsed) return;
 
-  // Clear ALL old formatting from the selection before applying the preset.
-  // Keep line breaks and list structure, and don't change surrounding text.
-  const fragment = range.extractContents();
-  const cleanNode = node => {
-    if (node.nodeType !== Node.ELEMENT_NODE) return;
-    [...node.childNodes].forEach(cleanNode);
-    const formattingTags = ['B','STRONG','I','EM','U','S','STRIKE','FONT','MARK','SMALL','BIG','SUB','SUP'];
-    if (formattingTags.includes(node.tagName)) {
-      const replacement = document.createDocumentFragment();
-      while (node.firstChild) replacement.appendChild(node.firstChild);
-      node.replaceWith(replacement);
-    } else {
-      node.removeAttribute('style');
-      if (node.tagName === 'SPAN') {
-        const isCloze = node.classList.contains('anki-inline-cloze-token');
-        node.removeAttribute('class');
-        if (isCloze) node.className = 'anki-inline-cloze-token';
+  const blockTags = new Set(['P','DIV','LI','PRE','BLOCKQUOTE','H1','H2','H3','H4','H5','H6']);
+  const groups = [];
+  const visited = new Set();
+  const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+  let textNode;
+  while ((textNode = walker.nextNode())) {
+    if (!textNode.nodeValue || !original.intersectsNode(textNode)) continue;
+    // Selection at a text-node boundary must not apply to an empty suffix.
+    const from = textNode === original.startContainer ? original.startOffset : 0;
+    const to = textNode === original.endContainer ? original.endOffset : textNode.length;
+    if (from >= to) continue;
+    let block = textNode.parentElement;
+    while (block && block !== editor && !blockTags.has(block.tagName)) block = block.parentElement;
+    // Direct editor text is styled individually, not wrapped together with
+    // adjacent block-level nodes (which would recreate the original bug).
+    if (!block || block === editor) block = textNode;
+    if (!visited.has(block)) { visited.add(block); groups.push(block); }
+  }
+  if (!groups.length) return;
+
+  function clearOldInlineFormatting(fragment) {
+    const formattingTags = new Set(['B','STRONG','I','EM','U','S','STRIKE','FONT','MARK','SMALL','BIG','SUB','SUP']);
+    function visit(parent) {
+      for (const child of Array.from(parent.childNodes)) {
+        if (child.nodeType !== Node.ELEMENT_NODE) continue;
+        visit(child);
+        if (formattingTags.has(child.tagName)) {
+          // Unwrap only the selected portion, not its unselected siblings.
+          child.replaceWith(...Array.from(child.childNodes));
+          continue;
+        }
+        // Preserve cloze data, images, links, list markup, and sizing/position
+        // styles unrelated to text formatting (e.g., image occlusion masks).
+        if (child.classList.contains('anki-cleared-format')) child.classList.remove('anki-cleared-format');
+        if (!child.matches('img, .anki-image-cloze, .anki-image-mask, .anki-image-mask-label')) {
+          for (const prop of ['color','font-weight','font-style','font-size','font-family',
+                              'text-decoration','text-decoration-line','text-decoration-color',
+                              'background-color','text-shadow']) child.style.removeProperty(prop);
+          if (child.hasAttribute('style') && !child.getAttribute('style').trim()) child.removeAttribute('style');
+        }
       }
     }
-  };
-  [...fragment.childNodes].forEach(cleanNode);
-  const span = document.createElement('span');
-  span.style.color = color;
-  span.style.fontWeight = 'bold';
-  span.style.fontStyle = 'normal';
-  span.style.fontSize = getComputedStyle(editor).fontSize;
-  span.style.fontFamily = getComputedStyle(editor).fontFamily;
-  span.style.backgroundColor = 'transparent';
-  span.style.textDecorationLine = underline ? 'underline' : 'none';
-  span.style.textDecorationColor = 'currentColor';
-  span.appendChild(fragment);
-  range.insertNode(span);
-  const applied = document.createRange();
-  applied.selectNodeContents(span);
-  editor.focus();
+    visit(fragment);
+  }
+
+  const styled = [];
+  // Reverse order protects the starting/ending selection boundaries while
+  // DOM nodes are extracted and reinserted in other paragraphs.
+  for (const block of groups.reverse()) {
+    const local = document.createRange();
+    if (block.nodeType === Node.TEXT_NODE) {
+      const start = block === original.startContainer ? original.startOffset : 0;
+      const stop = block === original.endContainer ? original.endOffset : block.length;
+      if (start >= stop) continue;
+      local.setStart(block, start);
+      local.setEnd(block, stop);
+    } else {
+      if (block.contains(original.startContainer))
+        local.setStart(original.startContainer, original.startOffset);
+      else local.setStart(block, 0);
+      if (block.contains(original.endContainer))
+        local.setEnd(original.endContainer, original.endOffset);
+      else local.setEnd(block, block.childNodes.length);
+    }
+    if (local.collapsed) continue;
+    const contents = local.extractContents();
+    clearOldInlineFormatting(contents);
+    const span = document.createElement('span');
+    span.style.setProperty('color', color, 'important');
+    span.style.setProperty('font-weight', 'bold', 'important');
+    span.style.setProperty('font-style', 'normal', 'important');
+    span.style.setProperty('font-size', getComputedStyle(editor).fontSize, 'important');
+    span.style.setProperty('font-family', getComputedStyle(editor).fontFamily, 'important');
+    span.style.setProperty('background-color', 'transparent', 'important');
+    span.style.setProperty('text-decoration-line', underline ? 'underline' : 'none', 'important');
+    span.style.setProperty('text-decoration-color', 'currentColor', 'important');
+    span.appendChild(contents);
+    local.insertNode(span);
+    styled.unshift(span);
+  }
+  if (!styled.length) return;
+  // Keep the entire formatted multi-line selection active for consecutive
+  // preset clicks; do not reselect only the first paragraph.
+  editor.focus({preventScroll:true});
+  const updated = document.createRange();
+  updated.setStartBefore(styled[0]);
+  updated.setEndAfter(styled[styled.length - 1]);
   selection.removeAllRanges();
-  selection.addRange(applied);
+  selection.addRange(updated);
+  savedRange = updated.cloneRange();
   activeEditorId = editorId;
-  savedRange = applied.cloneRange();
-  editor.dispatchEvent(new Event('input', {bubbles: true}));
+  editor.dispatchEvent(new Event('input', {bubbles:true}));
 }
 
 function applyColor(color) {
@@ -5740,14 +6395,14 @@ function saveCardEdits() {
 
       // Save the selected rating and its suggested next-review date on the card.
       const now = Date.now();
-      if (!fullDeckPracticeMode) {
-        card.reviewData = card.reviewData || { reviewCount: 0 };
-        card.reviewData.lastRating = selectedRating.label;
-        card.reviewData.intervalMs = selectedRating.intervalMs;
-        card.reviewData.dueAt = now + selectedRating.intervalMs;
-        card.reviewData.lastReviewedAt = now;
-        card.reviewData.reviewCount = (card.reviewData.reviewCount || 0) + 1;
-      }
+      // Soft Reset shows every card without clearing its history. Rating any
+      // card, including during Soft Reset, must create a real timed review.
+      card.reviewData = card.reviewData || { reviewCount: 0 };
+      card.reviewData.lastRating = selectedRating.label;
+      card.reviewData.intervalMs = selectedRating.intervalMs;
+      card.reviewData.dueAt = now + selectedRating.intervalMs;
+      card.reviewData.lastReviewedAt = now;
+      card.reviewData.reviewCount = (Number(card.reviewData.reviewCount) || 0) + 1;
 
       // Count the rating in the current session (once per card for progress).
       if (!studySessionStats) {
@@ -5766,13 +6421,19 @@ function saveCardEdits() {
 
       saveLocalState();
 
-      // In practice mode, preserve its original sequential review behavior.
+      // Soft Reset: let the first full-deck pass remain sequential. Once the
+      // last card is graded, switch to timed reviews rather than ending the
+      // session before Again/Hard cards can reappear.
       if (fullDeckPracticeMode) {
-        if (appState.studyIndex >= appState.studyQueue.length-1) {
-          if (isImmersive) toggleImmersiveMode();
-          showStudySessionSummary(true);
-        } else {
+        renderSidebarList();
+        if (appState.studyIndex < appState.studyQueue.length-1) {
           selectCardFromSidebar(appState.studyIndex+1);
+        } else {
+          fullDeckPracticeMode=false;
+          const dueIndex=ankiNextDueIndex(-1);
+          if (dueIndex >= 0) selectCardFromSidebar(dueIndex);
+          else ankiShowDueWaiting();
+          ankiStartDueReviewTimer();
         }
         return;
       }
@@ -5842,6 +6503,131 @@ function saveCardEdits() {
       alert("Flashcard saved successfully!");
       renderDecks(); // Refresh the new card count in the updated deck tiles.
       switchTab('decks');
+    }
+
+
+    // Schedule overview for imported or manually selected decks. This report
+    // reads the existing AnkiSync reviewData; it does not change scheduling.
+    let ankiOverviewDeckIds=[];
+    function ankiReviewGroup(card) {
+      const r=card?.reviewData;
+      if (!r || (!r.reviewCount && !r.lastReviewedAt && !r.intervalMs)) return 'new';
+      const interval=Number(r.intervalMs);
+      if (interval===60000) return 'again';
+      if (interval===600000) return 'hard';
+      if (interval===86400000) return 'good';
+      if (interval===345600000) return 'easy';
+      return 'other';
+    }
+    function ankiReviewFormatTime(value) {
+      if (value == null || value === '') return 'Not available';
+      const timestamp=Number(value);
+      if (!Number.isFinite(timestamp) || timestamp <= 0) return 'Not available';
+      const date=new Date(timestamp);
+      return Number.isFinite(date.getTime()) ? date.toLocaleString() : 'Not available';
+    }
+    function ankiReviewCardLabel(card) {
+      const value=String(card.title || card.front || 'Untitled card');
+      const label=value.replace(/<[^>]+>/g,' ').replace(/\{\{c\d+::/g,'').replace(/\}\}/g,'').replace(/\s+/g,' ').trim();
+      return ankiEscapeHtml(label.slice(0,130) || 'Untitled card');
+    }
+    function ankiCloseReviewOverview() {
+      document.getElementById('ankiReviewOverview')?.classList.add('hidden');
+    }
+    function ankiStudyFromReviewOverview() {
+      const deckId=ankiOverviewDeckIds.find(id=>
+        (appState.decks[id]?.cards||[]).some(card=>ankiCardIsDue(card))
+      );
+      ankiCloseReviewOverview();
+      if (deckId) startStudy(deckId);
+    }
+    function ankiShowReviewOverview(deckIds, options={}) {
+      const selected=[...new Set((Array.isArray(deckIds)?deckIds:[deckIds]).map(String))]
+        .filter(id=>appState.decks[id] && Array.isArray(appState.decks[id].cards));
+      const modal=document.getElementById('ankiReviewOverview');
+      const body=document.getElementById('ankiReviewOverviewBody');
+      if (!selected.length || !modal || !body) return false;
+      const now=Date.now();
+      const decks=selected.map(id=>{
+        const deck=appState.decks[id];
+        const records=(deck.cards||[]).map(card=>({card, group:ankiReviewGroup(card),due:ankiCardIsDue(card,now)}));
+        return {id,deck,records,due:records.filter(item=>item.due)};
+      });
+      const dueCount=decks.reduce((sum,d)=>sum+d.due.length,0);
+      const totalCount=decks.reduce((sum,d)=>sum+d.records.length,0);
+      if (options.imported && dueCount===0) return false;
+      ankiOverviewDeckIds=selected;
+      document.getElementById('ankiReviewOverviewTitle').textContent=options.imported
+        ? 'Imported deck: reviews ready'
+        : 'Deck review schedule';
+      document.getElementById('ankiReviewOverviewSubtitle').textContent=
+        `${dueCount} due now / ${totalCount} total cards across ${selected.length} deck${selected.length===1?'':'s'} · ${new Date(now).toLocaleString()}`;
+      const groups=[
+        ['again','Again · 1 minute'],['hard','Hard · 10 minutes'],
+        ['good','Good · 1 day'],['easy','Easy · 4 days'],
+        ['new','New / no scheduled review'],['other','Other / imported interval']
+      ];
+      const classFor=group=>'anki-review-'+group;
+      body.innerHTML=decks.map(({deck,records,due})=>{
+        const future=records.filter(item=>!item.due);
+        const upcoming=future.slice().sort((a,b)=>Number(a.card.reviewData?.dueAt)-Number(b.card.reviewData?.dueAt))[0];
+        const head=`<div class="flex flex-wrap gap-2 items-center justify-between">
+          <h3 class="font-bold text-slate-100 text-base break-words">${ankiEscapeHtml(deck.name||'Untitled deck')}</h3>
+          <span class="text-xs text-indigo-300 font-semibold">${due.length} due · ${future.length} upcoming</span>
+          </div>`;
+        const breakdown=`<div class="grid grid-cols-2 sm:grid-cols-3 gap-2">`+
+          groups.map(([group,title])=>{
+            const dueN=due.filter(item=>item.group===group).length;
+            const futureN=future.filter(item=>item.group===group).length;
+            return `<div class="p-2.5 bg-slate-900/70 border border-slate-700/60 rounded-xl space-y-1">
+              <span class="anki-review-status ${classFor(group)}">${title}</span>
+              <div class="text-sm font-bold text-slate-100">${dueN} due</div>
+              <div class="text-xs text-slate-400">${futureN} upcoming</div>
+            </div>`;
+          }).join('')+`</div>`;
+        const next=upcoming?`Next scheduled: ${ankiReviewFormatTime(upcoming.card.reviewData?.dueAt)} (${ankiEscapeHtml(upcoming.card.reviewData?.lastRating||'rating not available')})`:
+          'No future reviews scheduled';
+        const sorted=due.slice().sort((a,b)=>(Number(a.card.reviewData?.dueAt)||0)-(Number(b.card.reviewData?.dueAt)||0));
+        const maxRows=120;
+        const rows=sorted.slice(0,maxRows).map(({card,group})=>{
+          const r=card.reviewData||{};
+          const rating=r.lastRating ? ankiEscapeHtml(String(r.lastRating)) : 'Not available';
+          const last=ankiReviewFormatTime(r.lastReviewedAt);
+          const dueAt=ankiReviewFormatTime(r.dueAt);
+          const dueDescription=r.dueAt ? `Due ${dueAt}` : 'New / no scheduled due date';
+          const reviewCount=Number(r.reviewCount)||0;
+          return `<div class="anki-review-row flex items-start justify-between gap-3 flex-wrap sm:flex-nowrap">
+            <div class="min-w-0 flex-1">
+              <div class="text-sm font-medium text-slate-200 break-words">${ankiReviewCardLabel(card)}</div>
+              <div class="text-xs text-slate-400 mt-1">Last played: ${ankiEscapeHtml(last)} · ${ankiEscapeHtml(dueDescription)}</div>
+              <div class="text-xs text-slate-500 mt-0.5">Last rating: ${rating} · Reviews: ${reviewCount}</div>
+            </div>
+            <span class="anki-review-status ${classFor(group)}">${groups.find(g=>g[0]===group)?.[1]||group}</span>
+          </div>`;
+        }).join('');
+        const dueList=sorted.length
+          ? `<div class="bg-slate-900/50 border border-slate-700 rounded-xl overflow-hidden">${rows}</div>`+
+              (sorted.length>maxRows?`<p class="text-xs text-slate-400">Showing first ${maxRows} of ${sorted.length} due cards; all are still available in Study.</p>`:'')
+          : '<p class="text-xs text-slate-400">No cards are due at this time.</p>';
+        // Also list the nearest upcoming reviews, so 1/10-minute and day
+        // delays can be verified even before a card is due.
+        const upcomingRows=future.slice().sort((a,b)=>Number(a.card.reviewData?.dueAt)-Number(b.card.reviewData?.dueAt))
+          .slice(0,12).map(({card,group})=>`<div class="anki-review-row flex gap-3 items-start justify-between">
+            <div class="min-w-0"><div class="text-sm text-slate-200 break-words">${ankiReviewCardLabel(card)}</div>
+              <div class="text-xs text-slate-400">Next due: ${ankiEscapeHtml(ankiReviewFormatTime(card.reviewData?.dueAt))} · Last played: ${ankiEscapeHtml(ankiReviewFormatTime(card.reviewData?.lastReviewedAt))}</div></div>
+            <span class="anki-review-status ${classFor(group)}">${groups.find(g=>g[0]===group)?.[1]||group}</span>
+          </div>`).join('');
+        return `<section class="space-y-3">${head}${breakdown}
+          <div class="text-xs text-slate-400">${ankiEscapeHtml(next)}</div>
+          <h4 class="font-semibold text-slate-200 text-sm">Due cards (${sorted.length})</h4>${dueList}
+          ${upcomingRows?`<details class="bg-slate-900/40 border border-slate-700 rounded-xl"><summary class="cursor-pointer p-3 text-xs font-bold text-indigo-300">Upcoming cards (${future.length}) — show next 12</summary><div>${upcomingRows}</div></details>`:''}
+        </section>`;
+      }).join('<hr class="border-slate-700 my-3">');
+      const startBtn=document.getElementById('ankiReviewOverviewStart');
+      startBtn?.classList.toggle('hidden',dueCount===0);
+      if(startBtn) startBtn.textContent=selected.length===1?'Study Due Cards':'Study Due Cards in First Due Deck';
+      modal.classList.remove('hidden');
+      return true;
     }
 
     // --- ANKI IMPORT ENGINE ---
@@ -6215,6 +7001,7 @@ function saveCardEdits() {
 
 
 
+        const ankiImportedDeckIds=new Set();
         if (selectedDecks.length > 0 && folderBatch) {
           const sourceFilePath=ankiImportNormalizePath(options.relativePath || file.name);
           const sourceFingerprint=options.sourceFingerprint || await ankiImportFingerprintFile(file);
@@ -6242,6 +7029,7 @@ function saveCardEdits() {
               lastIndex:Math.min(Math.max(...selectedDecks.map(name => importedLastIndexByDeck[name] || 0),0), Math.max(0,allCards.length-1))
             };
           }
+          ankiImportedDeckIds.add(String(existing.id));
           existing.sourceFilePath=canonicalPath;
           existing.sourceFileName=file.name;
           existing.sourceFingerprint=sourceFingerprint;
@@ -6255,6 +7043,7 @@ function saveCardEdits() {
           const targetDeckId = document.getElementById('ankiImportTargetDeck')?.value || '__new__';
           if (targetDeckId !== '__new__' && appState.decks[targetDeckId]) {
             const targetDeck = appState.decks[targetDeckId];
+            ankiImportedDeckIds.add(String(targetDeckId));
             if (!targetDeck.sourceFileName && /\.apkg$/i.test(file.name)) targetDeck.sourceFileName=file.name;
             if (!Array.isArray(targetDeck.cards)) targetDeck.cards = [];
             selectedDecks.forEach(deckName => {
@@ -6286,6 +7075,7 @@ function saveCardEdits() {
           } else {
             selectedDecks.forEach(deckName => {
               const deckId = 'deck_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
+              ankiImportedDeckIds.add(String(deckId));
               appState.decks[deckId] = {
                 id: deckId,
                 name: selectedDecks.length === 1 && importedFileDeckName
@@ -6319,6 +7109,9 @@ function saveCardEdits() {
         setTimeout(() => {
           progressContainer.classList.add('hidden');
           switchTab('decks');
+          if (ankiImportedDeckIds.size) {
+            ankiShowReviewOverview([...ankiImportedDeckIds], {imported:true});
+          }
         }, 800);
 
 
