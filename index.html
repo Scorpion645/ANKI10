@@ -1023,6 +1023,29 @@ body:not(.focus-study-active) #view-study #studyViewMode > .perspective-1000 {
 .anki-deck-reset-buttons { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; width:100%; }
 .anki-deck-reset-buttons button { min-width:0; white-space:nowrap; display:flex; align-items:center; justify-content:center; gap:6px; }
 
+/* Small connection indicator, without changing the existing deck layout. */
+.anki-link-indicator {flex:0 0 10px;width:10px;height:10px;border-radius:50%;background:#64748b;
+  margin-top:5px;box-shadow:0 0 0 2px rgba(100,116,139,.15);}
+.anki-link-indicator.anki-link-connected {background:#22c55e;box-shadow:0 0 0 2px rgba(34,197,94,.22);}
+.anki-legend-week {color:#c4b5fd;}
+#slide-list .slide-item.anki-nav-week {background:rgba(139,92,246,.15); border-left:4px solid #8b5cf6; color:#ddd6fe;}
+body.light-mode .anki-legend-week,body.light-mode #slide-list .slide-item.anki-nav-week {color:#6d28d9;}
+body.light-mode #slide-list .slide-item.anki-nav-week {background:rgba(139,92,246,.12);}
+#ankiReviewOverview .anki-review-week {color:#ddd6fe;background:rgba(139,92,246,.13);border:1px solid rgba(139,92,246,.34);}
+body.light-mode #ankiReviewOverview .anki-review-week {color:#6d28d9;}
+/* Starred file link: use existing accent colors and small live indicator. */
+.anki-star-file-dot {display:inline-block;width:9px;height:9px;border-radius:50%;background:#64748b;border:1px solid #94a3b8;flex-shrink:0;}
+.anki-star-file-dot.anki-star-file-connected {background:#10b981;border-color:#34d399;box-shadow:0 0 0 2px rgba(16,185,129,.18);}
+/* Starred cards: use the existing gold accent and a non-interactive source-deck divider. */
+.anki-star-btn { color:#fbbf24; border-color:rgba(245,158,11,.45); background:rgba(245,158,11,.09); }
+.anki-star-btn:hover, .anki-star-btn[aria-pressed="true"] { color:#fde68a; background:rgba(245,158,11,.23); }
+.anki-star-btn[aria-pressed="false"] { color:#94a3b8; background:transparent; border-color:#475569; }
+.anki-star-group { padding:9px 12px; background:rgba(99,102,241,.16); border-top:2px solid rgba(129,140,248,.5); border-bottom:1px solid rgba(129,140,248,.3); color:#c7d2fe; font-weight:800; font-size:12px; word-break:break-word; }
+.anki-star-group:first-child { border-top:0; }
+body.light-mode .anki-star-group { background:#e0e7ff; color:#3730a3; }
+.anki-star-origin { color:#fbbf24; font-size:11px; font-weight:600; overflow-wrap:anywhere; }
+body.light-mode .anki-star-origin { color:#92400e; }
+@media(max-width:700px) { body.anki-iphone #slide-list .anki-star-group { grid-column:1/-1; text-align:start; } }
 /* Layout adjustments: reuse original navigation and reveal colors. */
 #view-study .perspective-1000 { position: relative; }
 #ankiRevealAtCardBottom { position:absolute; bottom:12px; left:50%; transform:translateX(-50%); z-index:15; display:flex; align-items:center; justify-content:center; gap:8px; white-space:nowrap; }
@@ -1036,6 +1059,8 @@ body:not(.focus-study-active) #view-study #studyViewMode > .perspective-1000 {
 #studyEditMode > .space-y-4:first-child { max-height: min(76vh, 980px) !important; }
 @media (max-width:700px) {
   #ankiRevealAtCardBottom { bottom:10px; }
+  #srsControls { gap:4px; }
+  #srsControls button { min-width:0; padding-left:2px; padding-right:2px; }
   #view-study #frontContent, #view-study #backContent { padding-bottom:53px; }
 }
     /* Hide global search while in distraction-free study or immersive modes. */
@@ -1057,6 +1082,28 @@ body.light-mode #ankiReviewOverview .anki-review-hard {color:#92400e;}
 body.light-mode #ankiReviewOverview .anki-review-good {color:#047857;}
 body.light-mode #ankiReviewOverview .anki-review-easy {color:#4338ca;}
 body.light-mode #ankiReviewOverview .anki-review-new {color:#0e7490;}
+
+/* Arabic and mixed Arabic/English cards: automatic base direction per block.
+   Does not override explicitly aligned text or previously saved dir attributes. */
+.editor-canvas[dir="auto"], .anki-content[dir="auto"] { text-align:start !important; }
+.editor-canvas :is(p,div,li,blockquote,h1,h2,h3,h4,h5,h6)[dir="auto"],
+.anki-content :is(p,div,li,blockquote,h1,h2,h3,h4,h5,h6)[dir="auto"] {
+  text-align:start !important;
+  unicode-bidi:plaintext;
+}
+.editor-canvas :is(ul,ol):dir(rtl),
+.anki-content :is(ul,ol):dir(rtl) {
+  margin-left:0 !important;
+  padding-left:0 !important;
+  margin-right:2.5em !important;
+  padding-right:1.4em !important;
+}
+.editor-canvas li:dir(rtl), .anki-content li:dir(rtl) {
+  padding-left:0 !important;
+  padding-right:.45em !important;
+  text-align:start !important;
+}
+
 </style>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col font-sans antialiased selection:bg-indigo-500 selection:text-white">
@@ -1138,6 +1185,15 @@ body.light-mode #ankiReviewOverview .anki-review-new {color:#0e7490;}
         </div>
       </div>
 
+
+      <!-- Device-local permissions: choosing a shared iCloud/Anki directory on
+           each desktop is a one-time user grant, never a transferable link. -->
+      <div id="ankiSourceFolderPanel" class="flex flex-wrap items-center gap-2 text-xs text-slate-400 bg-slate-800/40 border border-slate-700/60 rounded-xl px-3 py-2">
+        <i class="fa-solid fa-folder-open text-indigo-400" aria-hidden="true"></i>
+        <span id="ankiSourceFolderStatus" class="flex-1 min-w-[180px]">Anki folder connection</span>
+        <button type="button" onclick="ankiConnectSourceFolder()" class="px-3 py-1.5 rounded-lg border border-indigo-500/40 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20">Connect Anki Folder</button>
+        <button type="button" onclick="ankiRestoreSavedFileAccess()" class="px-3 py-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20">Restore Access</button>
+      </div>
 
       <div id="decksGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       </div>
@@ -1230,6 +1286,7 @@ body.light-mode #ankiReviewOverview .anki-review-new {color:#0e7490;}
             <div id="sidebarBatchToolbar" class="hidden flex items-center justify-between bg-slate-900 px-2 py-1.5 rounded-lg border border-slate-700 text-xs">
               <span id="sidebarSelectedCount" class="text-indigo-400 font-bold">0 selected</span>
               <div class="flex items-center space-x-1">
+                <button type="button" onclick="ankiStarSelectedSidebarCards()" class="p-1 px-1.5 bg-amber-600 hover:bg-amber-500 rounded text-white" title="Add selected cards to Starred Cards (or remove them when inside Starred Cards)"><i class="fa-solid fa-star"></i><span class="ml-1">Star / Unstar Selected</span></button>
                 <button type="button" onclick="ankiCopySelectedSidebarCards()" class="p-1 px-1.5 bg-indigo-600 hover:bg-indigo-500 rounded text-white" title="Copy selected cards to another deck without deleting them"><i class="fa-solid fa-copy"></i><span class="ml-1">Copy Selected</span></button>
                 <button type="button" onclick="deleteSelectedSidebarCards()" class="p-1 px-1.5 bg-rose-600 hover:bg-rose-500 rounded text-white" title="Delete selected cards"><i class="fa-solid fa-trash"></i><span class="ml-1">Delete</span></button>
               </div>
@@ -1238,7 +1295,7 @@ body.light-mode #ankiReviewOverview .anki-review-new {color:#0e7490;}
           <div id="ankiCardStatusLegend" class="anki-card-legend" aria-label="Card review colors">
             <span class="anki-legend-new">New</span><span class="anki-legend-again">Again</span>
             <span class="anki-legend-hard">Hard</span><span class="anki-legend-good">Good</span>
-            <span class="anki-legend-easy">Easy</span>
+            <span class="anki-legend-easy">Easy</span><span class="anki-legend-week">7 Days</span>
           </div>
           <ul id="slide-list" class="slide-list">
           </ul>
@@ -1267,14 +1324,14 @@ body.light-mode #ankiReviewOverview .anki-review-new {color:#0e7490;}
                 <!-- Front Side -->
                 <div id="cardFront" class="card-front w-full flex-1 flex flex-col items-center justify-center text-center space-y-4">
                   <span id="cardTitleBadge" class="text-[10px] font-bold tracking-wider uppercase text-slate-400 bg-slate-900/80 px-2.5 py-1 rounded-full border border-slate-700">QUESTION</span>
-                  <div id="frontContent" class="anki-content text-base md:text-lg text-slate-100 max-w-xl overflow-y-auto max-h-[260px] w-full">
+                  <div id="frontContent" dir="auto" class="anki-content text-base md:text-lg text-slate-100 max-w-xl overflow-y-auto max-h-[260px] w-full">
 </div>
                 </div>
 
                 <!-- Back Side -->
                 <div id="cardBack" class="card-back absolute inset-0 p-6 w-full h-full flex flex-col items-center justify-center text-center space-y-4 bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden">
                   <span class="text-[10px] font-bold tracking-wider uppercase text-indigo-400 bg-indigo-950/80 px-2.5 py-1 rounded-full border border-indigo-800/50">ANSWER</span>
-                  <div id="backContent" class="anki-content text-base md:text-lg text-slate-100 max-w-xl overflow-y-auto max-h-[260px] w-full">
+                  <div id="backContent" dir="auto" class="anki-content text-base md:text-lg text-slate-100 max-w-xl overflow-y-auto max-h-[260px] w-full">
 </div>
                 </div>
                 
@@ -1286,6 +1343,7 @@ body.light-mode #ankiReviewOverview .anki-review-new {color:#0e7490;}
                 <button id="floatingEditCardButton" type="button" class="hidden anki-floating-edit-button" aria-label="Edit current card" title="Edit current card">
                   <i class="fa-solid fa-pen-to-square" aria-hidden="true"></i><span>Edit Card</span>
                 </button>
+                <button id="ankiCurrentStarButton" type="button" onclick="event.stopPropagation(); ankiToggleCurrentCardStar()" class="anki-star-btn rounded-xl border px-3 min-h-[40px] text-xs font-bold inline-flex items-center gap-1" aria-pressed="false" aria-label="Star this card" title="Star/unstar card into the Starred Cards collection"><i class="fa-regular fa-star" aria-hidden="true"></i><span>Star</span></button>
               </div>
             </div>
 
@@ -1296,7 +1354,7 @@ body.light-mode #ankiReviewOverview .anki-review-new {color:#0e7490;}
             </div>
 
             <!-- SRS Rating Controls -->
-            <div id="srsControls" class="grid grid-cols-4 gap-2 pt-4">
+            <div id="srsControls" class="grid grid-cols-5 gap-2 pt-4">
               <button onclick="rateCard(1)" class="py-2.5 px-2 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 rounded-xl font-semibold text-xs flex flex-col items-center space-y-0.5 transition">
                 <span>Again</span>
                 <span class="text-[9px] text-rose-400/70 font-normal">1m</span>
@@ -1312,6 +1370,10 @@ body.light-mode #ankiReviewOverview .anki-review-new {color:#0e7490;}
               <button onclick="rateCard(4)" class="py-2.5 px-2 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 rounded-xl font-semibold text-xs flex flex-col items-center space-y-0.5 transition">
                 <span>Easy</span>
                 <span class="text-[9px] text-indigo-400/70 font-normal">4d</span>
+              </button>
+              <button onclick="rateCard(5)" class="py-2.5 px-2 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/30 text-violet-300 rounded-xl font-semibold text-xs flex flex-col items-center space-y-0.5 transition" title="Schedule the next review in 7 days">
+                <span>7 Days</span>
+                <span class="text-[9px] text-violet-400/70 font-normal">7d</span>
               </button>
             </div>
           </div>
@@ -1374,12 +1436,12 @@ body.light-mode #ankiReviewOverview .anki-review-new {color:#0e7490;}
                   <button type="button" onmousedown="event.preventDefault()" onclick="execCmd('insertOrderedList', 'editCardFront')" class="toolbar-btn" title="Numbered List"><i class="fa-solid fa-list-ol"></i></button>
                   <button type="button" onmousedown="event.preventDefault()" onclick="clearSelectedEditorFormatting('editCardFront')" class="toolbar-btn" title="Clear Formatting (selected front text only)"><i class="fa-solid fa-eraser"></i></button>
                   <button type="button" onmousedown="event.preventDefault()" onclick="ankiSelectAllEditorText('editCardFront')" class="toolbar-btn" title="Select all content in Front" aria-label="Select all Front text"><i class="fa-solid fa-object-group"></i> Select All</button>
-                  <button type="button" onpointerdown="ankiRememberPunctuationCaret('editCardFront')" onmousedown="event.preventDefault()" onclick="ankiSelectToNextPunctuation('editCardFront')" class="toolbar-btn" title="Select from the cursor through the next comma or period" aria-label="Select text up to next comma or period"><i class="fa-solid fa-i-cursor"></i> To , / .</button>
+                  <button type="button" onpointerdown="event.preventDefault()" onmousedown="event.preventDefault()" onclick="ankiSelectToNextPunctuation('editCardFront')" class="toolbar-btn" title="Select through next comma, period, semicolon, or Arabic punctuation" aria-label="Select to next comma, period, semicolon, or Arabic punctuation"><i class="fa-solid fa-i-cursor"></i> To , / . / ;</button>
                 </div>
                 <button type="button" onmousedown="event.preventDefault()" onclick="insertBackClozeField('editCardFront')" class="toolbar-btn mb-1" title="Convert selected front text to a cloze, or insert a new cloze field"><i class="fa-solid fa-square-plus"></i> Add Cloze Field</button>
 <button type="button" onmousedown="event.preventDefault()" onclick="toggleClozeTogether('editCardFront')" class="toolbar-btn mb-1" title="Link this cloze to the preceding cloze so both reveal together"><i class="fa-solid fa-link"></i> Reveal Together</button>
 <button type="button" onmousedown="event.preventDefault()" onclick="openImageClozeModal('editCardFront')" class="toolbar-btn mb-1" title="Draw reversible, numbered masks on an image; reveal them with Space"><i class="fa-solid fa-masks-theater"></i> Image Cloze</button>
-                <div id="editCardFront" contenteditable="true" class="editor-canvas !min-h-[80px]"></div>
+                <div id="editCardFront" dir="auto" contenteditable="true" class="editor-canvas !min-h-[80px]"></div>
               </div>
 
               <!-- Back Editor -->
@@ -1435,13 +1497,13 @@ body.light-mode #ankiReviewOverview .anki-review-new {color:#0e7490;}
                   <button type="button" onmousedown="event.preventDefault()" onclick="execCmd('insertOrderedList', 'editCardBack')" class="toolbar-btn" title="Numbered List"><i class="fa-solid fa-list-ol"></i></button>
                   <button type="button" onmousedown="event.preventDefault()" onclick="clearSelectedEditorFormatting('editCardBack')" class="toolbar-btn" title="Clear Formatting"><i class="fa-solid fa-eraser"></i></button>
                   <button type="button" onmousedown="event.preventDefault()" onclick="ankiSelectAllEditorText('editCardBack')" class="toolbar-btn" title="Select all content in Back" aria-label="Select all Back text"><i class="fa-solid fa-object-group"></i> Select All</button>
-                  <button type="button" onpointerdown="ankiRememberPunctuationCaret('editCardBack')" onmousedown="event.preventDefault()" onclick="ankiSelectToNextPunctuation('editCardBack')" class="toolbar-btn" title="Select from the cursor through the next comma or period" aria-label="Select text up to next comma or period"><i class="fa-solid fa-i-cursor"></i> To , / .</button>
+                  <button type="button" onpointerdown="event.preventDefault()" onmousedown="event.preventDefault()" onclick="ankiSelectToNextPunctuation('editCardBack')" class="toolbar-btn" title="Select through next comma, period, semicolon, or Arabic punctuation" aria-label="Select to next comma, period, semicolon, or Arabic punctuation"><i class="fa-solid fa-i-cursor"></i> To , / . / ;</button>
                   <button type="button" id="ankiSaveChangesToolbar" onclick="saveCardEdits()" class="anki-toolbar-save px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold shadow-sm transition" title="Save Changes"><i class="fa-solid fa-floppy-disk"></i> Save Changes</button>
                 </div>
                 <button type="button" onmousedown="event.preventDefault()" onclick="insertBackClozeField('editCardBack')" class="toolbar-btn mb-1" title="Insert a numbered cloze field"><i class="fa-solid fa-square-plus"></i> Add Cloze Field</button>
 <button type="button" onmousedown="event.preventDefault()" onclick="toggleClozeTogether('editCardBack')" class="toolbar-btn mb-1" title="Link this cloze to the preceding cloze so both reveal together"><i class="fa-solid fa-link"></i> Reveal Together</button>
 <button type="button" onmousedown="event.preventDefault()" onclick="openImageClozeModal('editCardBack')" class="toolbar-btn mb-1" title="Draw reversible, numbered masks on an image; reveal them with Space"><i class="fa-solid fa-masks-theater"></i> Image Cloze</button>
-                <div id="editCardBack" contenteditable="true" class="editor-canvas !min-h-[80px]"></div>
+                <div id="editCardBack" dir="auto" contenteditable="true" class="editor-canvas !min-h-[80px]"></div>
               </div>
 
 
@@ -1542,13 +1604,13 @@ body.light-mode #ankiReviewOverview .anki-review-new {color:#0e7490;}
 
               <button type="button" onmousedown="event.preventDefault()" onclick="clearSelectedEditorFormatting('createCardFront')" class="toolbar-btn" title="Clear Formatting"><i class="fa-solid fa-eraser"></i></button>
                   <button type="button" onmousedown="event.preventDefault()" onclick="ankiSelectAllEditorText('createCardFront')" class="toolbar-btn" title="Select all content in Front" aria-label="Select all Front text"><i class="fa-solid fa-object-group"></i> Select All</button>
-                  <button type="button" onpointerdown="ankiRememberPunctuationCaret('createCardFront')" onmousedown="event.preventDefault()" onclick="ankiSelectToNextPunctuation('createCardFront')" class="toolbar-btn" title="Select from the cursor through the next comma or period" aria-label="Select text up to next comma or period"><i class="fa-solid fa-i-cursor"></i> To , / .</button>
+                  <button type="button" onpointerdown="event.preventDefault()" onmousedown="event.preventDefault()" onclick="ankiSelectToNextPunctuation('createCardFront')" class="toolbar-btn" title="Select through next comma, period, semicolon, or Arabic punctuation" aria-label="Select to next comma, period, semicolon, or Arabic punctuation"><i class="fa-solid fa-i-cursor"></i> To , / . / ;</button>
             </div>
             
 <button type="button" onmousedown="event.preventDefault()" onclick="insertBackClozeField('createCardFront')" class="toolbar-btn mb-1" title="Convert selected front text to a cloze, or insert a new cloze field"><i class="fa-solid fa-square-plus"></i> Add Cloze Field</button>
 <button type="button" onmousedown="event.preventDefault()" onclick="toggleClozeTogether('createCardFront')" class="toolbar-btn mb-1" title="Link this cloze to the preceding cloze so both reveal together"><i class="fa-solid fa-link"></i> Reveal Together</button>
 <button type="button" onmousedown="event.preventDefault()" onclick="openImageClozeModal('createCardFront')" class="toolbar-btn mb-1" title="Draw reversible, numbered masks on an image; reveal them with Space"><i class="fa-solid fa-masks-theater"></i> Image Cloze</button>
-                <div id="createCardFront" contenteditable="true" class="editor-canvas" style="font-weight: bold;"><span style="font-weight: bold;"><br></span></div>
+                <div id="createCardFront" dir="auto" contenteditable="true" class="editor-canvas" style="font-weight: bold;"><span style="font-weight: bold;"><br></span></div>
           </div>
 
           <!-- Back Editor -->
@@ -1605,13 +1667,13 @@ body.light-mode #ankiReviewOverview .anki-review-new {color:#0e7490;}
 
               <button type="button" onmousedown="event.preventDefault()" onclick="clearSelectedEditorFormatting('createCardBack')" class="toolbar-btn" title="Clear Formatting"><i class="fa-solid fa-eraser"></i></button>
                   <button type="button" onmousedown="event.preventDefault()" onclick="ankiSelectAllEditorText('createCardBack')" class="toolbar-btn" title="Select all content in Back" aria-label="Select all Back text"><i class="fa-solid fa-object-group"></i> Select All</button>
-                  <button type="button" onpointerdown="ankiRememberPunctuationCaret('createCardBack')" onmousedown="event.preventDefault()" onclick="ankiSelectToNextPunctuation('createCardBack')" class="toolbar-btn" title="Select from the cursor through the next comma or period" aria-label="Select text up to next comma or period"><i class="fa-solid fa-i-cursor"></i> To , / .</button>
+                  <button type="button" onpointerdown="event.preventDefault()" onmousedown="event.preventDefault()" onclick="ankiSelectToNextPunctuation('createCardBack')" class="toolbar-btn" title="Select through next comma, period, semicolon, or Arabic punctuation" aria-label="Select to next comma, period, semicolon, or Arabic punctuation"><i class="fa-solid fa-i-cursor"></i> To , / . / ;</button>
                   <button type="button" id="ankiSaveNewToolbar" onclick="saveNewCard()" class="anki-toolbar-save px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold shadow-sm transition" title="Save Flashcard"><i class="fa-solid fa-floppy-disk"></i> Save Flashcard</button>
             </div>
             <button type="button" onmousedown="event.preventDefault()" onclick="insertBackClozeField('createCardBack')" class="toolbar-btn mb-1" title="Insert a numbered cloze field"><i class="fa-solid fa-square-plus"></i> Add Cloze Field</button>
 <button type="button" onmousedown="event.preventDefault()" onclick="toggleClozeTogether('createCardBack')" class="toolbar-btn mb-1" title="Link this cloze to the preceding cloze so both reveal together"><i class="fa-solid fa-link"></i> Reveal Together</button>
 <button type="button" onmousedown="event.preventDefault()" onclick="openImageClozeModal('createCardBack')" class="toolbar-btn mb-1" title="Draw reversible, numbered masks on an image; reveal them with Space"><i class="fa-solid fa-masks-theater"></i> Image Cloze</button>
-            <div id="createCardBack" contenteditable="true" class="editor-canvas"></div>
+            <div id="createCardBack" dir="auto" contenteditable="true" class="editor-canvas"></div>
           </div>
         </div>
       </div>
@@ -1732,12 +1794,12 @@ body.light-mode #ankiReviewOverview .anki-review-new {color:#0e7490;}
 
             <button type="button" onmousedown="event.preventDefault()" onclick="clearSelectedEditorFormatting('modalCardFront')" class="toolbar-btn" title="Clear Formatting"><i class="fa-solid fa-eraser"></i></button>
                   <button type="button" onmousedown="event.preventDefault()" onclick="ankiSelectAllEditorText('modalCardFront')" class="toolbar-btn" title="Select all content in Front" aria-label="Select all Front text"><i class="fa-solid fa-object-group"></i> Select All</button>
-                  <button type="button" onpointerdown="ankiRememberPunctuationCaret('modalCardFront')" onmousedown="event.preventDefault()" onclick="ankiSelectToNextPunctuation('modalCardFront')" class="toolbar-btn" title="Select from the cursor through the next comma or period" aria-label="Select text up to next comma or period"><i class="fa-solid fa-i-cursor"></i> To , / .</button>
+                  <button type="button" onpointerdown="event.preventDefault()" onmousedown="event.preventDefault()" onclick="ankiSelectToNextPunctuation('modalCardFront')" class="toolbar-btn" title="Select through next comma, period, semicolon, or Arabic punctuation" aria-label="Select to next comma, period, semicolon, or Arabic punctuation"><i class="fa-solid fa-i-cursor"></i> To , / . / ;</button>
           </div>
 <button type="button" onmousedown="event.preventDefault()" onclick="insertBackClozeField('modalCardFront')" class="toolbar-btn mb-1" title="Convert selected front text to a cloze, or insert a new cloze field"><i class="fa-solid fa-square-plus"></i> Add Cloze Field</button>
 <button type="button" onmousedown="event.preventDefault()" onclick="toggleClozeTogether('modalCardFront')" class="toolbar-btn mb-1" title="Link this cloze to the preceding cloze so both reveal together"><i class="fa-solid fa-link"></i> Reveal Together</button>
 <button type="button" onmousedown="event.preventDefault()" onclick="openImageClozeModal('modalCardFront')" class="toolbar-btn mb-1" title="Draw reversible, numbered masks on an image; reveal them with Space"><i class="fa-solid fa-masks-theater"></i> Image Cloze</button>
-                <div id="modalCardFront" contenteditable="true" class="editor-canvas !min-h-[80px]" style="font-weight: bold;"></div>
+                <div id="modalCardFront" dir="auto" contenteditable="true" class="editor-canvas !min-h-[80px]" style="font-weight: bold;"></div>
         </div>
 
         <div>
@@ -1805,13 +1867,13 @@ body.light-mode #ankiReviewOverview .anki-review-new {color:#0e7490;}
 
             <button type="button" onmousedown="event.preventDefault()" onclick="clearSelectedEditorFormatting('modalCardBack')" class="toolbar-btn" title="Clear Formatting"><i class="fa-solid fa-eraser"></i></button>
                   <button type="button" onmousedown="event.preventDefault()" onclick="ankiSelectAllEditorText('modalCardBack')" class="toolbar-btn" title="Select all content in Back" aria-label="Select all Back text"><i class="fa-solid fa-object-group"></i> Select All</button>
-                  <button type="button" onpointerdown="ankiRememberPunctuationCaret('modalCardBack')" onmousedown="event.preventDefault()" onclick="ankiSelectToNextPunctuation('modalCardBack')" class="toolbar-btn" title="Select from the cursor through the next comma or period" aria-label="Select text up to next comma or period"><i class="fa-solid fa-i-cursor"></i> To , / .</button>
+                  <button type="button" onpointerdown="event.preventDefault()" onmousedown="event.preventDefault()" onclick="ankiSelectToNextPunctuation('modalCardBack')" class="toolbar-btn" title="Select through next comma, period, semicolon, or Arabic punctuation" aria-label="Select to next comma, period, semicolon, or Arabic punctuation"><i class="fa-solid fa-i-cursor"></i> To , / . / ;</button>
                   <button type="button" id="ankiSaveAddToolbar" onclick="saveModalCard()" class="anki-toolbar-save px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold shadow-sm transition" title="Save & Add Card"><i class="fa-solid fa-floppy-disk"></i> Save & Add Card</button>
           </div>
           <button type="button" onmousedown="event.preventDefault()" onclick="insertBackClozeField('modalCardBack')" class="toolbar-btn mb-1" title="Insert a numbered cloze field"><i class="fa-solid fa-square-plus"></i> Add Cloze Field</button>
 <button type="button" onmousedown="event.preventDefault()" onclick="toggleClozeTogether('modalCardBack')" class="toolbar-btn mb-1" title="Link this cloze to the preceding cloze so both reveal together"><i class="fa-solid fa-link"></i> Reveal Together</button>
 <button type="button" onmousedown="event.preventDefault()" onclick="openImageClozeModal('modalCardBack')" class="toolbar-btn mb-1" title="Draw reversible, numbered masks on an image; reveal them with Space"><i class="fa-solid fa-masks-theater"></i> Image Cloze</button>
-          <div id="modalCardBack" contenteditable="true" class="editor-canvas !min-h-[80px]"></div>
+          <div id="modalCardBack" dir="auto" contenteditable="true" class="editor-canvas !min-h-[80px]"></div>
         </div>
       </div>
 
@@ -1957,7 +2019,7 @@ body.light-mode #ankiReviewOverview .anki-review-new {color:#0e7490;}
           <span class="font-semibold uppercase tracking-wide">Answer Ratings</span>
           <span class="text-slate-500">This session</span>
         </div>
-        <div class="grid grid-cols-4 gap-2 text-center">
+        <div class="grid grid-cols-5 gap-2 text-center">
           <div class="rounded-xl bg-rose-500/10 border border-rose-500/20 p-2">
             <div id="summaryAgainCount" class="text-xl font-black text-rose-300">0</div>
             <div class="text-[10px] text-rose-300">Again</div>
@@ -1973,6 +2035,10 @@ body.light-mode #ankiReviewOverview .anki-review-new {color:#0e7490;}
           <div class="rounded-xl bg-indigo-500/10 border border-indigo-500/20 p-2">
             <div id="summaryEasyCount" class="text-xl font-black text-indigo-300">0</div>
             <div class="text-[10px] text-indigo-300">Easy</div>
+          </div>
+          <div class="rounded-xl bg-violet-500/10 border border-violet-500/20 p-2">
+            <div id="summaryWeekCount" class="text-xl font-black text-violet-300">0</div>
+            <div class="text-[10px] text-violet-300">7 Days</div>
           </div>
         </div>
         <div class="flex justify-between items-center border-t border-slate-700/60 pt-2 text-xs">
@@ -2327,8 +2393,148 @@ function promptCreateDeck() {
   showToast("New deck created successfully!");
 }
 
+    const ANKI_STAR_DECK_ID = 'anki_starred_cards_collection_v1';
+    const ANKI_STAR_DECK_NAME = '★ Starred Cards';
+
+    // Each entry in the starred collection is a mirror of its actual source
+    // card, rather than an independent duplicate. Review changes and edits made
+    // in the collection are sent back to that source card.
+    function ankiIsStarDeck(deckId) {
+      return deckId === ANKI_STAR_DECK_ID || !!appState.decks?.[deckId]?.isStarredCollection;
+    }
+    function ankiStarSourceFor(card, deckId) {
+      if (!card) return null;
+      const originId = card.starredSourceDeckId || deckId;
+      if (!originId || ankiIsStarDeck(originId)) return null;
+      const originCardId = String(card.starredSourceCardId ?? card.id);
+      const originDeck = appState.decks?.[originId];
+      const originCard = originDeck?.cards?.find(item => String(item.id) === originCardId);
+      return originCard ? {deckId: originId, deck: originDeck, card: originCard} : null;
+    }
+    function ankiStarOriginName(card) {
+      const deck = appState.decks?.[card.starredSourceDeckId];
+      return deck?.name || card.starredSourceDeckName || 'Original deck unavailable';
+    }
+    function ankiReconcileStarredDeck() {
+      if (!appState?.decks) return;
+      let collection = appState.decks[ANKI_STAR_DECK_ID];
+      // On initial load, do not create an empty collection unless a star exists.
+      const sources = Object.entries(appState.decks).filter(([id,deck]) =>
+        !ankiIsStarDeck(id) && Array.isArray(deck.cards));
+      const flagged = sources.flatMap(([id,deck]) => deck.cards
+        .filter(card => card.starred === true).map(card => ({id,deck,card})));
+      if (!collection && !flagged.length) return;
+      if (!collection) {
+        collection = {id:ANKI_STAR_DECK_ID,name:ANKI_STAR_DECK_NAME,
+          category:'General',isStarredCollection:true,cards:[],lastIndex:0,lastCardId:null};
+        appState.decks[ANKI_STAR_DECK_ID] = collection;
+      }
+      collection.isStarredCollection = true;
+      collection.name = ANKI_STAR_DECK_NAME;
+      if (!Array.isArray(collection.cards)) collection.cards=[];
+      const existing = new Map(collection.cards.map(mirror =>
+        [String(mirror.starredSourceDeckId)+'\u0000'+String(mirror.starredSourceCardId),mirror]));
+      const next=[];
+      flagged.sort((a,b)=> a.deck.name.localeCompare(b.deck.name,undefined,{sensitivity:'base'}) ||
+        (a.deck.cards.indexOf(a.card)-b.deck.cards.indexOf(b.card)));
+      for(const {id,deck,card} of flagged) {
+        const key=String(id)+'\u0000'+String(card.id);
+        let mirror=existing.get(key);
+        if (!mirror) mirror={};
+        // Keep the mirror's identity stable for study queues and scheduled reviews.
+        const mirrorId=mirror.id || ('star_'+Date.now()+'_'+Math.random().toString(36).slice(2,12));
+        const clone={...card,id:mirrorId,starredSourceDeckId:id,
+          starredSourceCardId:String(card.id),starredSourceDeckName:deck.name};
+        delete clone.starred;
+        for(const k of Object.keys(mirror)) if(!(k in clone)) delete mirror[k];
+        Object.assign(mirror,clone);
+        next.push(mirror);
+      }
+      collection.cards=next;
+    }
+    function ankiApplyStarMirrorToSource(card, fields) {
+      if (!card?.starredSourceDeckId) return;
+      const source=ankiStarSourceFor(card,ANKI_STAR_DECK_ID);
+      if (!source) return;
+      for(const field of fields) {
+        if (Object.prototype.hasOwnProperty.call(card,field)) {
+          source.card[field]=field==='reviewData' && card[field]
+            ? {...card[field]} : card[field];
+        } else delete source.card[field];
+      }
+      ankiMarkDirty(source.deckId);
+    }
+    function ankiUpdateCurrentStarButton() {
+      const btn=document.getElementById('ankiCurrentStarButton');
+      if(!btn) return;
+      const current=appState.studyQueue?.[appState.studyIndex];
+      const source=ankiStarSourceFor(current,appState.activeStudyDeckId);
+      const starred=!!source?.card.starred;
+      btn.classList.toggle('hidden',!source);
+      btn.setAttribute('aria-pressed',String(starred));
+      btn.title=starred ? 'Remove this card from Starred Cards' : 'Add this card to Starred Cards';
+      btn.innerHTML='<i class="'+(starred?'fa-solid':'fa-regular')+' fa-star" aria-hidden="true"></i><span>'+(starred?'Starred':'Star')+'</span>';
+    }
+    function ankiToggleCurrentCardStar() {
+      const current=appState.studyQueue?.[appState.studyIndex];
+      if (current) ankiToggleCardStar(current.id);
+    }
+    function ankiStarSelectedSidebarCards() {
+      const selected=appState.studyQueue.filter(c=>selectedSidebarCardIds.has(c.id));
+      if(!selected.length) return;
+      const remove=ankiIsStarDeck(appState.activeStudyDeckId);
+      let changed=0;
+      const sourceDeckIds=new Set();
+      for(const card of selected) {
+        const source=ankiStarSourceFor(card,appState.activeStudyDeckId);
+        if(source && !!source.card.starred===remove) {
+          source.card.starred=!remove;
+          sourceDeckIds.add(source.deckId);
+          changed++;
+        }
+      }
+      ankiReconcileStarredDeck();
+      if(remove) {
+        const removedIds=new Set(selected.map(c=>String(c.id)));
+        appState.studyQueue=appState.studyQueue.filter(c=>!removedIds.has(String(c.id)));
+        appState.studyIndex=Math.min(appState.studyIndex,Math.max(0,appState.studyQueue.length-1));
+      }
+      selectedSidebarCardIds.clear();
+      sourceDeckIds.forEach(id=>ankiMarkDirty(id));
+      saveLocalState();
+      renderDecks();renderSidebarList();
+      if(appState.studyQueue.length) showStudyCard();else ankiShowDueWaiting();
+      showToast(changed+' card'+(changed===1?'':'s')+(remove?' removed from Starred Cards.':' added to Starred Cards.'));
+    }
+    function ankiToggleCardStar(cardId) {
+      const active=appState.activeStudyDeckId;
+      const displayed=appState.decks?.[active]?.cards?.find(c=>String(c.id)===String(cardId));
+      const source=ankiStarSourceFor(displayed,active);
+      if(!source) { showToast('Original card is unavailable.'); return; }
+      source.card.starred=!source.card.starred;
+      const starred=source.card.starred;
+      ankiReconcileStarredDeck();
+      // Unstarring from the collection removes the mirror, never its source.
+      if(ankiIsStarDeck(active) && !starred) {
+        const currentId=String(displayed.id);
+        appState.studyQueue=appState.studyQueue.filter(c=>String(c.id)!==currentId);
+        selectedSidebarCardIds.delete(currentId);
+        appState.studyIndex=Math.min(appState.studyIndex,Math.max(0,appState.studyQueue.length-1));
+      }
+      ankiMarkDirty(source.deckId);
+      saveLocalState();
+      renderDecks();
+      if(document.getElementById('view-study') && !document.getElementById('view-study').classList.contains('hidden')) {
+        renderSidebarList();
+        if(appState.studyQueue.length) showStudyCard();
+        else ankiShowDueWaiting();
+      }
+      showToast(starred ? 'Starred in '+source.deck.name+'. Added to Starred Cards.' : 'Unstarred. Original card was kept.');
+    }
+
     let appState = {
       decks: {},
+      pendingStarredLinks: [],
       categories: ['General', 'Medical', 'Languages'],
       selectedCategory: 'ALL',
       activeStudyDeckId: null,
@@ -2358,9 +2564,17 @@ function promptCreateDeck() {
       await loadStateFromIDB();
       if(!storageReady) console.warn('Persistent browser storage unavailable; progress may not survive closing the page.');
       loadEmbeddedStudyBackup();
+      ankiReconcileStarredDeck();
       await ankiRestoreLinkedHandles();
+      await ankiStarRestoreExportLink();
+      await ankiRestoreSourceFolder();
+      await ankiLinkFromSourceFolder(false);
       renderCategories();
       renderDecks();
+      ankiUpdateSourceFolderStatus();
+      if(ankiMobileSave() || !window.showDirectoryPicker) {
+        document.querySelectorAll('#ankiSourceFolderPanel button').forEach(button=>button.classList.add('hidden'));
+      }
       refreshAnkiImportDeckOptions();
       initSketchCanvas();
       checkPasteVisibility();
@@ -2397,6 +2611,9 @@ function promptCreateDeck() {
     }
 
     function saveLocalState() {
+      ankiApplyPendingStarLinks();
+      ankiReconcileStarredDeck();
+      ankiStarNoticeChange();
       ankiLastBrowserSaveAt = Date.now();
       if (appState.activeStudyDeckId) ankiMarkDirty(appState.activeStudyDeckId);
       if (idbDB) {
@@ -2405,6 +2622,7 @@ function promptCreateDeck() {
           const store = tx.objectStore('state');
           store.put({
             decks: appState.decks,
+            pendingStarredLinks: appState.pendingStarredLinks || [],
             categories: appState.categories,
             selectedCategory: appState.selectedCategory,
             browserSavedAt: ankiLastBrowserSaveAt
@@ -2415,43 +2633,405 @@ function promptCreateDeck() {
       }
     }
 
+    // Dedicated ★ Starred Cards export. A linked file is opt-in: choosing it
+    // once grants access to this file ONLY. The original decks remain read-only
+    // to this exporter. iOS Safari cannot provide a persistent writable handle.
+    const ANKI_STAR_EXPORT_FILENAME = '00. Starred Cards.apkg';
+    const ANKI_STAR_EXPORT_KEY = 'anki-starred-export-file:v1';
+    const ANKI_STAR_RECOVERY_KEY = 'anki-starred-export-recovery:v1';
+    const ANKI_STAR_EXPORT_DELAY_MS = 5000;
+    let ankiStarExportLink = null;
+    let ankiStarExportTimer = null;
+    let ankiStarExportDueAt = 0;
+    function ankiStarAutoCapable() {
+      return !ankiMobileSave() && !!window.isSecureContext &&
+        typeof window.showSaveFilePicker === 'function' && typeof JSZip !== 'undefined';
+    }
+    // Hash of the actual live card material, ratings, sources, and subject names.
+    // The digest lets us detect content updates without re-exporting the whole
+    // package on every unrelated UI redraw or browser-local save.
+    function ankiStarContentDigest() {
+      const collection=appState.decks?.[ANKI_STAR_DECK_ID];
+      const text=JSON.stringify((collection?.cards||[]).map(card=>([
+        card.starredSourceDeckId,card.starredSourceCardId,
+        ankiStarOriginName(card),card.title,card.front,card.back,
+        card.reviewData||null,card.id
+      ])));
+      let a=2166136261,b=5381;
+      for(let i=0;i<text.length;i++){
+        const c=text.charCodeAt(i);
+        a=Math.imul(a^c,16777619);
+        b=Math.imul(b,33)^c;
+      }
+      return text.length+':'+(a>>>0).toString(16)+':'+(b>>>0).toString(16);
+    }
+    function ankiStarManifest(digest,token) {
+      const collection=appState.decks?.[ANKI_STAR_DECK_ID];
+      const groups=new Map();
+      for(const card of (collection?.cards||[])) {
+        const name=ankiStarOriginName(card);
+        if(!groups.has(name)) groups.set(name,[]);
+        groups.get(name).push({
+          sourceDeckId:String(card.starredSourceDeckId||''),
+          sourceDeckName:name,
+          sourceCardId:String(card.starredSourceCardId||''),
+          mirrorCardId:String(card.id),
+          cardDigest:ankiStarCardDigest(card)
+        });
+      }
+      return {format:'AnkiSyncStarredLinkedCollection',version:1,
+        collectionName:ANKI_STAR_DECK_NAME,exportedAt:new Date().toISOString(),
+        saveToken:token,contentDigest:digest,
+        groups:[...groups].map(([sourceDeckName,cards])=>({sourceDeckName,cards}))};
+    }
+    function ankiStarCardDigest(card) {
+      const text=[card.title||'',card.front||'',card.back||''].join('\u001f');
+      let hash=2166136261;
+      for(let i=0;i<text.length;i++) hash=Math.imul(hash^text.charCodeAt(i),16777619);
+      return text.length+':'+(hash>>>0).toString(16);
+    }
+    function ankiStarExportGroupedDecks() {
+      // The root is a real Anki deck, while each original subject becomes an
+      // Anki subdeck. AnkiSync uses the linked manifest to restore live stars.
+      const root={id:ANKI_STAR_DECK_ID,name:ANKI_STAR_DECK_NAME,cards:[],lastIndex:0};
+      const groups=new Map();
+      for(const card of (appState.decks?.[ANKI_STAR_DECK_ID]?.cards||[])) {
+        const name=ankiStarOriginName(card).replace(/::/g,' - ').trim()||'Uncategorized';
+        if(!groups.has(name)) groups.set(name,[]);
+        groups.get(name).push(card);
+      }
+      return [['anki_star_export_root',root],...Array.from(groups,([name,cards],i)=>[
+        'anki_star_export_group_'+i,
+        {name:ANKI_STAR_DECK_NAME+'::'+name,cards,lastIndex:0}
+      ])];
+    }
+    function ankiStarLinkActive() {
+      return !!(ankiStarExportLink?.handle && ankiStarExportLink.verified && !ankiStarExportLink.paused);
+    }
+    function ankiStarExportStatus() {
+      if(!ankiStarAutoCapable())
+        return 'Browser collection saved locally · iPhone: use Save As / Save to Files for a separate package';
+      const e=ankiStarExportLink;
+      if(!e) return 'Dedicated .apkg auto-export: OFF · link once to enable';
+      if(e.paused) return 'Starred .apkg auto-export: PAUSED';
+      if(!e.verified) return 'Starred file remembered · Restore Access to reconnect';
+      const last=e.lastSavedAt?new Date(e.lastSavedAt).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}):'not yet';
+      if(e.busy) return 'Verifying and exporting Starred Cards…';
+      if(e.dirty) {
+        const remaining=Math.max(0,Math.ceil((ankiStarExportDueAt-Date.now())/1000));
+        return 'Next starred-file export: '+remaining+'s · last: '+last;
+      }
+      return 'Starred .apkg linked · last export: '+last+' · saves after every change';
+    }
+    function ankiStarRefreshExportStatus() {
+      const el=document.getElementById('ankiStarExportStatus');
+      if(el) el.textContent=ankiStarExportStatus();
+      const dot=document.getElementById('ankiStarFileDot');
+      if(dot) {
+        dot.classList.toggle('anki-star-file-connected',ankiStarLinkActive());
+        dot.title=ankiStarLinkActive()?'Dedicated Starred .apkg linked':'Dedicated Starred .apkg not linked';
+        dot.setAttribute('aria-label',dot.title);
+      }
+    }
+    function ankiStarCancelExportTimer() {
+      if(ankiStarExportTimer!==null) clearTimeout(ankiStarExportTimer);
+      ankiStarExportTimer=null; ankiStarExportDueAt=0;
+    }
+    function ankiStarScheduleExport(delay=ANKI_STAR_EXPORT_DELAY_MS) {
+      const e=ankiStarExportLink;
+      if(!e || e.paused || !e.handle) return;
+      if(!e.verified) {e.dirty=true;ankiStarRefreshExportStatus();return;}
+      e.dirty=true;
+      if(!e.busy && ankiStarExportTimer===null) {
+        ankiStarExportDueAt=Date.now()+delay;
+        ankiStarExportTimer=setTimeout(()=>{
+          ankiStarExportTimer=null; ankiStarExportDueAt=0;
+          ankiStarExportNow(false);
+        },delay);
+      }
+      ankiStarRefreshExportStatus();
+    }
+    function ankiStarNoticeChange() {
+      const e=ankiStarExportLink;
+      if(!e || e.paused) return;
+      if(ankiStarContentDigest()!==e.savedDigest) ankiStarScheduleExport();
+    }
+    async function ankiStarStoreExportLink() {
+      const e=ankiStarExportLink;
+      if(!e||!idbDB) return;
+      await new Promise((resolve,reject)=>{
+        const tx=idbDB.transaction('state','readwrite');
+        tx.objectStore('state').put({handle:e.handle,lastDiskStamp:e.lastDiskStamp,
+          lastSavedAt:e.lastSavedAt||null,savedDigest:e.savedDigest||null,
+          paused:!!e.paused},ANKI_STAR_EXPORT_KEY);
+        tx.oncomplete=()=>resolve();
+        tx.onerror=()=>reject(tx.error||new Error('Cannot remember linked Starred .apkg'));
+        tx.onabort=()=>reject(tx.error||new Error('Starred .apkg link was not saved'));
+      });
+    }
+    async function ankiStarRestoreExportLink() {
+      if(!idbDB || !ankiStarAutoCapable()) return;
+      try {
+        const row=await new Promise(resolve=>{
+          const tx=idbDB.transaction('state','readonly');
+          const req=tx.objectStore('state').get(ANKI_STAR_EXPORT_KEY);
+          req.onsuccess=()=>resolve(req.result);req.onerror=()=>resolve(null);
+        });
+        if(!row?.handle) return;
+        let valid=false;
+        try {
+          const permission=await row.handle.queryPermission({mode:'readwrite'});
+          if(permission==='granted') {
+            const file=await row.handle.getFile();
+            valid=ankiFileStamp(file)===row.lastDiskStamp && file.size>100;
+            if(valid) await ankiStarValidateLinkedPackage(file);
+          }
+        }catch(err) {valid=false;console.warn('Starred link requires reconnection:',err);}
+        ankiStarExportLink={handle:row.handle,lastDiskStamp:row.lastDiskStamp,
+          lastSavedAt:row.lastSavedAt||null,savedDigest:row.savedDigest||null,
+          verified:valid,paused:!!row.paused,dirty:false,busy:false};
+        ankiStarRefreshExportStatus();
+        // Detect changes to cards made while the page wasn't running.
+        if(valid && !row.paused) ankiStarNoticeChange();
+      }catch(err){console.warn('Cannot restore Starred export link:',err);}
+    }
+    async function ankiStarValidateLinkedPackage(file) {
+      const zip=await ankiValidateZipBlob(file);
+      const record=zip.file('ankisync-starred-links.json');
+      if(!record) throw new Error('Selected file is not a Starred Cards export. Choose a new file with the designated filename.');
+      const manifest=JSON.parse(await record.async('string'));
+      if(manifest.format!=='AnkiSyncStarredLinkedCollection'||manifest.version!==1||!Array.isArray(manifest.groups))
+        throw new Error('This file is not a compatible linked Starred Cards package.');
+      return manifest;
+    }
+    async function ankiStarRetainRecovery(file) {
+      if(!file||file.size===0) return;
+      if(!idbDB) throw new Error('Browser recovery storage unavailable. Existing Starred file will not be overwritten.');
+      await new Promise((resolve,reject)=>{
+        const tx=idbDB.transaction('state','readwrite');
+        tx.objectStore('state').put(file,ANKI_STAR_RECOVERY_KEY);
+        tx.oncomplete=()=>resolve();
+        tx.onerror=()=>reject(tx.error||new Error('Starred export recovery storage failed'));
+        tx.onabort=()=>reject(tx.error||new Error('Starred export recovery storage aborted'));
+      });
+    }
+    async function ankiStarLinkExportFile() {
+      if(!ankiStarAutoCapable()) {
+        showToast('Automatic linked .apkg saving requires Windows Chrome or Edge. On iPhone, use Save As / Save to Files.');return;
+      }
+      try {
+        // This must happen immediately during the user's click; do not await
+        // the ZIP generation before opening the OS picker.
+        const handle=await window.showSaveFilePicker({
+          id:'anki-starred-dedicated-file',suggestedName:ANKI_STAR_EXPORT_FILENAME,
+          types:[{description:'Starred Cards Anki package',accept:{'application/octet-stream':['.apkg']}}]
+        });
+        if(handle.name!==ANKI_STAR_EXPORT_FILENAME)
+          throw new Error('For safety, choose '+ANKI_STAR_EXPORT_FILENAME+' (in any folder).');
+        const permission=await handle.requestPermission({mode:'readwrite'});
+        if(permission!=='granted') throw new Error('Write access was not granted.');
+        const file=await handle.getFile();
+        if(file.size>0) {
+          await ankiStarValidateLinkedPackage(file);
+          await ankiStarRetainRecovery(file);
+        }
+        ankiStarCancelExportTimer();
+        ankiStarExportLink={handle,lastDiskStamp:ankiFileStamp(file),savedDigest:null,
+          lastSavedAt:null,verified:true,paused:false,dirty:true,busy:false};
+        await ankiStarStoreExportLink();
+        renderDecks();
+        // Initial export is performed only after all ZIP contents are built and
+        // checked; a failed save never accesses the user's source decks.
+        await ankiStarExportNow(true);
+      }catch(err){
+        if(err?.name==='AbortError') return;
+        console.error('Link Starred file failed:',err);
+        alert('Starred Cards link was not completed: '+(err.message||err));
+      }
+    }
+    async function ankiStarExportNow(manual=true) {
+      const e=ankiStarExportLink;
+      if(!e || e.paused || !e.verified) {if(manual) showToast('Grant access to the linked Starred Cards file first.');return;}
+      if(e.busy) {e.dirty=true;return;}
+      if(!manual && !e.dirty) return;
+      ankiStarCancelExportTimer();
+      e.busy=true;e.dirty=false;ankiStarRefreshExportStatus();
+      let writer=null;
+      try {
+        if(e.handle.name!==ANKI_STAR_EXPORT_FILENAME) throw new Error('Dedicated Starred file name changed.');
+        if(await e.handle.queryPermission({mode:'readwrite'})!=='granted')
+          throw new Error('File write permission expired. Link again to renew access.');
+        const before=await e.handle.getFile();
+        if(ankiFileStamp(before)!==e.lastDiskStamp)
+          throw new Error('Starred file changed outside AnkiSync. Link again before replacing it.');
+        if(before.size>0) {
+          await ankiStarValidateLinkedPackage(before);
+          await ankiStarRetainRecovery(before);
+        }
+        ankiReconcileStarredDeck();
+        const digest=ankiStarContentDigest();
+        const token=Date.now()+'-'+Math.random().toString(36).slice(2);
+        const result=await saveAllDecksToFile(ANKI_STAR_DECK_ID,{
+          buildOnly:true,exportFilename:ANKI_STAR_EXPORT_FILENAME,
+          starManifest:ankiStarManifest(digest,token)
+        });
+        if(!result?.blob || result.blob.size<100) throw new Error('Starred APKG build returned an empty archive.');
+        const test=await ankiValidateZipBlob(result.blob);
+        const marker=JSON.parse(await test.file('ankisync-starred-links.json').async('string'));
+        if(marker.saveToken!==token || marker.contentDigest!==digest)
+          throw new Error('Starred package manifest verification failed.');
+        // Check for an external iCloud modification while compressing.
+        const again=await e.handle.getFile();
+        if(ankiFileStamp(again)!==e.lastDiskStamp)
+          throw new Error('Starred file changed during export; overwrite blocked.');
+        writer=await e.handle.createWritable({keepExistingData:true,mode:'exclusive'});
+        await writer.write({type:'write',position:0,data:result.blob});
+        await writer.truncate(result.blob.size);
+        await writer.close();writer=null;
+        const after=await e.handle.getFile();
+        if(after.size!==result.blob.size) throw new Error('Saved Starred file size mismatch; automatic export paused.');
+        const verified=await ankiStarValidateLinkedPackage(after);
+        if(verified.saveToken!==token) throw new Error('Starred file failed readback verification.');
+        e.lastDiskStamp=ankiFileStamp(after);
+        e.savedDigest=digest;
+        e.lastSavedAt=Date.now();
+        await ankiStarStoreExportLink();
+        showToast('★ Starred Cards '+(manual?'saved':'autosaved')+' and verified · '+
+          (appState.decks?.[ANKI_STAR_DECK_ID]?.cards||[]).length+' cards');
+      }catch(err){
+        if(writer) try{await writer.abort();}catch(_){}
+        console.error('Linked Starred .apkg export failed:',err);
+        e.paused=true;
+        showToast('Starred file autosave PAUSED: '+(err.message||err),true);
+        if(manual) alert('Starred Cards was NOT safely saved: '+(err.message||err)+
+          '\nYour original source decks were not written by this operation.');
+      }finally{
+        e.busy=false;
+        if(!e.paused && ankiStarContentDigest()!==e.savedDigest) ankiStarScheduleExport();
+        ankiStarRefreshExportStatus();
+      }
+    }
+    async function ankiStarPauseExport() {
+      const e=ankiStarExportLink;
+      if(!e) return;
+      e.paused=true;ankiStarCancelExportTimer();
+      try{await ankiStarStoreExportLink();}catch(_){}
+      ankiStarRefreshExportStatus();showToast('Starred Cards file autosave paused.');
+    }
+    async function ankiStarDownloadRecovery() {
+      if(!idbDB) return showToast('Recovery storage is unavailable in this browser.');
+      try {
+        const file=await new Promise(resolve=>{
+          const tx=idbDB.transaction('state','readonly');
+          const req=tx.objectStore('state').get(ANKI_STAR_RECOVERY_KEY);
+          req.onsuccess=()=>resolve(req.result);req.onerror=()=>resolve(null);
+        });
+        if(!file || !file.size) throw new Error('No previous Starred file version is stored.');
+        await ankiStarValidateLinkedPackage(file);
+        const a=document.createElement('a'),url=URL.createObjectURL(file);
+        a.href=url;a.download='00. Starred Cards - RECOVERY.apkg';
+        document.body.appendChild(a);a.click();a.remove();
+        setTimeout(()=>URL.revokeObjectURL(url),60000);
+      }catch(err){showToast('No recovery copy: '+(err.message||err),true);}
+    }
+    setInterval(ankiStarRefreshExportStatus,1000);
+
+    // Resolve saved star links against actual original cards; never duplicate
+    // source cards when restoring a standalone Starred Cards package.
+    function ankiApplyPendingStarLinks() {
+      const list=appState.pendingStarredLinks||[];
+      if(!Array.isArray(list)||!list.length) return 0;
+      const stillMissing=[];let linked=0;
+      for(const link of list) {
+        const byId=appState.decks?.[link.sourceDeckId];
+        const candidates=byId&&!ankiIsStarDeck(link.sourceDeckId)?[byId]:
+          Object.values(appState.decks||{}).filter(d=>!d.isStarredCollection && d.name===link.sourceDeckName);
+        let match=null;
+        for(const deck of candidates) {
+          const byCardId=deck.cards?.find(c=>String(c.id)===String(link.sourceCardId));
+          // The digest is checked to avoid attaching an imported star to the
+          // wrong card if identifiers are reused across independent packages.
+          if(byCardId && (!link.cardDigest||ankiStarCardDigest(byCardId)===link.cardDigest)) {
+            match=byCardId;break;
+          }
+          if(link.cardDigest) {
+            const same=deck.cards?.filter(c=>ankiStarCardDigest(c)===link.cardDigest)||[];
+            if(same.length===1) {match=same[0];break;}
+          }
+        }
+        if(match){if(!match.starred){match.starred=true;linked++;}}
+        else stillMissing.push(link);
+      }
+      appState.pendingStarredLinks=stillMissing;
+      return linked;
+    }
+
     // Optional, explicit original-file autosave for browsers with write permission.
     // Importing a deck is always read-only. These handles are never inferred from
     // a file name, nor obtained by a normal input[type=file] selection.
     const ankiLinkedHandles = new Map();
     const ANKI_FILE_AUTOSAVE_DELAY = 120000; // 2 min after the first unsaved change
     const ankiAutosaveTimers = new Map();
+    const ankiAutosaveDueAt = new Map();
+    // A lightweight UI-only clock: does not perform disk writes or change schedules.
+    setInterval(() => {
+      for (const deckId of ankiLinkedHandles.keys()) ankiRefreshAutosaveStatus(deckId);
+    }, 1000);
     const ankiLinkKey = deckId => 'anki-linked-file:' + deckId;
     const ankiRecoveryKey = deckId => 'anki-original-recovery:' + deckId;
     const ankiFileStamp = file => [file.name,file.size,file.lastModified].join(':');
     const ankiMobileSave = () => /iPhone|iPad|iPod/.test(navigator.userAgent) ||
       (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
 
+    function ankiLinkConfirmed(deckId) {
+      const link=ankiLinkedHandles.get(deckId);
+      return !!(link && link.verified && !link.paused && link.handle);
+    }
     function ankiAutoSaveStatusForDeck(deckId) {
-      if (ankiMobileSave() || !window.showOpenFilePicker) return 'Original file autosave: unavailable in this browser; local progress remains saved.';
+      if (ankiMobileSave() || !window.showOpenFilePicker)
+        return 'Browser progress autosaves locally · automatic original-file replacement unavailable';
       const entry=ankiLinkedHandles.get(deckId);
-      if (!entry) return 'Original file autosave: OFF — link the source file to enable.';
-      if (entry.paused) return 'Original file autosave: PAUSED — click Link Original to reauthorize.';
-      const at=entry.lastSavedAt ? new Date(entry.lastSavedAt).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}) : 'not yet';
-      return entry.busy ? 'Original file: verifying and saving…' :
-        entry.dirty ? 'Original file: autosave pending (2 min) · last: '+at :
-        'Original file autosave: ON · last: '+at;
+      if (!entry) return 'Original-file autosave: OFF — Link Original to enable';
+      if (entry.paused) return 'Original-file autosave: PAUSED';
+      if (!entry.verified) return 'Original remembered · click Restore Access if prompted';
+      const last=entry.lastSavedAt
+        ? new Date(entry.lastSavedAt).toLocaleTimeString([], {hour:'numeric',minute:'2-digit',second:'2-digit'})
+        : 'not yet';
+      if (entry.busy) return 'Verifying and saving original… · last: '+last;
+      if (entry.dirty) {
+        const dueAt=ankiAutosaveDueAt.get(deckId);
+        const seconds=Math.max(0,Math.ceil(((dueAt||Date.now())-Date.now())/1000));
+        const countdown=Math.floor(seconds/60)+':'+String(seconds%60).padStart(2,'0');
+        return 'Next autosave: '+countdown+' · last: '+last;
+      }
+      return 'Connected · next autosave after a change · last: '+last;
     }
     function ankiRefreshAutosaveStatus(deckId) {
       const el=document.getElementById('ankiAutoSaveStatus-'+deckId);
       if(el) el.textContent=ankiAutoSaveStatusForDeck(deckId);
+      const dot=document.getElementById('ankiLinkDot-'+deckId);
+      if(dot) {
+        const connected=ankiLinkConfirmed(deckId);
+        dot.classList.toggle('anki-link-connected',connected);
+        dot.title=connected ? 'Original .apkg linked; write permission granted' : 'Original .apkg not connected for autosave';
+        dot.setAttribute('aria-label',dot.title);
+      }
     }
     function ankiCancelAutosaveTimer(deckId) {
       if(ankiAutosaveTimers.has(deckId)) clearTimeout(ankiAutosaveTimers.get(deckId));
       ankiAutosaveTimers.delete(deckId);
+      ankiAutosaveDueAt.delete(deckId);
     }
     function ankiMarkDirty(deckId) {
       const linked=ankiLinkedHandles.get(deckId);
       if(!linked || linked.paused || !appState.decks[deckId]) return;
       linked.dirty=true;
+      if(!linked.verified) {ankiRefreshAutosaveStatus(deckId);return;}
       if(!ankiAutosaveTimers.has(deckId)) {
+        ankiAutosaveDueAt.set(deckId,Date.now()+ANKI_FILE_AUTOSAVE_DELAY);
         ankiAutosaveTimers.set(deckId,setTimeout(()=>{
           ankiAutosaveTimers.delete(deckId);
+          ankiAutosaveDueAt.delete(deckId);
           ankiAutosaveNow(deckId,false);
         },ANKI_FILE_AUTOSAVE_DELAY));
       }
@@ -2508,6 +3088,30 @@ function promptCreateDeck() {
         tx.onabort=()=>reject(tx.error||new Error('File handle storage blocked'));
       });
     }
+    // Reuse FileSystemFileHandles saved in IndexedDB. Reopening the SAME
+    // browser/site does not require selecting the file again when the browser
+    // retains permission. A missing permission is shown as a reconnect state:
+    // requesting it silently is forbidden by the browser.
+    async function ankiRevalidateOriginalHandle(deckId,handle,previous=null) {
+      const deck=appState.decks?.[deckId];
+      if(!deck || !handle || handle.name!==deck.sourceFileName) return false;
+      if((await handle.queryPermission({mode:'readwrite'}))!=='granted') return false;
+      const file=await handle.getFile();
+      const zip=await ankiValidateZipBlob(file);
+      // Never write until the source's current archive has been backed up and
+      // the review timestamps have been reconciled with local data.
+      await ankiBackupOriginalOnce(deckId,file);
+      const merge=await ankiReadProgressFromOriginalZip(zip,deck);
+      const entry={handle,lastDiskStamp:ankiFileStamp(file),
+        lastSavedAt:previous?.lastSavedAt||null,paused:!!previous?.paused,
+        verified:true,dirty:false,busy:false};
+      ankiCancelAutosaveTimer(deckId);
+      ankiLinkedHandles.set(deckId,entry);
+      await ankiStoreLinkedHandle(deckId,entry);
+      if(merge.updated>0) saveLocalState();
+      ankiRefreshAutosaveStatus(deckId);
+      return true;
+    }
     async function ankiRestoreLinkedHandles() {
       if(!idbDB) return;
       for(const deckId of Object.keys(appState.decks||{})) {
@@ -2515,17 +3119,231 @@ function promptCreateDeck() {
           const row=await new Promise(resolve=>{
             const tx=idbDB.transaction('state','readonly');
             const req=tx.objectStore('state').get(ankiLinkKey(deckId));
-            req.onsuccess=()=>resolve(req.result);
-            req.onerror=()=>resolve(null);
+            req.onsuccess=()=>resolve(req.result);req.onerror=()=>resolve(null);
           });
           if(!row?.handle) continue;
-          let granted=false;
-          try {granted=(await row.handle.queryPermission({mode:'readwrite'}))==='granted';}catch(e){}
+          // Preserve the handle even if permission has expired after restart.
+          // A single Restore Access click will then reauthorize it without
+          // asking the user to browse to the original file again.
           ankiLinkedHandles.set(deckId,{handle:row.handle,lastDiskStamp:row.lastDiskStamp,
-            lastSavedAt:row.lastSavedAt,paused:!!row.paused||!granted,dirty:false,busy:false});
+            lastSavedAt:row.lastSavedAt||null,paused:!!row.paused,
+            verified:false,dirty:false,busy:false});
+          try {await ankiRevalidateOriginalHandle(deckId,row.handle,row);}
+          catch(err){console.warn('Remembered original needs permission or verification:',err);}
         } catch(err) {console.warn('Cannot restore linked file handle:',err);}
       }
     }
+    async function ankiReadProgressFromOriginalZip(zip,deck) {
+      const candidates=[];
+      const linkedFile=zip.file('ankisync-linked-state.json');
+      if(linkedFile) {
+        try {
+          const payload=JSON.parse(await linkedFile.async('string'));
+          if(payload?.format==='AnkiSyncLinkedDeckState' && payload.version===1 &&
+             Array.isArray(payload.cards) &&
+             (!payload.sourceFileName || !deck.sourceFileName || payload.sourceFileName===deck.sourceFileName)) {
+            candidates.push({exportedAt:payload.exportedAt, cards:payload.cards,
+              lastIndex:payload.lastIndex,lastCardId:payload.lastCardId});
+          }
+        } catch(e) { console.warn('Unreadable linked-state progress:',e); }
+      }
+      const portableFile=zip.file('ankisync-progress.json');
+      if(portableFile) {
+        try {
+          const manifest=JSON.parse(await portableFile.async('string'));
+          if(manifest?.format==='AnkiSyncPortableProgress' && Array.isArray(manifest.decks)) {
+            const matches=manifest.decks.filter(d=>Array.isArray(d.cards) &&
+              (d.name===deck.name || manifest.decks.length===1));
+            for(const d of matches) candidates.push({exportedAt:manifest.exportedAt,
+              cards:d.cards,lastIndex:d.lastIndex,lastCardId:d.lastCardId});
+          }
+        } catch(e) { console.warn('Unreadable portable review progress:',e); }
+      }
+      candidates.sort((a,b)=>(Date.parse(b.exportedAt)||0)-(Date.parse(a.exportedAt)||0));
+      const source=candidates[0];
+      if(!source) return {updated:0,retained:0,found:false};
+      const fileCards=new Map(source.cards.filter(c=>c && c.id!=null)
+        .map(c=>[String(c.id),c]));
+      let updated=0,retained=0,matched=0;
+      const exportedAt=Date.parse(source.exportedAt)||0;
+      const newestLocalReview=(deck.cards||[]).reduce((max,c)=>Math.max(max,Number(c.reviewData?.lastReviewedAt)||0),0);
+      for(const card of deck.cards||[]) {
+        const fromFile=fileCards.get(String(card.id));
+        if(!fromFile) continue;
+        matched++;
+        // Only copy progress, never replace edited card fronts/backs or media.
+        const diskReview=fromFile.reviewData;
+        const localTime=Number(card.reviewData?.lastReviewedAt)||0;
+        const diskTime=Number(diskReview?.lastReviewedAt)||0;
+        // Never replace a more recently played browser review with an older disk rating.
+        // A newer explicit disk reset (null reviewData) can still clear old ratings.
+        if((diskReview && localTime>diskTime) ||
+           (!diskReview && localTime>exportedAt)) {retained++;continue;}
+        if(diskReview && typeof diskReview==='object') {
+          card.reviewData=JSON.parse(JSON.stringify(diskReview));
+          updated++;
+        } else if(localTime<=exportedAt && card.reviewData) {
+          // Only a newer explicit empty review snapshot can clear a local rating.
+          delete card.reviewData;
+          updated++;
+        }
+      }
+      if(matched>0 && newestLocalReview<=exportedAt && Number.isFinite(Number(source.lastIndex))) {
+        deck.lastIndex=Math.max(0,Math.floor(Number(source.lastIndex)));
+        if(source.lastCardId) deck.lastCardId=source.lastCardId;
+      }
+      return {updated,retained,matched,found:true};
+    }
+    // The folder link is remembered PER BROWSER ORIGIN AND DEVICE, not in a
+    // portable APKG. It greatly reduces repeated file selections on Windows,
+    // but iPhone Safari and a different computer still require their own
+    // initial permission. This deliberately never creates or overwrites files.
+    const ANKI_SOURCE_FOLDER_KEY='anki-source-folder:v1';
+    let ankiSourceFolderHandle=null;
+    let ankiSourceFolderHasPermission=false;
+    function ankiSourceFolderStatus() {
+      if(ankiMobileSave() || !window.showDirectoryPicker)
+        return 'File permissions are device-specific; iPhone uses Save to Files';
+      if(!ankiSourceFolderHandle) return 'Choose your Anki folder once on this computer to recognize deck files automatically';
+      if(!ankiSourceFolderHasPermission) return 'Anki folder remembered · Restore Access to renew browser permission';
+      return 'Anki folder connected · deck files are matched automatically';
+    }
+    function ankiUpdateSourceFolderStatus() {
+      const e=document.getElementById('ankiSourceFolderStatus');
+      if(e) e.textContent=ankiSourceFolderStatus();
+    }
+    async function ankiStoreSourceFolder() {
+      if(!idbDB || !ankiSourceFolderHandle) return;
+      await new Promise((resolve,reject)=>{
+        const tx=idbDB.transaction('state','readwrite');
+        tx.objectStore('state').put(ankiSourceFolderHandle,ANKI_SOURCE_FOLDER_KEY);
+        tx.oncomplete=()=>resolve();
+        tx.onerror=()=>reject(tx.error||new Error('Folder permission could not be remembered'));
+      });
+    }
+    async function ankiRestoreSourceFolder() {
+      if(!idbDB || ankiMobileSave() || !window.showDirectoryPicker) return;
+      try {
+        ankiSourceFolderHandle=await new Promise(resolve=>{
+          const tx=idbDB.transaction('state','readonly');
+          const req=tx.objectStore('state').get(ANKI_SOURCE_FOLDER_KEY);
+          req.onsuccess=()=>resolve(req.result||null);req.onerror=()=>resolve(null);
+        });
+        if(ankiSourceFolderHandle)
+          ankiSourceFolderHasPermission=(await ankiSourceFolderHandle.queryPermission({mode:'readwrite'}))==='granted';
+      }catch(err){ankiSourceFolderHasPermission=false;console.warn('Folder access not yet available:',err);}
+      ankiUpdateSourceFolderStatus();
+    }
+    async function ankiLinkFromSourceFolder(showFeedback=true) {
+      const dir=ankiSourceFolderHandle;
+      if(!dir || !ankiSourceFolderHasPermission) return {linked:0,missing:0,skipped:0};
+      let linked=0,missing=0,skipped=0;
+      const names=new Map();
+      for(const [deckId,deck] of Object.entries(appState.decks||{})) {
+        if(ankiIsStarDeck(deckId) || !/\.apkg$/i.test(deck.sourceFileName||'')) continue;
+        const name=deck.sourceFileName;
+        if(names.has(name)) {skipped++;continue;} // shared package: never make independent writers
+        names.set(name,deckId);
+      }
+      for(const [name,deckId] of names) {
+        const prev=ankiLinkedHandles.get(deckId);
+        if(prev?.verified && !prev.paused) continue;
+        try {
+          const handle=await dir.getFileHandle(name,{create:false});
+          if((await handle.queryPermission({mode:'readwrite'}))!=='granted') {skipped++;continue;}
+          if(await ankiRevalidateOriginalHandle(deckId,handle,prev)) linked++;
+          else skipped++;
+        }catch(err) {
+          if(err?.name==='NotFoundError') missing++;
+          else {skipped++;console.warn('Cannot auto-link '+name,err);}
+        }
+      }
+      // Starred .apkg is independently verified and NEVER confused with a
+      // regular source. Do not silently create it when it does not exist.
+      if(ankiStarAutoCapable() && !ankiStarLinkActive()) {
+        try {
+          const handle=await dir.getFileHandle(ANKI_STAR_EXPORT_FILENAME,{create:false});
+          if((await handle.queryPermission({mode:'readwrite'}))==='granted') {
+            const file=await handle.getFile();
+            const marker=await ankiStarValidateLinkedPackage(file);
+            const diskDigest=marker.contentDigest||null;
+            // The manifest may contain stars from another device. Load
+            // matching source links before enabling any automatic writes.
+            const pending=appState.pendingStarredLinks||[];
+            const seen=new Set(pending.map(x=>[x.sourceDeckName,x.sourceCardId,x.cardDigest].join('|')));
+            for(const group of marker.groups||[]) for(const card of group.cards||[]) {
+              const key=[card.sourceDeckName,card.sourceCardId,card.cardDigest].join('|');
+              if(!seen.has(key)) {pending.push(card);seen.add(key);}
+            }
+            appState.pendingStarredLinks=pending;
+            if(ankiApplyPendingStarLinks()>0) {ankiReconcileStarredDeck();saveLocalState();}
+            const currentDigest=ankiStarContentDigest();
+            ankiStarExportLink={handle,lastDiskStamp:ankiFileStamp(file),
+              lastSavedAt:null,savedDigest:diskDigest,verified:true,
+              paused:currentDigest!==diskDigest,dirty:false,busy:false};
+            // If an external Starred file differs after merging, require an
+            // explicit review instead of overwriting changes from another PC.
+            await ankiStarStoreExportLink();
+            ankiStarRefreshExportStatus();
+            linked++;
+          }
+        }catch(err){if(err?.name!=='NotFoundError') console.warn('Starred file auto-link skipped:',err);}
+      }
+      ankiUpdateSourceFolderStatus();
+      if(showFeedback) {
+        renderDecks();
+        showToast('Anki folder: '+linked+' linked · '+missing+' not found · '+skipped+' need attention');
+      }
+      return {linked,missing,skipped};
+    }
+    async function ankiConnectSourceFolder() {
+      if(ankiMobileSave() || !window.showDirectoryPicker) {
+        showToast('Automatic file access is not supported in this browser. Use Save to Files on iPhone.');return;
+      }
+      try {
+        let dir=ankiSourceFolderHandle;
+        // requestPermission is performed immediately during this user click.
+        if(dir && await dir.queryPermission({mode:'readwrite'})!=='granted') {
+          const allowed=await dir.requestPermission({mode:'readwrite'});
+          if(allowed!=='granted') return showToast('Browser permission was not granted.');
+        } else if(!dir) {
+          dir=await window.showDirectoryPicker({id:'anki-decks-folder',mode:'readwrite'});
+        }
+        if(!dir) return;
+        ankiSourceFolderHandle=dir;
+        ankiSourceFolderHasPermission=(await dir.queryPermission({mode:'readwrite'}))==='granted';
+        if(!ankiSourceFolderHasPermission) return showToast('Folder read/write permission is required to link originals.');
+        await ankiStoreSourceFolder();
+        await ankiLinkFromSourceFolder(true);
+      }catch(err){if(err?.name!=='AbortError') {console.error('Anki folder connect failed:',err);showToast('Folder connection failed: '+(err.message||err),true);}}
+    }
+    // Renew only previously saved permissions (no file picker required). A
+    // browser is permitted to ask again after being fully closed.
+    async function ankiRestoreSavedFileAccess() {
+      if(ankiMobileSave()) return;
+      try {
+        if(ankiSourceFolderHandle) return ankiConnectSourceFolder();
+        const entries=[...ankiLinkedHandles.entries()].filter(([,e])=>e.handle && !e.verified && !e.paused);
+        if(ankiStarExportLink?.handle && !ankiStarExportLink.verified && !ankiStarExportLink.paused)
+          entries.unshift(['__star__',ankiStarExportLink]);
+        let renewed=0;
+        for(const [deckId,entry] of entries) {
+          if((await entry.handle.requestPermission({mode:'readwrite'}))!=='granted') continue;
+          if(deckId==='__star__') {
+            const file=await entry.handle.getFile();
+            const marker=await ankiStarValidateLinkedPackage(file);
+            if(ankiFileStamp(file)!==entry.lastDiskStamp) { // no silent star overwrite
+              entry.verified=false;showToast('Starred file changed on disk; review before enabling export.',true);
+              continue;
+            }
+            entry.verified=true;entry.savedDigest=marker.contentDigest||entry.savedDigest;
+            await ankiStarStoreExportLink();renewed++;
+          } else if(await ankiRevalidateOriginalHandle(deckId,entry.handle,entry)) renewed++;
+        }
+        renderDecks();showToast(renewed+' remembered file connection(s) restored.');
+      }catch(err){console.warn('Permission renewal needed:',err);showToast('Permission needs another click: '+(err.message||err),true);}
+    }
+
     async function ankiLinkOriginalForAutosave(deckId) {
       const deck=appState.decks[deckId];
       if(!deck) return;
@@ -2541,9 +3359,8 @@ function promptCreateDeck() {
       if(deck.sourceFileName && !/\.apkg$/i.test(deck.sourceFileName)) {
         alert('Original file must be an .apkg package.');return;
       }
-      const expectedName=deck.sourceFileName||'(an older imported deck with unknown source filename)';
-      const acknowledged=confirm('LINK ORIGINAL FOR AUTOSAVE\n\nThis will allow AnkiSync to replace '+expectedName+' every 2 minutes after changes. A verified recovery copy will be kept in this browser before the first write.\n\nBecause iCloud overwrites previously produced 0 KB files, also keep a separate backup outside iCloud. Continue?');
-      if(!acknowledged) return;
+      // No preliminary confirmation dialog. File selection and the browser's
+      // own write-permission prompt already require deliberate user approval.
       try {
         const chosen=await window.showOpenFilePicker({multiple:false,
           types:[{description:'Anki Package',accept:{'application/octet-stream':['.apkg']}}]});
@@ -2558,18 +3375,37 @@ function promptCreateDeck() {
         const p=await handle.requestPermission({mode:'readwrite'});
         if(p!=='granted') throw new Error('Write access was not granted; original left read-only.');
         const file=await handle.getFile();
-        await ankiValidateZipBlob(file);
+        const sourceZip=await ankiValidateZipBlob(file);
         if(legacyImport && !deck.sourceFileName) {
           if(!confirm('Confirm '+handle.name+' is the original archive for deck '+deck.name+'. AnkiSync will replace it automatically when you study.')) return;
           deck.sourceFileName=handle.name;
           saveLocalState();
         }
         await ankiBackupOriginalOnce(deckId,file);
-        const entry={handle,lastDiskStamp:ankiFileStamp(file),lastSavedAt:null,paused:false,dirty:false,busy:false};
+        // Synchronize review records *from* the original before allowing writes.
+        // Newer local reviews take precedence; notes/media are never replaced.
+        const restored=await ankiReadProgressFromOriginalZip(sourceZip,deck);
+        // A pre-existing connection must not save during the reconciliation.
+        ankiCancelAutosaveTimer(deckId);
+        const entry={handle,lastDiskStamp:ankiFileStamp(file),lastSavedAt:null,
+          paused:false,verified:true,dirty:false,busy:false};
         ankiLinkedHandles.set(deckId,entry);
+        if(restored.updated>0) {
+          saveLocalState();
+          entry.dirty=false;
+          ankiCancelAutosaveTimer(deckId);
+          renderDecks();
+          if(appState.activeStudyDeckId===deckId) {
+            renderSidebarList();
+            showStudyCard();
+          }
+        }
         try {await ankiStoreLinkedHandle(deckId,entry);}catch(e){console.warn('File handle cannot be remembered between reloads:',e);}
         ankiRefreshAutosaveStatus(deckId);
-        showToast('Original linked. Changes will autosave every 2 minutes. Initial archive backed up in the browser.');
+        const syncMessage=restored.found
+          ? restored.updated+' reviews loaded from file'+(restored.retained?' · '+restored.retained+' newer local reviews kept':'')
+          : 'no saved AnkiSync review snapshot in this file; local progress kept';
+        showToast('Original linked · '+syncMessage+' · autosave ready');
       } catch(error) {
         if(error?.name==='AbortError') return;
         console.error('Link original failed:',error);
@@ -2606,8 +3442,8 @@ function promptCreateDeck() {
 
     async function ankiAutosaveNow(deckId,manual=true) {
       const entry=ankiLinkedHandles.get(deckId);
-      if(!entry || entry.paused) {
-        if(manual) showToast('Link Original for Autosave before using Save Now.');
+      if(!entry || entry.paused || !entry.verified) {
+        if(manual) showToast('Restore browser permission for the original file before using Save Now.');
         return;
       }
       if(entry.busy) return;
@@ -2661,7 +3497,8 @@ function promptCreateDeck() {
         entry.lastDiskStamp=ankiFileStamp(after);
         entry.lastSavedAt=Date.now();
         await ankiStoreLinkedHandle(deckId,entry).catch(e=>console.warn('Cannot persist link metadata:',e));
-        if(manual) showToast('Original .apkg saved and verified; archive media preserved.');
+        showToast((manual?'Saved':'Autosaved')+' and verified · '+ankiEscapeHtml(deck.name)+' · '+
+          new Date(entry.lastSavedAt).toLocaleTimeString([], {hour:'numeric',minute:'2-digit',second:'2-digit'}));
       }catch(err){
         console.error('Verified original APKG autosave failed:',err);
         if(stream) try {await stream.abort();}catch(e){}
@@ -2720,6 +3557,7 @@ function promptCreateDeck() {
           version: 1,
           exportedAt: new Date().toISOString(),
           decks: appState.decks,
+          pendingStarredLinks: appState.pendingStarredLinks || [],
           categories: appState.categories,
           selectedCategory: appState.selectedCategory,
           browserSavedAt: ankiLastBrowserSaveAt
@@ -2757,6 +3595,7 @@ function promptCreateDeck() {
           version: 1,
           exportedAt: new Date().toISOString(),
           decks: appState.decks,
+          pendingStarredLinks: appState.pendingStarredLinks || [],
           categories: appState.categories,
           selectedCategory: appState.selectedCategory,
           browserSavedAt: ankiLastBrowserSaveAt
@@ -2849,6 +3688,7 @@ function promptCreateDeck() {
         if (!confirm(`Import ${deckIds.length} deck(s) from this backup? This will replace the decks currently stored in this browser with the backup contents.`)) return;
 
         appState.decks = backup.decks;
+        appState.pendingStarredLinks = Array.isArray(backup.pendingStarredLinks) ? backup.pendingStarredLinks : [];
         appState.categories = backup.categories;
         appState.selectedCategory = backup.selectedCategory || 'ALL';
         appState.activeStudyDeckId = null;
@@ -2881,6 +3721,7 @@ function promptCreateDeck() {
           req.onsuccess = () => {
             if (req.result) {
               if (req.result.decks) appState.decks = req.result.decks;
+              if (Array.isArray(req.result.pendingStarredLinks)) appState.pendingStarredLinks = req.result.pendingStarredLinks;
               if (req.result.categories) appState.categories = req.result.categories;
               if (req.result.selectedCategory) appState.selectedCategory = req.result.selectedCategory;
               if (req.result.browserSavedAt) ankiLastBrowserSaveAt = Number(req.result.browserSavedAt) || 0;
@@ -2904,11 +3745,14 @@ function promptCreateDeck() {
       return saveAllDecksToFile(deckId);
     }
 
-    async function saveAllDecksToFile(onlyDeckId = null) {
+    async function saveAllDecksToFile(onlyDeckId = null, exportOptions = null) {
       try {
-        const exportDeckEntries = onlyDeckId
-          ? Object.entries(appState.decks).filter(([id]) => id === onlyDeckId)
-          : Object.entries(appState.decks);
+        const buildOnly=!!exportOptions?.buildOnly;
+        const exportDeckEntries = onlyDeckId && ankiIsStarDeck(onlyDeckId)
+          ? ankiStarExportGroupedDecks()
+          : onlyDeckId
+            ? Object.entries(appState.decks).filter(([id]) => id === onlyDeckId)
+            : Object.entries(appState.decks);
         if (!exportDeckEntries.length) throw new Error('No deck selected for export.');
 
         // On iPhone/iPad, Safari and Home Screen apps do not offer the
@@ -2919,9 +3763,12 @@ function promptCreateDeck() {
         const defaultExportName = (onlyDeckId
           ? exportDeckEntries[0][1].name.replace(/[\\/:*?"<>|]/g, '_') + '_'
           : 'AnkiSync_Deck_') + Date.now() + '.apkg';
-        let exportFilename = defaultExportName;
+        let exportFilename = buildOnly ? String(exportOptions?.exportFilename || ANKI_STAR_EXPORT_FILENAME) : defaultExportName;
         let selectedSaveHandle = null;
-        if (isIOSSave) {
+        if (buildOnly) {
+          // A caller-supplied verified linked-file writer handles persistence.
+          // Do not ask for a file picker or generate a browser download here.
+        } else if (isIOSSave) {
           const enteredName = window.prompt('Save As — choose a .apkg file name. After export, choose Save to Files to select a folder.', defaultExportName);
           if (enteredName === null) return;
           const cleanName = enteredName.trim().replace(/[\\/:*?"<>|]/g, '_');
@@ -3043,7 +3890,11 @@ function promptCreateDeck() {
 
               const reviewData = card.reviewData || null;
               const noteData = JSON.stringify({
-                ankiSync: { cardId: card.id, reviewData: reviewData, deckLastIndex: deck.lastIndex || 0, deckLastCardId: deck.lastCardId || null }
+                ankiSync: { cardId: card.id, reviewData: reviewData, deckLastIndex: deck.lastIndex || 0, deckLastCardId: deck.lastCardId || null,
+                  starred: card.starred===true,
+                  starredSourceDeckName:card.starredSourceDeckName||null,
+                  starredSourceDeckId:card.starredSourceDeckId||null,
+                  starredSourceCardId:card.starredSourceCardId||null }
               });
 
               // Preserve the exact AnkiSync due timestamp in note.data and
@@ -3069,7 +3920,7 @@ function promptCreateDeck() {
 
               // Store the most recent answer in Anki's review log as well.
               if (reviewData && reviewData.lastReviewedAt) {
-                const ratingToEase = { Again: 1, Hard: 2, Good: 3, Easy: 4 };
+                const ratingToEase = { Again: 1, Hard: 2, Good: 3, Easy: 4, Week: 4 };
                 const ease = ratingToEase[reviewData.lastRating] || 3;
                 const revlogId = Math.max(1, Number(reviewData.lastReviewedAt) || nowMs) + cIdx;
                 db.run(`INSERT INTO revlog VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);`, [
@@ -3163,15 +4014,23 @@ function promptCreateDeck() {
             lastCardId: deck.lastCardId || null,
             cards: (deck.cards || []).map(card => ({
               id: String(card.id),
-              reviewData: card.reviewData || null
+              reviewData: card.reviewData || null,
+              starred: card.starred===true,
+              starredSourceDeckName: card.starredSourceDeckName || null,
+              starredSourceDeckId:card.starredSourceDeckId || null,
+              starredSourceCardId:card.starredSourceCardId || null
             }))
           }))
         };
         zip.file('ankisync-progress.json', JSON.stringify(portableProgress));
-
-        
+        if(onlyDeckId && ankiIsStarDeck(onlyDeckId)) {
+          const marker=exportOptions?.starManifest ||
+            ankiStarManifest(ankiStarContentDigest(),Date.now()+'-manual');
+          zip.file('ankisync-starred-links.json',JSON.stringify(marker));
+        }
 
 const content = await zip.generateAsync({ type: "blob" });
+        if(buildOnly) return {blob:content,filename:exportFilename};
 
         if (isIOSSave) {
           // iOS Share Sheet offers Save to Files, where the user can choose
@@ -3417,6 +4276,8 @@ const content = await zip.generateAsync({ type: "blob" });
         const deck = appState.decks[appState.activeStudyDeckId];
         const origCard = deck.cards.find(c => c.id === card.id);
         if (origCard) origCard[sideKey] = card[sideKey];
+        if(ankiIsStarDeck(appState.activeStudyDeckId))
+          ankiApplyStarMirrorToSource(card,[sideKey]);
 
         saveLocalState();
         showStudyCard();
@@ -3540,8 +4401,9 @@ const content = await zip.generateAsync({ type: "blob" });
       grid.replaceChildren();
       let visibleCount = 0;
       const now = Date.now();
-      Object.entries(appState.decks || {}).forEach(([deckId,deck]) => {
-        if (appState.selectedCategory !== 'ALL' &&
+      Object.entries(appState.decks || {}).sort(([a],[b])=>
+        ankiIsStarDeck(a)?-1:ankiIsStarDeck(b)?1:0).forEach(([deckId,deck]) => {
+        if (!ankiIsStarDeck(deckId) && appState.selectedCategory !== 'ALL' &&
            deck.category !== appState.selectedCategory &&
            !String(deck.category || '').startsWith(appState.selectedCategory + ' / ')) return;
         visibleCount++;
@@ -3558,21 +4420,28 @@ const content = await zip.generateAsync({ type: "blob" });
         const filename = deck.sourceFileName || (deck.name + '.apkg');
         const cardEl=document.createElement('div');
         cardEl.className='bg-slate-800 p-5 rounded-3xl border border-slate-700 shadow-lg flex flex-col justify-between hover:border-slate-600 transition space-y-4';
+        const isStarred = ankiIsStarDeck(deckId);
+        const groupedStarCounts = isStarred ? [...cards.reduce((map,card)=>{
+          const name=ankiStarOriginName(card);
+          map.set(name,(map.get(name)||0)+1);return map;
+        },new Map())] : [];
         cardEl.innerHTML = `
           <div class="space-y-3">
             <div class="flex items-start justify-between gap-2">
               <h3 class="font-bold text-slate-100 text-base leading-snug break-words min-w-0">${ankiEscapeHtml(deck.name)}</h3>
+              ${!isStarred ? `<span id="ankiLinkDot-${ankiEscapeHtml(deckId)}" class="anki-link-indicator ${ankiLinkConfirmed(deckId)?'anki-link-connected':''}" role="img" aria-label="${ankiLinkConfirmed(deckId)?'Original file linked':'Original file not linked'}" title="${ankiLinkConfirmed(deckId)?'Original .apkg linked; write permission granted':'Original .apkg not connected for autosave'}"></span>
               <div class="flex gap-3 items-center shrink-0">
                 <button type="button" onclick="renameAnkiDeck('${deckId}')" class="text-indigo-400 hover:text-indigo-300" title="Rename deck" aria-label="Rename deck"><i class="fa-solid fa-pen-to-square"></i></button>
                 <button type="button" onclick="deleteDeck('${deckId}')" class="text-slate-400 hover:text-rose-400" title="Delete deck" aria-label="Delete deck"><i class="fa-solid fa-trash"></i></button>
-              </div>
+              </div>` : `<span class="text-amber-300" title="Live starred collection"><i class="fa-solid fa-star"></i></span>`}
             </div>
             <div class="text-xs text-slate-400" data-anki-due-count="${ankiEscapeHtml(deckId)}" data-anki-due-current="${due}">${total} cards · ${due} due</div>
+            ${isStarred ? `<div class="rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-3 py-2 text-xs space-y-1"><div class="font-bold text-indigo-300 mb-1">Starred groups · ${groupedStarCounts.length} subject${groupedStarCounts.length===1?'':'s'}</div>${groupedStarCounts.length ? groupedStarCounts.map(([name,count])=>`<div class="flex justify-between gap-2"><span class="break-words min-w-0">${ankiEscapeHtml(name)}</span><span class="font-bold text-amber-300">${count}</span></div>`).join('') : '<div class="text-slate-400">Star cards in other decks to build this collection.</div>'}</div>` : ''}
             <div class="flex items-center justify-between text-xs font-semibold text-slate-400">
               <span>Studied ${studied} / ${total}</span><span class="text-indigo-400">${percent}%</span>
             </div>
             <div class="w-full bg-slate-900 rounded-full h-2 overflow-hidden"><div class="bg-indigo-500 h-full rounded-full" style="width:${percent}%"></div></div>
-            <div class="space-y-1.5 text-[11px] text-slate-400">
+            ${!isStarred ? `<div class="space-y-1.5 text-[11px] text-slate-400">
               <div class="break-all"><i class="fa-solid fa-file-zipper" aria-hidden="true"></i> ${ankiEscapeHtml(filename)}</div>
               <div><i class="fa-solid fa-clock" aria-hidden="true"></i> Last browser save: ${ankiEscapeHtml(lastSave)}</div>
             </div>
@@ -3584,7 +4453,17 @@ const content = await zip.generateAsync({ type: "blob" });
                 <button type="button" onclick="ankiPauseLinkedAutosave('${deckId}')" class="px-2 py-1.5 rounded-lg border border-slate-500/40 text-slate-400 hover:bg-slate-500/10" title="Stop writing automatically to this APKG">Pause</button>
                 <button type="button" onclick="ankiDownloadRecoveryCopy('${deckId}')" class="px-2 py-1.5 rounded-lg border border-slate-500/40 text-slate-400 hover:bg-slate-500/10" title="Download a recovery backup of the original archive">Recovery</button>
               </div>` : ''}
-            </div>
+            </div>` : `<div class="space-y-1.5 text-[11px] text-slate-400">
+              <div class="flex items-center gap-2"><span id="ankiStarFileDot" class="anki-star-file-dot ${ankiStarLinkActive()?'anki-star-file-connected':''}" title="Dedicated Starred file connection"></span><span class="break-all">${ANKI_STAR_EXPORT_FILENAME}</span></div>
+              <div id="ankiStarExportStatus">${ankiStarExportStatus()}</div>
+              ${ankiStarAutoCapable() ? `<div class="flex flex-wrap gap-1.5">
+                <button type="button" onclick="ankiStarLinkExportFile()" class="px-2 py-1.5 rounded-lg border border-indigo-500/40 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20" title="Choose the Starred Cards file and authorize verified automatic export">Link Starred .apkg</button>
+                <button type="button" onclick="ankiStarExportNow()" class="px-2 py-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20">Save Now</button>
+                <button type="button" onclick="ankiStarPauseExport()" class="px-2 py-1.5 rounded-lg border border-slate-500/40 text-slate-400 hover:bg-slate-500/10">Pause</button>
+                <button type="button" onclick="ankiStarDownloadRecovery()" class="px-2 py-1.5 rounded-lg border border-slate-500/40 text-slate-400 hover:bg-slate-500/10">Recovery</button>
+              </div>` : ''}
+              <div class="text-slate-500">Groups stay linked to source cards in this browser.</div>
+            </div>`}
             <div class="anki-deck-reset-buttons pt-1">
               <button type="button" onclick="resetStudyDeck('${deckId}')" class="text-[11px] font-bold px-2 py-2 rounded-lg bg-indigo-500/15 border border-indigo-500/40 text-indigo-300 hover:bg-indigo-500/25" title="Show all cards without changing your saved progress or review schedule"><span>Soft Reset</span></button>
               <button type="button" onclick="requestAnkiHardReset('${deckId}')" class="text-[11px] font-bold px-2 py-2 rounded-lg bg-rose-500/10 border border-rose-500/40 text-rose-300 hover:bg-rose-500/20" title="Clear study progress and due dates after confirmation"><span>Hard Reset</span></button>
@@ -3593,6 +4472,7 @@ const content = await zip.generateAsync({ type: "blob" });
           <div class="flex items-center gap-2">
             <button type="button" onclick="startStudy('${deckId}')" class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl">Study</button>
             <button type="button" onclick="saveAllDecksToFile('${deckId}')" class="py-2.5 px-3 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl">Save As</button>
+            ${isStarred ? `<button type="button" onclick="startStudy('${deckId}',true)" class="px-3 py-2.5 text-xs font-bold rounded-xl border border-amber-500/40 text-amber-300" title="Browse every starred card, even if its review is not due">View All</button>` : ''}
           </div>
           <div class="flex gap-2">
             <button type="button" onclick="ankiShowReviewOverview(['${deckId}'])" class="flex-1 px-3 py-2 rounded-xl border border-indigo-500/40 bg-indigo-500/10 text-indigo-300 text-xs font-semibold hover:bg-indigo-500/20" title="Show due cards, last played times, and next review dates"><i class="fa-solid fa-calendar-check"></i> Review Schedule</button>
@@ -3607,6 +4487,7 @@ const content = await zip.generateAsync({ type: "blob" });
     }
 
     function renameAnkiDeck(deckId) {
+      if(ankiIsStarDeck(deckId)) { showToast('The Starred Cards collection has a fixed name.'); return; }
       const deck=appState.decks[deckId];
       if(!deck) return;
       const name=window.prompt('New deck name:',deck.name || '');
@@ -3777,6 +4658,7 @@ const content = await zip.generateAsync({ type: "blob" });
     }
 
     function deleteDeck(deckId) {
+      if(ankiIsStarDeck(deckId)) { showToast('Unstar cards from their original decks to empty this collection.'); return; }
       const deck=appState.decks[deckId];
       if(!deck) return;
       if(!window.confirm(`Delete deck "${deck.name}" and its ${deck.cards?.length || 0} cards? This cannot be undone.`)) return;
@@ -3845,6 +4727,12 @@ function ankiMergeCardsDueNow() {
       known.add(String(card.id));
       changed=true;
     }
+  }
+  if(changed && ankiIsStarDeck(appState.activeStudyDeckId)) {
+    const currentId=appState.studyQueue[appState.studyIndex]?.id;
+    const order=new Map(deck.cards.map((c,i)=>[String(c.id),i]));
+    appState.studyQueue.sort((a,b)=>(order.get(String(a.id))??Infinity)-(order.get(String(b.id))??Infinity));
+    if(currentId!=null) appState.studyIndex=Math.max(0,appState.studyQueue.findIndex(c=>c.id===currentId));
   }
   if(changed) renderSidebarList();
   return changed;
@@ -3961,7 +4849,7 @@ function startStudy(deckId, practiceAll = false) {
         startedAt: Date.now(),
         totalCards: appState.studyQueue.length,
         reviewedCardIds: [],
-        ratings: { again: 0, hard: 0, good: 0, easy: 0 }
+        ratings: { again: 0, hard: 0, good: 0, easy: 0, week: 0 }
       };
       
       // Resume from where you left off, or start at 0 if completed/new
@@ -4054,7 +4942,7 @@ function startStudy(deckId, practiceAll = false) {
       event.currentTarget.classList.remove('anki-drop-before','anki-drop-after');
     }
     function onAnkiSidebarDrop(event) {
-      if (!ankiDraggingCardIds.length) return;
+      if (!ankiDraggingCardIds.length || ankiIsStarDeck(appState.activeStudyDeckId)) return;
       event.preventDefault();
       event.stopPropagation();
       const targetId = event.currentTarget.dataset.cardId;
@@ -4079,7 +4967,7 @@ function startStudy(deckId, practiceAll = false) {
 
     function ankiCardStatus(card) {
       const rating=String(card?.reviewData?.lastRating || '').toLowerCase();
-      return ['again','hard','good','easy'].includes(rating) ? rating : 'new';
+      return ['again','hard','good','easy','week'].includes(rating) ? rating : 'new';
     }
 
     function renderSidebarList() {
@@ -4090,11 +4978,23 @@ function startStudy(deckId, practiceAll = false) {
       countEl.innerText = appState.studyQueue.length;
       listEl.innerHTML = '';
 
+      let previousStarGroup = null;
       appState.studyQueue.forEach((card, index) => {
+        if(ankiIsStarDeck(appState.activeStudyDeckId)) {
+          const group=ankiStarOriginName(card);
+          if(group!==previousStarGroup) {
+            const separator=document.createElement('li');
+            separator.className='anki-star-group';
+            separator.textContent=group;
+            separator.setAttribute('aria-label','Starred cards from '+group);
+            listEl.appendChild(separator);
+            previousStarGroup=group;
+          }
+        }
         const li = document.createElement('li');
         const isChecked = selectedSidebarCardIds.has(card.id);
         li.className = `slide-item anki-nav-${ankiCardStatus(card)} ${index === appState.studyIndex ? 'active' : ''}`;
-        li.draggable = true;
+        li.draggable = !ankiIsStarDeck(appState.activeStudyDeckId);
         li.dataset.cardId = String(card.id);
         li.addEventListener('dragstart', onAnkiSidebarDragStart);
         li.addEventListener('dragover', onAnkiSidebarDragOver);
@@ -4120,6 +5020,7 @@ function startStudy(deckId, practiceAll = false) {
           </div>
           <div class="flex items-center space-x-1" onclick="event.stopPropagation()">
             <button type="button" onclick="openInsertCardBelow(${index})" class="w-6 h-6 rounded-full border border-indigo-400 text-indigo-400 hover:bg-indigo-600 hover:text-white flex items-center justify-center text-xs font-bold" title="Insert new card immediately below this card">i</button>
+            <button type="button" onclick="ankiToggleCardStar('${card.id}')" class="p-1 text-amber-300 hover:text-amber-200 text-xs ml-1" title="${ankiStarSourceFor(card,appState.activeStudyDeckId)?.card.starred?'Remove from starred collection':'Star this card'}" aria-label="${ankiStarSourceFor(card,appState.activeStudyDeckId)?.card.starred?'Unstar card':'Star card'}"><i class="${ankiStarSourceFor(card,appState.activeStudyDeckId)?.card.starred?'fa-solid':'fa-regular'} fa-star"></i></button>
             <button onclick="copyCardToClipboard('${card.id}')" class="p-1 text-indigo-400 hover:text-white text-xs ml-1" title="Copy Card"><i class="fa-solid fa-copy"></i></button>
             <button onclick="deleteCardFromActiveDeck('${card.id}')" class="p-1 text-rose-400 hover:text-white text-xs ml-1" title="Delete Card"><i class="fa-solid fa-trash"></i></button>
           </div>
@@ -4187,6 +5088,21 @@ function startStudy(deckId, practiceAll = false) {
           .filter(id => storedIds.has(id))
       );
       if (!deleteIds.size) return;
+      if(ankiIsStarDeck(appState.activeStudyDeckId)) {
+        if(!confirm('Remove '+deleteIds.size+' starred cards from the collection? Original cards will NOT be deleted.')) return;
+        for(const card of deck.cards.filter(c=>deleteIds.has(String(c.id)))) {
+          const source=ankiStarSourceFor(card,appState.activeStudyDeckId);
+          if(source) {source.card.starred=false;ankiMarkDirty(source.deckId);}
+        }
+        ankiReconcileStarredDeck();
+        appState.studyQueue=appState.studyQueue.filter(c=>!deleteIds.has(String(c.id)));
+        selectedSidebarCardIds.clear();
+        appState.studyIndex=Math.min(appState.studyIndex,Math.max(0,appState.studyQueue.length-1));
+        saveLocalState();renderDecks();renderSidebarList();
+        if(appState.studyQueue.length) showStudyCard(); else ankiShowDueWaiting();
+        showToast('Removed from Starred Cards; originals preserved.');
+        return;
+      }
 
       const count = deleteIds.size;
       if (!confirm(`Permanently delete ${count} selected card${count === 1 ? '' : 's'} from this deck? This cannot be undone.`)) return;
@@ -4354,6 +5270,10 @@ function startStudy(deckId, practiceAll = false) {
       // Clone the complete JSON data so edits cannot change a source card.
       const copied = typeof structuredClone === 'function'
         ? structuredClone(card) : JSON.parse(JSON.stringify(card));
+      delete copied.starred;
+      delete copied.starredSourceDeckId;
+      delete copied.starredSourceCardId;
+      delete copied.starredSourceDeckName;
       copied.id = 'card_' + Date.now() + '_' +
         (typeof crypto !== 'undefined' && crypto.randomUUID
           ? crypto.randomUUID() : Math.random().toString(36).slice(2) + '_' + Math.random().toString(36).slice(2));
@@ -4483,6 +5403,7 @@ function startStudy(deckId, practiceAll = false) {
     }
 
     function pasteCardToActiveDeck() {
+      if(ankiIsStarDeck(appState.activeStudyDeckId)) { showToast('Star cards in their source decks to add them here.'); return; }
       if (!appState.activeStudyDeckId) { showToast('Open the destination deck first!'); return; }
       const deck = appState.decks[appState.activeStudyDeckId];
       if (!deck) return;
@@ -4526,7 +5447,7 @@ function startStudy(deckId, practiceAll = false) {
     // Combine entire decks non-destructively. Preserve grading/scheduling when
     // merging, as opposed to the fresh unreviewed copies made by Copy/Paste.
     function ankiOpenCombineDecks(firstDeckId) {
-      const ids=Object.keys(appState.decks || {});
+      const ids=Object.keys(appState.decks || {}).filter(id=>!ankiIsStarDeck(id));
       if(ids.length<2) { showToast('Import or create a second deck before combining.'); return; }
       const first=document.getElementById('ankiCombineFirst');
       first.replaceChildren();
@@ -4548,7 +5469,7 @@ function startStudy(deckId, practiceAll = false) {
       const second=document.getElementById('ankiCombineSecond');
       const old=second.value;
       second.replaceChildren();
-      Object.keys(appState.decks||{}).filter(id=>id!==first.value).forEach(id=>
+      Object.keys(appState.decks||{}).filter(id=>id!==first.value&&!ankiIsStarDeck(id)).forEach(id=>
         second.add(new Option(`${appState.decks[id].name} (${appState.decks[id].cards?.length||0} cards)`,id)));
       if([...second.options].some(o=>o.value===old)) second.value=old;
       else if(second.options.length) second.selectedIndex=0;
@@ -4571,6 +5492,7 @@ function startStudy(deckId, practiceAll = false) {
     }
 
     function ankiCombineDeckData(firstId, secondId, mode, newName, skipDuplicates=true) {
+      if(ankiIsStarDeck(firstId) || ankiIsStarDeck(secondId)) throw new Error('The Starred Cards collection is managed by stars, not deck merging.');
       const first=appState.decks[firstId];
       const second=appState.decks[secondId];
       if(!first || !second || firstId===secondId) throw new Error('Choose two different decks.');
@@ -4628,6 +5550,10 @@ function startStudy(deckId, practiceAll = false) {
     }
 
     function deleteCardFromActiveDeck(cardId) {
+      if(ankiIsStarDeck(appState.activeStudyDeckId)) {
+        if(confirm('Remove this card from Starred Cards? Its original will remain in its source deck.')) ankiToggleCardStar(cardId);
+        return;
+      }
       if (!confirm("Are you sure you want to delete this card?")) return;
       appState.studyQueue = appState.studyQueue.filter(c => c.id !== cardId);
       selectedSidebarCardIds.delete(cardId);
@@ -4674,7 +5600,7 @@ function selectCardFromSidebar(index, shiftKey = false) {
         startedAt: Date.now(),
         totalCards: appState.studyQueue.length,
         reviewedCardIds: [],
-        ratings: { again: 0, hard: 0, good: 0, easy: 0 }
+        ratings: { again: 0, hard: 0, good: 0, easy: 0, week: 0 }
       };
 
       const reviewed = stats.reviewedCardIds.length;
@@ -4694,6 +5620,7 @@ function selectCardFromSidebar(index, shiftKey = false) {
       document.getElementById('summaryHardCount').innerText = stats.ratings.hard;
       document.getElementById('summaryGoodCount').innerText = stats.ratings.good;
       document.getElementById('summaryEasyCount').innerText = stats.ratings.easy;
+      document.getElementById('summaryWeekCount').innerText = stats.ratings.week||0;
       document.getElementById('summaryDuration').innerText =
         elapsedMinutes + 'm ' + elapsedSeconds + 's';
 
@@ -4739,6 +5666,7 @@ function openInsertCardBelow(index) {
 }
 
 function openAddCardModal() {
+  if(ankiIsStarDeck(appState.activeStudyDeckId)) { showToast('To add a card here, star it in its original deck.'); return; }
   insertCardAfterId = null;
   document.getElementById('modalCardTitle').value = '';
   document.getElementById('modalCardFront').innerHTML = '<span style="font-weight: bold;"><br></span>';
@@ -4755,6 +5683,7 @@ function openAddCardModal() {
     }
 
     function saveModalCard() {
+  if(ankiIsStarDeck(appState.activeStudyDeckId)) { showToast('Star cards in their original decks instead.'); return; }
   renumberClozeEditors('modalCardFront', 'modalCardBack');
   const title = document.getElementById('modalCardTitle').value.trim();
   // Sanitize to clean external PPT/Word styles
@@ -5157,6 +6086,7 @@ function openAddCardModal() {
       badge.innerText = card.title ? card.title.toUpperCase() : 'QUESTION';
       updateClozeFront();
       updateClozeBack();
+      ankiUpdateCurrentStarButton();
     }
 
     // Space reveals one numbered cloze group at a time while the study card is showing its front.
@@ -5336,84 +6266,84 @@ function ankiSelectAllEditorText(editorId) {
   savedRange = range.cloneRange();
 }
 
-
-/* Select through the next comma (,) or full stop (.) from the current caret.
-   Supports formatted text across nested spans, paragraphs and list items.
-   Selection only: never mutates editor HTML or card scheduling/saves. */
-const ankiPunctuationCaretByEditor = new Map();
-function ankiRememberPunctuationCaret(editorId) {
-  const editor = document.getElementById(editorId);
-  const sel = window.getSelection();
-  if (!editor || !sel || !sel.rangeCount) return;
-  const r = sel.getRangeAt(0);
-  if (editor.contains(r.startContainer) && editor.contains(r.endContainer)) {
-    ankiPunctuationCaretByEditor.set(editorId, r.cloneRange());
-  }
-}
-document.addEventListener('selectionchange', function () {
-  const sel = window.getSelection();
-  if (!sel || !sel.rangeCount) return;
-  const r = sel.getRangeAt(0);
-  const parent = r.startContainer.nodeType === Node.ELEMENT_NODE
-    ? r.startContainer : r.startContainer.parentElement;
-  const editor = parent?.closest?.('.editor-canvas[contenteditable="true"]');
-  if (editor && ankiAutoSelectEditorIds.has(editor.id) && editor.contains(r.endContainer)) {
-    ankiPunctuationCaretByEditor.set(editor.id, r.cloneRange());
-  }
-});
+/* Select from the actual DOM caret (not a flattened text offset) through the
+   next punctuation mark. Includes English , . ; and Arabic ، ؛ ۔ ؟.
+   HTML structure, existing formatting, and bidi text are untouched. */
 function ankiSelectToNextPunctuation(editorId) {
   if (!ankiAutoSelectEditorIds.has(editorId)) return;
   const editor = document.getElementById(editorId);
+  if (!editor || !editor.isContentEditable) return;
   const sel = window.getSelection();
-  if (!editor || !editor.isContentEditable || !sel) return;
-  const inside = r => !!r && editor.contains(r.startContainer) && editor.contains(r.endContainer);
-  const live = sel.rangeCount ? sel.getRangeAt(0) : null;
-  const prior = ankiPunctuationCaretByEditor.get(editorId);
-  const source = inside(live) ? live : inside(prior) ? prior : inside(savedRange) ? savedRange : null;
-  if (!source) {
-    if (typeof showToast === 'function') showToast('Place the cursor in this field first.');
-    return;
-  }
-  const caret = source.cloneRange();
-  // If there is already a selection, continue from its end.
-  caret.collapse(false);
+  if (!sel) return;
+  const within = r => r && editor.contains(r.startContainer) && editor.contains(r.endContainer);
+  const current = sel.rangeCount ? sel.getRangeAt(0) : null;
+  const from = within(current) ? current.cloneRange()
+    : (activeEditorId === editorId && within(savedRange) ? savedRange.cloneRange() : null);
+  if (!from) { showToast('Place the cursor in this field first.'); return; }
+  from.collapse(true);
   const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
-  let node, endNode = null, endOffset = 0;
+  let node, started = false, lastNode = null, lastOffset = 0, endNode = null, endOffset = 0;
   while ((node = walker.nextNode())) {
-    if (!node.length || caret.comparePoint(node, node.length) < 0) continue;
+    if (!node.data.length) continue;
     let offset = 0;
-    if (caret.comparePoint(node, 0) < 0) {
-      // Cursor lies partway through this text node: binary-search the offset.
-      let low = 0, high = node.length;
-      while (low < high) {
-        const mid = (low + high) >> 1;
-        if (caret.comparePoint(node, mid) < 0) low = mid + 1;
-        else high = mid;
+    if (!started) {
+      if (node === from.startContainer) {
+        offset = from.startOffset;
+      } else {
+        // comparePoint: -1=before caret, 0=at caret, +1=after caret.
+        // A text node wholly before the caret is not part of this selection.
+        if (from.comparePoint(node, node.length) === -1) continue;
       }
-      offset = low;
+      started = true;
     }
-    const match = /[,.]/.exec(node.data.slice(offset));
+    if (offset >= node.length) continue;
+    lastNode = node;
+    lastOffset = node.length;
+    const match = /[,.;،؛۔؟]/u.exec(node.data.slice(offset));
     if (match) {
       endNode = node;
-      endOffset = offset + match.index + 1; // Include the delimiter.
+      endOffset = offset + match.index + match[0].length;
       break;
     }
   }
-  const range = document.createRange();
-  range.setStart(caret.startContainer, caret.startOffset);
-  if (endNode) range.setEnd(endNode, endOffset);
-  else range.setEnd(editor, editor.childNodes.length);
-  if (range.collapsed) {
-    if (typeof showToast === 'function') showToast('No more text after the cursor.');
-    return;
-  }
-  editor.focus({preventScroll:true});
+  if (!endNode) { endNode = lastNode; endOffset = lastOffset; }
+  if (!endNode) { showToast('No text after the cursor.'); return; }
+  const chosen = document.createRange();
+  chosen.setStart(from.startContainer, from.startOffset);
+  chosen.setEnd(endNode, endOffset);
+  if (chosen.collapsed) return;
+  if (document.activeElement !== editor) editor.focus({preventScroll:true});
   sel.removeAllRanges();
-  sel.addRange(range);
+  sel.addRange(chosen);
   activeEditorId = editorId;
-  savedRange = range.cloneRange();
-  ankiPunctuationCaretByEditor.set(editorId, range.cloneRange());
+  savedRange = chosen.cloneRange();
 }
+
+
+/* Assign direction separately to each paragraph/list item. The Hebrew/Arabic
+   Unicode bidi algorithm chooses RTL for Arabic text and LTR for English; each
+   line is independent, so mixed-language cards are readable. */
+function ankiEnableBilingualDirection(root) {
+  if (!root) return;
+  if (!root.hasAttribute('dir')) root.setAttribute('dir','auto');
+  for (const el of root.querySelectorAll('p,div,li,blockquote,h1,h2,h3,h4,h5,h6,ul,ol')) {
+    if (el.hasAttribute('dir') || el.style.direction || el.style.textAlign || el.hasAttribute('align')) continue;
+    if (el.closest('.anki-image-cloze,.anki-image-cloze-editor,.anki-image-mask')) continue;
+    el.setAttribute('dir','auto');
+  }
+}
+function ankiInitBilingualEditors() {
+  for (const id of ['createCardFront','createCardBack','modalCardFront','modalCardBack',
+                    'editCardFront','editCardBack','frontContent','backContent']) {
+    const root = document.getElementById(id);
+    if (!root) continue;
+    ankiEnableBilingualDirection(root);
+    const observer = new MutationObserver(() => ankiEnableBilingualDirection(root));
+    observer.observe(root,{childList:true,subtree:true});
+  }
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded',ankiInitBilingualEditors);
+else ankiInitBilingualEditors();
 
 function ankiResizeBackEditor(editor) {
   if (!editor || !editor.isConnected || editor.closest('.hidden')) return;
@@ -5813,108 +6743,72 @@ document.addEventListener('focusin', (e) => {
 
     
 
-// Apply a preset to selected text only, preserving the remaining card contents.
-/* A formatting preset must not wrap multiple <p>/<div>/<li> blocks in
-   one <span>: that markup is invalid after the card HTML is saved/reparsed.
-   Instead, apply the same inline preset inside each selected paragraph/list
-   item, leaving its block structure and everything outside the selection intact. */
+// Format every selected text run without moving or wrapping whole paragraphs.
+// Selection boundaries are snapshotted BEFORE changing the DOM; they cannot
+// drift when a later line is edited. This works for p/div/li, inline formatting,
+// multiple paragraphs, right-to-left Arabic and mixed Arabic/English text.
 function applyAnkiPreset(editorId, color, underline) {
   const editor = document.getElementById(editorId);
   if (!editor) return;
   const selection = window.getSelection();
-  const within = r => r && editor.contains(r.startContainer) && editor.contains(r.endContainer);
+  if (!selection) return;
+  const within = range => range &&
+    editor.contains(range.startContainer) && editor.contains(range.endContainer);
   let original = selection.rangeCount ? selection.getRangeAt(0).cloneRange() : null;
-  if ((!within(original) || original.collapsed) && within(savedRange) && !savedRange.collapsed)
+  if ((!within(original) || original.collapsed) &&
+      activeEditorId === editorId && within(savedRange) && !savedRange.collapsed)
     original = savedRange.cloneRange();
   if (!within(original) || original.collapsed) return;
 
-  const blockTags = new Set(['P','DIV','LI','PRE','BLOCKQUOTE','H1','H2','H3','H4','H5','H6']);
-  const groups = [];
-  const visited = new Set();
+  // Capture each original text-node boundary, not live block-boundaries. The
+  // original Range is never consulted again after we begin splitting nodes.
+  const runs = [];
   const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
   let textNode;
   while ((textNode = walker.nextNode())) {
     if (!textNode.nodeValue || !original.intersectsNode(textNode)) continue;
-    // Selection at a text-node boundary must not apply to an empty suffix.
-    const from = textNode === original.startContainer ? original.startOffset : 0;
-    const to = textNode === original.endContainer ? original.endOffset : textNode.length;
-    if (from >= to) continue;
-    let block = textNode.parentElement;
-    while (block && block !== editor && !blockTags.has(block.tagName)) block = block.parentElement;
-    // Direct editor text is styled individually, not wrapped together with
-    // adjacent block-level nodes (which would recreate the original bug).
-    if (!block || block === editor) block = textNode;
-    if (!visited.has(block)) { visited.add(block); groups.push(block); }
+    const start = textNode === original.startContainer ? original.startOffset : 0;
+    const end = textNode === original.endContainer ? original.endOffset : textNode.length;
+    if (start < end) runs.push({node:textNode, start, end});
   }
-  if (!groups.length) return;
+  if (!runs.length) return;
+  const editorStyle = getComputedStyle(editor);
+  const fontSize = editorStyle.fontSize;
+  const fontFamily = editorStyle.fontFamily;
+  const inserted = [];
 
-  function clearOldInlineFormatting(fragment) {
-    const formattingTags = new Set(['B','STRONG','I','EM','U','S','STRIKE','FONT','MARK','SMALL','BIG','SUB','SUP']);
-    function visit(parent) {
-      for (const child of Array.from(parent.childNodes)) {
-        if (child.nodeType !== Node.ELEMENT_NODE) continue;
-        visit(child);
-        if (formattingTags.has(child.tagName)) {
-          // Unwrap only the selected portion, not its unselected siblings.
-          child.replaceWith(...Array.from(child.childNodes));
-          continue;
-        }
-        // Preserve cloze data, images, links, list markup, and sizing/position
-        // styles unrelated to text formatting (e.g., image occlusion masks).
-        if (child.classList.contains('anki-cleared-format')) child.classList.remove('anki-cleared-format');
-        if (!child.matches('img, .anki-image-cloze, .anki-image-mask, .anki-image-mask-label')) {
-          for (const prop of ['color','font-weight','font-style','font-size','font-family',
-                              'text-decoration','text-decoration-line','text-decoration-color',
-                              'background-color','text-shadow']) child.style.removeProperty(prop);
-          if (child.hasAttribute('style') && !child.getAttribute('style').trim()) child.removeAttribute('style');
-        }
-      }
-    }
-    visit(fragment);
-  }
-
-  const styled = [];
-  // Reverse order protects the starting/ending selection boundaries while
-  // DOM nodes are extracted and reinserted in other paragraphs.
-  for (const block of groups.reverse()) {
-    const local = document.createRange();
-    if (block.nodeType === Node.TEXT_NODE) {
-      const start = block === original.startContainer ? original.startOffset : 0;
-      const stop = block === original.endContainer ? original.endOffset : block.length;
-      if (start >= stop) continue;
-      local.setStart(block, start);
-      local.setEnd(block, stop);
-    } else {
-      if (block.contains(original.startContainer))
-        local.setStart(original.startContainer, original.startOffset);
-      else local.setStart(block, 0);
-      if (block.contains(original.endContainer))
-        local.setEnd(original.endContainer, original.endOffset);
-      else local.setEnd(block, block.childNodes.length);
-    }
-    if (local.collapsed) continue;
-    const contents = local.extractContents();
-    clearOldInlineFormatting(contents);
-    const span = document.createElement('span');
+  // Iterate backwards; splitting a later text node does not change any
+  // earlier stored offsets. No paragraph, list, cloze, or image is relocated.
+  for (let i = runs.length - 1; i >= 0; i--) {
+    const {node, start, end} = runs[i];
+    if (!node.isConnected || start >= end) continue;
+    let middle = node;
+    if (end < middle.length) middle.splitText(end);
+    if (start > 0) middle = middle.splitText(start);
+    const parent = middle.parentElement;
+    // Reuse our own existing preset span instead of nesting on each click.
+    const reusable = parent && parent.classList.contains('anki-preset-run') &&
+      parent.childNodes.length === 1 && parent.firstChild === middle;
+    const span = reusable ? parent : document.createElement('span');
+    span.classList.add('anki-preset-run');
     span.style.setProperty('color', color, 'important');
     span.style.setProperty('font-weight', 'bold', 'important');
     span.style.setProperty('font-style', 'normal', 'important');
-    span.style.setProperty('font-size', getComputedStyle(editor).fontSize, 'important');
-    span.style.setProperty('font-family', getComputedStyle(editor).fontFamily, 'important');
+    span.style.setProperty('font-size', fontSize, 'important');
+    span.style.setProperty('font-family', fontFamily, 'important');
     span.style.setProperty('background-color', 'transparent', 'important');
     span.style.setProperty('text-decoration-line', underline ? 'underline' : 'none', 'important');
     span.style.setProperty('text-decoration-color', 'currentColor', 'important');
-    span.appendChild(contents);
-    local.insertNode(span);
-    styled.unshift(span);
+    if (!reusable) { middle.parentNode.insertBefore(span, middle); span.appendChild(middle); }
+    inserted.unshift(span);
   }
-  if (!styled.length) return;
-  // Keep the entire formatted multi-line selection active for consecutive
-  // preset clicks; do not reselect only the first paragraph.
-  editor.focus({preventScroll:true});
+  if (!inserted.length) return;
+  // Preserve the complete multi-paragraph selection for a second preset click.
+  // Focusing may select-all automatically in these editors; restore afterward.
+  if (document.activeElement !== editor) editor.focus({preventScroll:true});
   const updated = document.createRange();
-  updated.setStartBefore(styled[0]);
-  updated.setEndAfter(styled[styled.length - 1]);
+  updated.setStartBefore(inserted[0]);
+  updated.setEndAfter(inserted[inserted.length - 1]);
   selection.removeAllRanges();
   selection.addRange(updated);
   savedRange = updated.cloneRange();
@@ -6347,6 +7241,8 @@ function saveCardEdits() {
     }
   }
 
+  if(ankiIsStarDeck(appState.activeStudyDeckId))
+    ankiApplyStarMirrorToSource(card,['title','front','back','clozeText']);
   saveLocalState();
   renderSidebarList();
   showStudyCard();
@@ -6388,7 +7284,8 @@ function saveCardEdits() {
         1: { key: 'again', intervalMs: 60 * 1000, label: 'Again' },
         2: { key: 'hard',  intervalMs: 10 * 60 * 1000, label: 'Hard' },
         3: { key: 'good',  intervalMs: 24 * 60 * 60 * 1000, label: 'Good' },
-        4: { key: 'easy',  intervalMs: 4 * 24 * 60 * 60 * 1000, label: 'Easy' }
+        4: { key: 'easy',  intervalMs: 4 * 24 * 60 * 60 * 1000, label: 'Easy' },
+        5: { key: 'week',  intervalMs: 7 * 24 * 60 * 60 * 1000, label: 'Week' }
       };
       const selectedRating = ratingDetails[rating];
       if (!selectedRating) return;
@@ -6403,6 +7300,8 @@ function saveCardEdits() {
       card.reviewData.dueAt = now + selectedRating.intervalMs;
       card.reviewData.lastReviewedAt = now;
       card.reviewData.reviewCount = (Number(card.reviewData.reviewCount) || 0) + 1;
+      if(ankiIsStarDeck(appState.activeStudyDeckId))
+        ankiApplyStarMirrorToSource(card,['reviewData']);
 
       // Count the rating in the current session (once per card for progress).
       if (!studySessionStats) {
@@ -6410,7 +7309,7 @@ function saveCardEdits() {
           startedAt: now,
           totalCards: appState.studyQueue.length,
           reviewedCardIds: [],
-          ratings: { again: 0, hard: 0, good: 0, easy: 0 }
+          ratings: { again: 0, hard: 0, good: 0, easy: 0, week: 0 }
         };
       }
       studySessionStats.ratings[selectedRating.key]++;
@@ -6466,7 +7365,7 @@ function saveCardEdits() {
     function populateCreateDropdown() {
       const select = document.getElementById('createCardDeck');
       select.innerHTML = '';
-      Object.keys(appState.decks).forEach(id => {
+      Object.keys(appState.decks).filter(id=>!ankiIsStarDeck(id)).forEach(id => {
         select.add(new Option(appState.decks[id].name, id));
       });
     }
@@ -6479,7 +7378,7 @@ function saveCardEdits() {
       const back = sanitizeHtmlContent(document.getElementById('createCardBack').innerHTML.trim());
       const clozeText = '';
 
-      if (!deckId || (!front && !clozeText)) {
+      if (!deckId || ankiIsStarDeck(deckId) || (!front && !clozeText)) {
         alert("Please select a deck and enter front question content.");
         return;
       }
@@ -6517,6 +7416,7 @@ function saveCardEdits() {
       if (interval===600000) return 'hard';
       if (interval===86400000) return 'good';
       if (interval===345600000) return 'easy';
+      if (interval===604800000) return 'week';
       return 'other';
     }
     function ankiReviewFormatTime(value) {
@@ -6564,7 +7464,7 @@ function saveCardEdits() {
         `${dueCount} due now / ${totalCount} total cards across ${selected.length} deck${selected.length===1?'':'s'} · ${new Date(now).toLocaleString()}`;
       const groups=[
         ['again','Again · 1 minute'],['hard','Hard · 10 minutes'],
-        ['good','Good · 1 day'],['easy','Easy · 4 days'],
+        ['good','Good · 1 day'],['easy','Easy · 4 days'],['week','7 Days · 7 days'],
         ['new','New / no scheduled review'],['other','Other / imported interval']
       ];
       const classFor=group=>'anki-review-'+group;
@@ -6672,6 +7572,40 @@ function saveCardEdits() {
           } catch (error) {
             console.warn('Unable to read optional AnkiSync progress manifest', error);
           }
+        }
+
+        // A linked Starred Cards export carries a manifest of ORIGINAL card IDs.
+        // Reattach stars to available original decks rather than creating copies
+        // of cards already in this AnkiSync library. Cancel allows a normal
+        // standalone Anki deck import instead.
+        const starredManifestEntry=zip.file('ankisync-starred-links.json');
+        if(starredManifestEntry && !folderBatch) {
+          try {
+            const linked=JSON.parse(await starredManifestEntry.async('string'));
+            if(linked.format==='AnkiSyncStarredLinkedCollection'&&linked.version===1&&Array.isArray(linked.groups)) {
+              if(confirm('This is a linked ★ Starred Cards export. Restore stars to matching ORIGINAL cards in this AnkiSync library?\n\nOK: Reconnect live star links, keeping unmatched cards pending until their source decks are imported.\nCancel: Import the cards as ordinary separate Anki decks.')) {
+                const pending=linked.groups.flatMap(group=>(group.cards||[]).map(card=>({
+                  sourceDeckId:card.sourceDeckId,sourceDeckName:card.sourceDeckName||group.sourceDeckName,
+                  sourceCardId:card.sourceCardId,cardDigest:card.cardDigest
+                })));
+                const current=appState.pendingStarredLinks||[];
+                const known=new Set(current.map(c=>c.sourceDeckId+'\u0000'+c.sourceCardId));
+                for(const item of pending) {
+                  const k=item.sourceDeckId+'\u0000'+item.sourceCardId;
+                  if(!known.has(k)){current.push(item);known.add(k);}
+                }
+                appState.pendingStarredLinks=current;
+                const connected=ankiApplyPendingStarLinks();
+                saveLocalState();renderDecks();
+                progressContainer.classList.add('hidden');
+                switchTab('decks');
+                showToast('Restored '+connected+' live star link'+(connected===1?'':'s')+
+                  '; '+appState.pendingStarredLinks.length+' still waiting for source decks.');
+                event.target.value='';
+                return;
+              }
+            }
+          }catch(err){console.warn('Could not restore linked Starred Cards manifest:',err);}
         }
 
         let mediaMap = {};
@@ -6871,7 +7805,11 @@ function saveCardEdits() {
               title: title.replace(/<[^>]*>?/gm, ''),
               front: front,
               back: back,
-              ...(reviewData ? { reviewData } : {})
+              ...(reviewData ? { reviewData } : {}),
+              ...(embedded?.starred ? {starred:true} : {}),
+              ...(embedded?.starredSourceDeckName ? {starredSourceDeckName:embedded.starredSourceDeckName,
+                starredSourceDeckId:embedded.starredSourceDeckId,
+                starredSourceCardId:embedded.starredSourceCardId} : {})
             });
 
 
@@ -6897,6 +7835,12 @@ function saveCardEdits() {
               if (!saved) return;
               if (saved.reviewData) card.reviewData = saved.reviewData;
               else delete card.reviewData;
+              if(saved.starred===true) card.starred=true;
+              if(saved.starredSourceDeckName) {
+                card.starredSourceDeckName=saved.starredSourceDeckName;
+                card.starredSourceDeckId=saved.starredSourceDeckId;
+                card.starredSourceCardId=saved.starredSourceCardId;
+              }
             });
             if (Number.isFinite(Number(sourceDeck.lastIndex))) {
               importedLastIndexByDeck[sourceDeck.name] = Math.max(
@@ -6938,7 +7882,7 @@ function saveCardEdits() {
           name.toLowerCase().split('::').pop() === packageStem
         );
         const autoChoice = matchingDecks.length === 1 ? matchingDecks[0] : null;
-        const selectedDecks = folderBatch ? deckNames : await new Promise((resolve) => {
+        let selectedDecks = folderBatch ? deckNames : await new Promise((resolve) => {
           if (deckNames.length === 1) {
             resolve(deckNames);
             return;
@@ -7001,6 +7945,13 @@ function saveCardEdits() {
 
 
 
+        // A full-library export includes the starred collection as an Anki
+        // deck for portability. When source decks are imported together with
+        // it, reconstruct the live collection instead of importing duplicates.
+        if (selectedDecks.includes(ANKI_STAR_DECK_NAME) &&
+            selectedDecks.some(name=>name!==ANKI_STAR_DECK_NAME) && portableProgress) {
+          selectedDecks=selectedDecks.filter(name=>name!==ANKI_STAR_DECK_NAME);
+        }
         const ankiImportedDeckIds=new Set();
         if (selectedDecks.length > 0 && folderBatch) {
           const sourceFilePath=ankiImportNormalizePath(options.relativePath || file.name);
@@ -7098,6 +8049,9 @@ function saveCardEdits() {
           refreshAnkiImportDeckOptions();
         }
 
+        ankiReconcileStarredDeck();
+        saveLocalState();
+        renderDecks();
         progressBar.style.width = '100%';
         statusText.innerText = "Import Complete!";
         percentText.innerText = "100%";
