@@ -256,6 +256,13 @@ body.light-mode .color-palette-bar {
       box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
     }
 
+
+    /* Allow native text selection on macOS/iOS, without double-tap page zoom. */
+    .editor-canvas[contenteditable="true"] {
+      -webkit-user-select: text; user-select: text;
+      touch-action: manipulation;
+    }
+
     /* Make double- and triple-click selections clearly visible on both themes. */
     .editor-canvas::selection, .editor-canvas *::selection {
       background: #93c5fd;
@@ -4074,6 +4081,7 @@ function promptCreateDeck() {
         }
 
 const content = await zip.generateAsync({ type: "blob" });
+        if(!content || content.size<100) throw new Error('The generated Anki package is empty or too small. Nothing was written or shared.');
         if(buildOnly) return {blob:content,filename:exportFilename};
 
         if (isIOSSave) {
@@ -7291,162 +7299,295 @@ async function insertBackClozeField(editorId) {
   activeEditorId = editorId;
 }
 
-// Reliable word/visual-line selection for all six Front/Back rich-text editors.
-// Handle the actual second/third click instead of relying solely on dblclick:
-// dblclick events are dispatched after a mouseup/click and may be unavailable
-// for some touch/trackpad paths. Selection changes never mutate editor HTML.
-(function ankiInstallEditorMultiClickSelection() {
-  const editorSelector = '.editor-canvas[contenteditable="true"]';
-  let lastTouchTap = null;
-  let pendingReselect = null;
+// Mac trackpad, desktop mouse, and iOS touch selection for the six rich editors.
+// Track gestures ourselves: Safari/WebKit and trackpad taps can report click.detail=1.
+// Work with DOM Ranges rather than Selection.modify('lineboundary'), which varies
+// across browser engines. No card HTML is changed by this feature.
+(function ankiInstallCrossPlatformEditorSelection() {
+  const editorIds = new Set([
+    'createCardFront', 'createCardBack',
+    'editCardFront', 'editCardBack',
+    'modalCardFront', 'modalCardBack'
+  ]);
+  const BLOCKS = new Set(['P','DIV','LI','PRE','BLOCKQUOTE','H1','H2','H3','H4','H5','H6','TD','TH']);
+  let lastPress = null;
+  let activePress = null;
+  let lastApplied = null;
+  let revision = 0;
 
-  function editorFromEvent(event) {
-    const target = event.target?.nodeType === Node.ELEMENT_NODE
-      ? event.target : event.target?.parentElement;
+  function eventEditor(event) {
+    const raw = event.target;
+    const target = raw?.nodeType === Node.ELEMENT_NODE ? raw : raw?.parentElement;
     if (!target || target.closest('img,canvas,[contenteditable="false"]')) return null;
-    return target.closest(editorSelector);
+    const editor = target.closest('.editor-canvas[contenteditable="true"]');
+    return editor && editorIds.has(editor.id) ? editor : null;
   }
 
-  function caretAtPoint(x, y, editor) {
+  function caretFromPoint(editor, x, y) {
     let range = null;
-    if (typeof document.caretRangeFromPoint === 'function') {
-      range = document.caretRangeFromPoint(x, y);
-    } else if (typeof document.caretPositionFromPoint === 'function') {
-      const pos = document.caretPositionFromPoint(x, y);
-      if (pos) {
-        range = document.createRange();
-        range.setStart(pos.offsetNode, pos.offset);
-        range.collapse(true);
+    try {
+      // Both methods are intentional: Safari implements caretRangeFromPoint,
+      // while other browsers may offer the standardized caretPositionFromPoint.
+      if (document.caretRangeFromPoint) range = document.caretRangeFromPoint(x, y);
+      if (!range && document.caretPositionFromPoint) {
+        const pos = document.caretPositionFromPoint(x, y);
+        if (pos) {
+          range = document.createRange();
+          range.setStart(pos.offsetNode, pos.offset);
+          range.collapse(true);
+        }
       }
+    } catch (_) { /* Use the current caret below. */ }
+    if (range && editor.contains(range.startContainer)) return range;
+    const current = window.getSelection();
+    if (current?.rangeCount && editor.contains(current.anchorNode)) {
+      const r = document.createRange();
+      try { r.setStart(current.anchorNode, current.anchorOffset); r.collapse(true); return r; }
+      catch (_) { /* Empty editor or stale selection. */ }
     }
-    return range && editor.contains(range.startContainer) ? range : null;
+    return null;
   }
 
-  function fallbackWordRange(caret) {
-    // Selection.modify is widely implemented but not universal. The fallback
-    // handles words within a text node and does not alter markup.
+  function textBlock(editor, caret) {
+    let node = caret.startContainer.nodeType === Node.TEXT_NODE
+      ? caret.startContainer.parentElement : caret.startContainer;
+    while (node && node !== editor) {
+      if (BLOCKS.has(node.tagName)) return node;
+      node = node.parentElement;
+    }
+    return editor;
+  }
+
+  function textRuns(block) {
+    const runs = [];
+    const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        const el = node.parentElement;
+        if (!node.data || !el || el.closest('[contenteditable="false"]')) return NodeFilter.FILTER_REJECT;
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    });
+    let node, source = '';
+    while ((node = walker.nextNode())) {
+      const start = source.length;
+      source += node.data;
+      runs.push({ node, start, end: source.length });
+    }
+    return {runs, source};
+  }
+
+  function indexAtCaret(block, caret, runs, textLength) {
     const node = caret.startContainer;
-    if (!node || node.nodeType !== Node.TEXT_NODE) return null;
-    const text = node.textContent || '';
-    if (!text.length) return null;
-    const offset = Math.max(0, Math.min(text.length, caret.startOffset));
-    let span = null;
-    if (typeof Intl !== 'undefined' && Intl.Segmenter) {
-      const segments = new Intl.Segmenter(undefined, {granularity: 'word'}).segment(text);
-      for (const item of segments) {
-        if (item.isWordLike && item.index <= offset && offset <= item.index + item.segment.length) {
-          span = [item.index, item.index + item.segment.length];
-          break;
-        }
-      }
+    if (node.nodeType === Node.TEXT_NODE) {
+      const found = runs.find(r => r.node === node);
+      if (found) return found.start + Math.max(0, Math.min(node.length, caret.startOffset));
     }
-    if (!span) {
-      const re = /[\p{L}\p{N}_]+/gu;
-      for (const match of text.matchAll(re)) {
-        if (match.index <= offset && offset <= match.index + match[0].length) {
-          span = [match.index, match.index + match[0].length];
-          break;
-        }
-      }
+    // Element-boundary caret: measure the preceding text nodes with DOM order,
+    // not Range.toString(), which inserts newlines for some HTML elements.
+    let index = 0;
+    for (const run of runs) {
+      const probe = document.createRange();
+      probe.selectNodeContents(run.node);
+      try {
+        if (caret.compareBoundaryPoints(Range.START_TO_END, probe) <= 0) break;
+      } catch (_) { continue; }
+      index = run.end;
     }
-    if (!span) return null;
-    const range = document.createRange();
-    range.setStart(node,span[0]);
-    range.setEnd(node,span[1]);
-    return range;
+    return Math.min(index, textLength);
   }
 
-  function selectAtPoint(editor, x, y, kind) {
+  function rangeForIndexes(runs, start, end) {
+    const a = runs.find(r => start >= r.start && start < r.end) || runs.find(r => start === r.end);
+    const b = runs.find(r => end > r.start && end <= r.end) || runs.find(r => end === r.start);
+    if (!a || !b || end <= start) return null;
+    const range = document.createRange();
+    range.setStart(a.node, Math.max(0, Math.min(a.node.length, start - a.start)));
+    range.setEnd(b.node, Math.max(0, Math.min(b.node.length, end - b.start)));
+    return range.collapsed ? null : range;
+  }
+
+  function wordRange(block, caret) {
+    const {runs, source} = textRuns(block);
+    if (!runs.length) return null;
+    const at = indexAtCaret(block, caret, runs, source.length);
+    let words = [];
+    if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+      const parts = new Intl.Segmenter(undefined, {granularity:'word'}).segment(source);
+      words = Array.from(parts, item => ({start:item.index, end:item.index+item.segment.length,
+        valid:!!item.isWordLike})).filter(w => w.valid);
+    } else {
+      const re = /[\p{L}\p{M}\p{N}_]+/gu;
+      for (const match of source.matchAll(re)) words.push({start:match.index,end:match.index+match[0].length});
+    }
+    // Prefer the word beginning at a boundary over the word to its left.
+    const word = words.find(w => w.start <= at && at < w.end) ||
+      words.find(w => w.end === at);
+    return word ? rangeForIndexes(runs, word.start, word.end) : null;
+  }
+
+  function lineRange(block, x, y) {
+    // Each rendered glyph determines its actual visual row. This correctly
+    // selects only one line in wrapped paragraphs and across bold/color spans.
+    const {runs,source} = textRuns(block);
+    if (!runs.length) return null;
+    const chars = [];
+    const probe = document.createRange();
+    const maxChars = 12000; // Limit work for very long pasted notes.
+    let seen = 0;
+    for (const run of runs) {
+      const str = run.node.data;
+      for (let i = 0; i < str.length && seen++ < maxChars;) {
+        const length = str.codePointAt(i) > 0xFFFF ? 2 : 1;
+        probe.setStart(run.node, i);
+        probe.setEnd(run.node, Math.min(str.length,i+length));
+        const rects = probe.getClientRects();
+        for (const rect of rects) {
+          if (rect.height > 0 && rect.width > 0) {
+            chars.push({from:run.start+i,to:run.start+i+length,rect});
+          }
+        }
+        i += length;
+      }
+      if (seen >= maxChars) break;
+    }
+    if (!chars.length) return null;
+    // Locate the actual glyph under/nearest the tap, including the right end
+    // of a line where caretRangeFromPoint may return the following paragraph.
+    const distance = rect => {
+      const dx = x < rect.left ? rect.left-x : x > rect.right ? x-rect.right : 0;
+      const dy = y < rect.top ? rect.top-y : y > rect.bottom ? y-rect.bottom : 0;
+      return dy*dy*4 + dx*dx;
+    };
+    let anchor = chars[0];
+    for (const ch of chars) if (distance(ch.rect) < distance(anchor.rect)) anchor = ch;
+    const base = anchor.rect;
+    const inLine = ch => {
+      const r = ch.rect;
+      const overlap = Math.min(r.bottom, base.bottom)-Math.max(r.top, base.top);
+      return overlap > Math.min(r.height,base.height)*0.32;
+    };
+    const onRow = chars.filter(inLine);
+    if (!onRow.length) return null;
+    return rangeForIndexes(runs,onRow[0].from,onRow[onRow.length-1].to);
+  }
+
+  function setSelection(editor, x, y, kind) {
     if (!editor?.isConnected) return false;
-    const caret = caretAtPoint(x, y, editor);
+    const caret = caretFromPoint(editor,x,y);
     if (!caret) return false;
-    const selection = window.getSelection();
-    if (!selection) return false;
-    selection.removeAllRanges();
-    selection.addRange(caret);
-    if (typeof selection.modify === 'function') {
-      selection.modify('move', 'backward', kind === 'line' ? 'lineboundary' : 'word');
-      selection.modify('extend', 'forward', kind === 'line' ? 'lineboundary' : 'word');
-    } else if (kind === 'word') {
-      const fallback = fallbackWordRange(caret);
-      if (fallback) {
-        selection.removeAllRanges();
-        selection.addRange(fallback);
+    const block = textBlock(editor,caret);
+    let range = kind === 'line' ? lineRange(block,x,y) : wordRange(block,caret);
+    if (!range && kind === 'word') {
+      // Some emoji or non-word punctuation have no word segment.
+      const sel = getSelection();
+      sel.removeAllRanges(); sel.addRange(caret);
+      if (sel.modify) {
+        sel.modify('move','backward','word');
+        sel.modify('extend','forward','word');
+        if (!sel.isCollapsed) range = sel.getRangeAt(0).cloneRange();
       }
     }
-    if (!selection.rangeCount || selection.isCollapsed) return false;
-    const range = selection.getRangeAt(0);
-    if (!editor.contains(range.startContainer) || !editor.contains(range.endContainer)) return false;
+    if (!range || !editor.contains(range.startContainer) || !editor.contains(range.endContainer)) return false;
+    const sel = window.getSelection();
+    if (!sel) return false;
+    sel.removeAllRanges();
+    sel.addRange(range);
+    if (sel.isCollapsed) return false;
     activeEditorId = editor.id;
     savedRange = range.cloneRange();
-    return true;
-  }
-
-  function selectFromEvent(event, kind) {
-    const editor = editorFromEvent(event);
-    if (!editor) return false;
-    // Prevent a first-focus 'select all' timeout from replacing a multi-click.
-    ankiSelectOnPointerUp = null;
-    if (pendingReselect) clearTimeout(pendingReselect);
-    const x = event.clientX, y = event.clientY;
-    const result = selectAtPoint(editor, x, y, kind);
-    if (!result) return false;
-    // Some browsers finalize native click selection after the click handler.
-    // Restore only if they replaced it, and only if focus stayed in this editor.
-    const range = window.getSelection().getRangeAt(0).cloneRange();
-    pendingReselect = setTimeout(() => {
-      pendingReselect = null;
-      const selection = window.getSelection();
-      if (!editor.isConnected || !selection || document.activeElement !== editor) return;
-      if (!selection.rangeCount || selection.isCollapsed ||
-          selection.toString() !== range.toString()) {
-        selection.removeAllRanges();
-        selection.addRange(range);
+    const serial = ++revision;
+    // WebKit sometimes applies the default selection *after* pointerup/click;
+    // repair only while the same gesture/selection is still current.
+    const restore = () => {
+      if (serial !== revision || !editor.isConnected) return;
+      if (document.activeElement !== editor) return;
+      const current = getSelection();
+      if (!current || !current.rangeCount ||
+          current.toString() !== range.toString() || current.isCollapsed) {
+        current?.removeAllRanges(); current?.addRange(range);
         savedRange = range.cloneRange();
       }
-    }, 0);
+    };
+    setTimeout(restore,0);
+    requestAnimationFrame(restore);
     return true;
   }
 
-  // A captured mousedown is the earliest reliable desktop click count.
-  // Prevent the browser from selecting a whole paragraph on the third press.
-  document.addEventListener('mousedown', event => {
-    if (event.button !== 0 || event.detail < 2 || !editorFromEvent(event)) return;
-    ankiSelectOnPointerUp = null;
-    if (event.detail >= 3) event.preventDefault();
-  }, true);
+  function trackPress(editor,x,y,at,pointerId,pointerType) {
+    const limit = pointerType === 'touch' ? 490 : 650;
+    const radius = pointerType === 'touch' ? 30 : 18;
+    const close = lastPress && lastPress.editor === editor && lastPress.pointerType === pointerType &&
+      at - lastPress.time < limit && Math.hypot(x-lastPress.x,y-lastPress.y) <= radius;
+    const count = close ? Math.min(lastPress.count+1,3) : 1;
+    lastPress = {editor, x, y, time:at, count,pointerType};
+    activePress = {...lastPress,pointerId};
+    if (count >= 2) ankiSelectOnPointerUp = null;
+    return count;
+  }
 
-  document.addEventListener('click', event => {
-    if (event.button !== 0) return;
-    const kind = event.detail >= 3 ? 'line' : event.detail === 2 ? 'word' : null;
-    if (kind && selectFromEvent(event, kind)) event.preventDefault();
-  }, true);
+  function applyPress(press,x,y) {
+    if (!press || press.count < 2) return false;
+    const kind = press.count >= 3 ? 'line' : 'word';
+    const applied = setSelection(press.editor,x,y,kind);
+    if (applied) lastApplied = {editor:press.editor,kind,time:performance.now(),x,y};
+    return applied;
+  }
 
-  // Backup for browser implementations that dispatch dblclick without a
-  // click event with detail=2.
-  document.addEventListener('dblclick', event => {
-    if (selectFromEvent(event, 'word')) event.preventDefault();
-  }, true);
-
-  // iPhone/iPad browsers do not consistently dispatch desktop-style click
-  // counts on touch. Recognize short, stationary double/triple taps; leave
-  // long presses, drag selection, and Pencil inking to their native handlers.
-  document.addEventListener('pointerup', event => {
-    if (event.pointerType !== 'touch' || !event.isPrimary) return;
-    const editor = editorFromEvent(event);
-    if (!editor) { lastTouchTap = null; return; }
-    const now = performance.now();
-    const close = lastTouchTap && lastTouchTap.editor === editor &&
-      now - lastTouchTap.at < 420 &&
-      Math.hypot(event.clientX - lastTouchTap.x,event.clientY - lastTouchTap.y) < 24;
-    const count = close ? Math.min(3,lastTouchTap.count + 1) : 1;
-    lastTouchTap = {editor,at:now,x:event.clientX,y:event.clientY,count};
-    if (count > 1) {
-      const kind = count === 3 ? 'line' : 'word';
-      // Keep the selection visible even if Safari emits a delayed click.
-      setTimeout(() => selectAtPoint(editor,event.clientX,event.clientY,kind),0);
+  document.addEventListener('pointerdown', e => {
+    const editor = eventEditor(e);
+    if (!editor || (e.pointerType === 'mouse' && e.button !== 0)) {
+      activePress = null; return;
     }
-  }, true);
+    trackPress(editor,e.clientX,e.clientY,performance.now(),e.pointerId,e.pointerType || 'mouse');
+  },true);
+
+  document.addEventListener('pointerup', e => {
+    const press = activePress;
+    if (!press || press.pointerId !== e.pointerId) return;
+    activePress = null;
+    if (!eventEditor(e) || Math.hypot(e.clientX-press.x,e.clientY-press.y)>35 ||
+      performance.now()-press.time > 750) return; // Do not treat a drag/long press as a tap.
+    applyPress(press,e.clientX,e.clientY);
+  },true);
+
+  // Desktop WebKit may report click.detail correctly even if pointer presses
+  // were synthesized, so also honor that count; triple click wins over double.
+  document.addEventListener('click', e => {
+    if (e.button !== 0) return;
+    const editor = eventEditor(e);
+    if (!editor) return;
+    const recent = lastPress && lastPress.editor === editor &&
+      performance.now()-lastPress.time < 750;
+    const count = Math.max(e.detail || 0, recent ? lastPress.count : 0);
+    if (count >= 2 && applyPress({editor,count},e.clientX,e.clientY)) e.preventDefault();
+  },true);
+
+  document.addEventListener('dblclick', e => {
+    const editor = eventEditor(e);
+    if (!editor) return;
+    const recentThird = lastPress?.editor === editor && lastPress.count >= 3 &&
+      performance.now()-lastPress.time < 600;
+    if (!recentThird && setSelection(editor,e.clientX,e.clientY,'word')) e.preventDefault();
+  },true);
+
+  // Older iOS Safari versions may omit Pointer Events during text editing.
+  let touchStart = null;
+  document.addEventListener('touchstart', e => {
+    if (window.PointerEvent && activePress) return; // Already tracked by pointerdown.
+    const editor = eventEditor(e);
+    if (!editor || e.touches.length !== 1) {touchStart=null; return;}
+    const t = e.changedTouches[0];
+    trackPress(editor,t.clientX,t.clientY,performance.now(),t.identifier,'touch');
+    touchStart = activePress;
+  },{capture:true,passive:true});
+  document.addEventListener('touchend', e => {
+    const press = touchStart;
+    touchStart = null;
+    if (!press || e.changedTouches.length !== 1) return;
+    const t = e.changedTouches[0];
+    if (Math.hypot(t.clientX-press.x,t.clientY-press.y)<30 && performance.now()-press.time<750)
+      applyPress(press,t.clientX,t.clientY);
+  },{capture:true,passive:true});
 })();
 
 // Tab navigates number -> answer -> hint -> next cloze answer.
@@ -7973,6 +8114,86 @@ function saveCardEdits() {
     }
 
     // --- ANKI IMPORT ENGINE ---
+    // Read the selected archive into a verified byte array before handing it to JSZip.
+    // This distinguishes an empty/iCloud-placeholder file from a ZIP parser failure.
+    // Import is strictly read-only with respect to the selected source file.
+    function ankiImportSizeLabel(bytes) {
+      const n=Number(bytes);
+      return !Number.isFinite(n) ? 'unknown size' :
+        n < 1024 ? n+' bytes' :
+        n < 1048576 ? (n/1024).toFixed(1)+' KB' :
+        (n/1048576).toFixed(2)+' MB';
+    }
+    async function ankiReadImportBytes(file) {
+      const label=String(file?.name || 'Selected file');
+      const advertisedSize=Number(file?.size);
+      if (!Number.isFinite(advertisedSize) || advertisedSize === 0) {
+        throw new Error('"'+label+'" was supplied to AnkiSync as an EMPTY file (0 bytes).\n\n'+
+          'The ZIP reader cannot recover cards from zero bytes. On Mac, use Finder → Get Info to check its size. '+
+          'On iPhone, open Files, tap the iCloud download icon if present, and try importing a fully downloaded copy.\n\n'+
+          'If Finder also shows 0 bytes, restore a previous .apkg, browser-stored deck, or AnkiSync library backup. '+
+          'Do NOT overwrite the existing file.');
+      }
+      if (advertisedSize < 16) {
+        throw new Error('"'+label+'" is only '+ankiImportSizeLabel(advertisedSize)+
+          ' and is too short to contain an Anki deck. Find a complete copy or backup; the selected file was not modified.');
+      }
+      let buffer;
+      try {
+        buffer=await file.arrayBuffer();
+      } catch(error) {
+        throw new Error('The browser could not read "'+label+'" ('+ankiImportSizeLabel(advertisedSize)+').\n'+
+          'If it is in iCloud Drive, download it fully to this device, then select it again.\n'+
+          'Read error: '+(error?.message || String(error)));
+      }
+      const bytes=new Uint8Array(buffer);
+      if (bytes.byteLength !== advertisedSize) {
+        throw new Error('Incomplete read of "'+label+'": the file picker reported '+
+          ankiImportSizeLabel(advertisedSize)+' but the browser delivered '+
+          ankiImportSizeLabel(bytes.byteLength)+'.\n\n'+
+          'This may be an unavailable cloud file. Download/copy it locally before importing. No original was modified.');
+      }
+      return bytes;
+    }
+    function ankiImportIsSqlite(bytes) {
+      const signature='SQLite format 3\u0000';
+      if (bytes.length<signature.length) return false;
+      return signature.split('').every((ch,i)=>bytes[i]===ch.charCodeAt(0));
+    }
+    function ankiImportIsZip(bytes) {
+      return bytes.length>=4 && bytes[0]===0x50 && bytes[1]===0x4b &&
+        ((bytes[2]===0x03 && bytes[3]===0x04) ||
+         (bytes[2]===0x05 && bytes[3]===0x06) ||
+         (bytes[2]===0x07 && bytes[3]===0x08));
+    }
+    async function ankiImportOpenSource(file, bytes, rawDatabase) {
+      const label='"'+String(file.name||'Selected file')+'" ('+ankiImportSizeLabel(bytes.length)+')';
+      if (rawDatabase) {
+        if (!ankiImportIsSqlite(bytes)) {
+          throw new Error(label+' is not a valid raw Anki SQLite collection. '+
+            'A raw .anki/.anki2/.anki21 file must begin with the SQLite header. No source file was modified.');
+        }
+        return {files:{}, file:() => null};
+      }
+      if (!ankiImportIsZip(bytes)) {
+        const kind=ankiImportIsSqlite(bytes) ?
+          'It contains a raw SQLite database instead of a ZIP package. Rename a COPY to .anki2 and import the copy.' :
+          'It does not begin with a ZIP signature, so it may be incomplete, mislabeled, or not an Anki package.';
+        throw new Error(label+' cannot be opened as .apkg/.colpkg.\n\n'+kind+'\n\n'+
+          'Check the original file size and use a previous backup if needed.');
+      }
+      if (typeof JSZip === 'undefined') {
+        throw new Error('The ZIP reader library did not load. Check your internet connection and reload AnkiSync.');
+      }
+      try {
+        return await JSZip.loadAsync(bytes);
+      } catch(error) {
+        throw new Error('Could not extract '+label+'. The ZIP structure is incomplete or corrupted.\n\n'+
+          'Try a freshly downloaded local copy. If that also fails on Mac and iPhone, '+
+          'restore a known-good .apkg or use an existing AnkiSync browser/library backup.\n\n'+
+          'Technical detail: '+(error?.message||String(error)));
+      }
+    }
     async function handleAnkiFileUpload(event, options = {}) {
       const folderBatch = !!options.folderBatch;
       const selectedFiles = Array.from(event.target.files || []);
@@ -7996,7 +8217,10 @@ function saveCardEdits() {
 
       try {
         const isRawAnkiDatabase = /\.(anki|anki2|anki21)$/i.test(file.name);
-        const zip = isRawAnkiDatabase ? {files:{}, file:() => null} : await JSZip.loadAsync(file);
+        statusText.innerText = 'Reading '+file.name+' ('+ankiImportSizeLabel(file.size)+')…';
+        const importedBytes=await ankiReadImportBytes(file);
+        statusText.innerText = 'Validating Anki archive…';
+        const zip=await ankiImportOpenSource(file,importedBytes,isRawAnkiDatabase);
         progressBar.style.width = '30%';
         statusText.innerText = "Processing media files into IndexedDB storage...";
         percentText.innerText = "30%";
@@ -8103,9 +8327,8 @@ function saveCardEdits() {
 
         let dbBuffer = null;
         if (isRawAnkiDatabase) {
-          dbBuffer = new Uint8Array(await file.arrayBuffer());
-          const magic = new TextDecoder().decode(dbBuffer.slice(0, 15));
-          if (magic !== 'SQLite format 3') throw new Error('This .anki/.anki2 file is not a supported SQLite collection. Export it as .apkg first.');
+          dbBuffer = importedBytes;
+          if (!ankiImportIsSqlite(dbBuffer)) throw new Error('This .anki/.anki2 file is not a supported SQLite collection. Export it as .apkg first.');
         } else if (zip.file("collection.anki21b")) {
           const compressed = await zip.file("collection.anki21b").async("uint8array");
           dbBuffer = fzstd.decompress(compressed);
@@ -8115,8 +8338,9 @@ function saveCardEdits() {
           dbBuffer = await zip.file("collection.anki2").async("uint8array");
         }
 
-        if (!dbBuffer) {
-          throw new Error("No compatible Anki SQLite collection database found in package.");
+        if (!dbBuffer || dbBuffer.length < 16 || !ankiImportIsSqlite(dbBuffer)) {
+          throw new Error('The .apkg archive was read, but its Anki collection database is missing, empty, or invalid.\n'+
+            'The original source was not overwritten. Try a previous valid .apkg or AnkiSync library backup.');
         }
 
         const SQL = await initSqlJs();
@@ -8517,7 +8741,10 @@ function saveCardEdits() {
         console.error(err);
         progressContainer.classList.add('hidden');
         if (folderBatch) throw err;
-        alert("Error importing Anki deck: " + err.message);
+        alert('AnkiSync could not import the deck:\n\n' + (err?.message || String(err)));
+      } finally {
+        // Allow the same file to be selected again after it finishes downloading.
+        if (event?.target && 'value' in event.target) event.target.value='';
       }
     }
 
