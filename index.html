@@ -313,6 +313,12 @@ body.light-mode .color-palette-bar {
       opacity: 1;
     }
 
+
+/* Pencil annotations: original text remains editable, ink is rasterized only at Save. */
+.editor-canvas img:hover { outline: 2px dotted #a5b4fc; outline-offset: 3px; cursor: crosshair; }
+#sketchCanvas { touch-action: none !important; user-select:none; -webkit-user-select:none; }
+@media (hover:none) { .image-wrapper .image-actions { opacity:1; } }
+
     /* Apple Pencil Sketch Canvas */
     #sketchCanvas {
       touch-action: none;
@@ -1400,6 +1406,7 @@ body.light-mode #ankiReviewOverview .anki-review-new {color:#0e7490;}
                   <button type="button" onclick="openSketchModal('editCardFront')" class="text-purple-400 hover:underline text-xs flex items-center gap-1">
                     <i class="fa-solid fa-pencil"></i> Apple Pencil Sketch
                   </button>
+                  <button type="button" onpointerdown="event.preventDefault()" onclick="ankiAnnotateSelectedText('editCardFront')" class="text-purple-300 hover:underline text-xs flex items-center gap-1" title="Annotate selected text with Pencil; the original text stays editable"><i class="fa-solid fa-highlighter"></i> Annotate Text</button>
                 </div>
                 <div class="flex flex-wrap gap-1 bg-slate-800 p-1.5 rounded-lg border border-slate-700 mb-1 items-center">
                   <button type="button" onclick="execCmd('bold', 'editCardFront')" class="toolbar-btn" title="Bold"><i class="fa-solid fa-bold"></i></button>
@@ -1452,6 +1459,7 @@ body.light-mode #ankiReviewOverview .anki-review-new {color:#0e7490;}
                     <button type="button" onclick="openSketchModal('editCardBack')" class="text-purple-400 hover:underline flex items-center gap-1">
                       <i class="fa-solid fa-pencil"></i> Apple Pencil Sketch
                     </button>
+                  <button type="button" onpointerdown="event.preventDefault()" onclick="ankiAnnotateSelectedText('editCardBack')" class="text-purple-300 hover:underline text-xs flex items-center gap-1" title="Annotate selected text with Pencil; the original text stays editable"><i class="fa-solid fa-highlighter"></i> Annotate Text</button>
                     <label class="text-indigo-400 hover:underline cursor-pointer flex items-center gap-1">
                       <i class="fa-solid fa-image"></i> Add Image
                       <input type="file" accept="image/*" class="hidden" onchange="insertImageToEditor(event, 'editCardBack')" />
@@ -1556,6 +1564,7 @@ body.light-mode #ankiReviewOverview .anki-review-new {color:#0e7490;}
                 <button type="button" onclick="openSketchModal('createCardFront')" class="text-purple-400 hover:underline flex items-center gap-1">
                   <i class="fa-solid fa-pencil"></i> Apple Pencil Sketch
                 </button>
+                  <button type="button" onpointerdown="event.preventDefault()" onclick="ankiAnnotateSelectedText('createCardFront')" class="text-purple-300 hover:underline text-xs flex items-center gap-1" title="Annotate selected text with Pencil; the original text stays editable"><i class="fa-solid fa-highlighter"></i> Annotate Text</button>
                 <label class="text-indigo-400 hover:underline cursor-pointer flex items-center gap-1">
                   <i class="fa-solid fa-image"></i> Add Image
                   <input type="file" accept="image/*" class="hidden" onchange="insertImageToEditor(event, 'createCardFront')" />
@@ -1621,6 +1630,7 @@ body.light-mode #ankiReviewOverview .anki-review-new {color:#0e7490;}
                 <button type="button" onclick="openSketchModal('createCardBack')" class="text-purple-400 hover:underline flex items-center gap-1">
                   <i class="fa-solid fa-pencil"></i> Apple Pencil Sketch
                 </button>
+                  <button type="button" onpointerdown="event.preventDefault()" onclick="ankiAnnotateSelectedText('createCardBack')" class="text-purple-300 hover:underline text-xs flex items-center gap-1" title="Annotate selected text with Pencil; the original text stays editable"><i class="fa-solid fa-highlighter"></i> Annotate Text</button>
                 <label class="text-indigo-400 hover:underline cursor-pointer flex items-center gap-1">
                   <i class="fa-solid fa-image"></i> Add Image
                   <input type="file" accept="image/*" class="hidden" onchange="insertImageToEditor(event, 'createCardBack')" />
@@ -1753,6 +1763,7 @@ body.light-mode #ankiReviewOverview .anki-review-new {color:#0e7490;}
             <button type="button" onclick="openSketchModal('modalCardFront')" class="text-purple-400 hover:underline text-xs flex items-center gap-1">
               <i class="fa-solid fa-pencil"></i> Apple Pencil Sketch
             </button>
+                  <button type="button" onpointerdown="event.preventDefault()" onclick="ankiAnnotateSelectedText('modalCardFront')" class="text-purple-300 hover:underline text-xs flex items-center gap-1" title="Annotate selected text with Pencil; the original text stays editable"><i class="fa-solid fa-highlighter"></i> Annotate Text</button>
           </div>
           <div class="flex flex-wrap gap-1 bg-slate-800 p-1.5 rounded-lg border border-slate-700 mb-1 items-center">
             <button type="button" onclick="execCmd('bold', 'modalCardFront')" class="toolbar-btn" title="Bold"><i class="fa-solid fa-bold"></i></button>
@@ -1809,6 +1820,7 @@ body.light-mode #ankiReviewOverview .anki-review-new {color:#0e7490;}
               <button type="button" onclick="openSketchModal('modalCardBack')" class="text-purple-400 hover:underline flex items-center gap-1">
                 <i class="fa-solid fa-pencil"></i> Apple Pencil Sketch
               </button>
+                  <button type="button" onpointerdown="event.preventDefault()" onclick="ankiAnnotateSelectedText('modalCardBack')" class="text-purple-300 hover:underline text-xs flex items-center gap-1" title="Annotate selected text with Pencil; the original text stays editable"><i class="fa-solid fa-highlighter"></i> Annotate Text</button>
               <label class="text-indigo-400 hover:underline cursor-pointer flex items-center gap-1">
                 <i class="fa-solid fa-image"></i> Add Image
                 <input type="file" accept="image/*" class="hidden" onchange="insertImageToEditor(event, 'modalCardBack')" />
@@ -1912,18 +1924,21 @@ body.light-mode #ankiReviewOverview .anki-review-new {color:#0e7490;}
             Size:
             <input type="range" id="sketchSize" min="1" max="20" value="3" class="w-24 accent-indigo-500" />
           </label>
+          <button type="button" onclick="ankiSketchUndo()" id="ankiSketchUndoBtn" class="px-3 py-1.5 bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold" title="Undo last stroke"><i class="fa-solid fa-rotate-left"></i> Undo</button>
+          <button type="button" onclick="ankiSketchRedo()" id="ankiSketchRedoBtn" class="px-3 py-1.5 bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold" title="Redo last stroke"><i class="fa-solid fa-rotate-right"></i> Redo</button>
           <button type="button" onclick="clearSketchCanvas()" class="px-3 py-1.5 bg-rose-500/20 text-rose-300 border border-rose-500/30 hover:bg-rose-500/30 rounded-lg text-xs font-semibold transition">Clear</button>
         </div>
       </div>
 
-      <div class="border border-slate-700 rounded-2xl overflow-hidden flex justify-center bg-slate-950 relative">
-        <canvas id="sketchCanvas" width="600" height="350" class="w-full max-h-[350px] object-contain"></canvas>
+      <p id="ankiSketchInstructions" class="text-xs text-indigo-200">Tap a picture in the card editor, then tap Apple Pencil Sketch to draw on that exact picture.</p>
+      <div class="border border-slate-700 rounded-2xl overflow-auto flex justify-center bg-slate-950 relative" style="max-height:62vh; touch-action:pan-x pan-y">
+        <canvas id="sketchCanvas" width="600" height="350" class="block max-w-full" style="width:auto;height:auto;max-height:none;touch-action:none"></canvas>
       </div>
 
       <div class="flex space-x-3 pt-2">
         <button onclick="saveSketchToActiveEditor()" class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold transition shadow-md flex items-center justify-center space-x-2">
           <i class="fa-solid fa-check"></i>
-          <span>Insert Annotated Sketch into Card</span>
+          <span id="ankiSketchSaveLabel">Save Annotation to Card</span>
         </button>
         <button onclick="closeSketchModal()" class="px-5 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-xl text-xs font-semibold transition">
           Cancel
@@ -2396,9 +2411,9 @@ function promptCreateDeck() {
     const ANKI_STAR_DECK_ID = 'anki_starred_cards_collection_v1';
     const ANKI_STAR_DECK_NAME = '★ Starred Cards';
 
-    // ★ Starred Cards is a normal, INDEPENDENT collection of cloned cards.
-    // Source IDs/names are provenance for grouping, never live references that
-    // control whether the copy survives or where its edits/reviews are saved.
+    // Each entry in the starred collection is a mirror of its actual source
+    // card, rather than an independent duplicate. Review changes and edits made
+    // in the collection are sent back to that source card.
     function ankiIsStarDeck(deckId) {
       return deckId === ANKI_STAR_DECK_ID || !!appState.decks?.[deckId]?.isStarredCollection;
     }
@@ -2406,165 +2421,130 @@ function promptCreateDeck() {
       if (!card) return null;
       const originId = card.starredSourceDeckId || deckId;
       if (!originId || ankiIsStarDeck(originId)) return null;
-      const originDeck = appState.decks?.[originId];
       const originCardId = String(card.starredSourceCardId ?? card.id);
+      const originDeck = appState.decks?.[originId];
       const originCard = originDeck?.cards?.find(item => String(item.id) === originCardId);
-      return originCard ? {deckId:originId,deck:originDeck,card:originCard} : null;
+      return originCard ? {deckId: originId, deck: originDeck, card: originCard} : null;
     }
     function ankiStarOriginName(card) {
-      // Keep the group label even if the entire original deck is deleted.
-      return card?.starredSourceDeckName ||
-        appState.decks?.[card?.starredSourceDeckId]?.name || 'Starred Cards — Other';
-    }
-    function ankiStarCopyKey(card) {
-      if(!card?.starredSourceDeckId || card.starredSourceCardId == null) return null;
-      return String(card.starredSourceDeckId)+'\u0000'+String(card.starredSourceCardId);
-    }
-    function ankiStarredCopyForSource(deckId,cardId) {
-      return appState.decks?.[ANKI_STAR_DECK_ID]?.cards?.find(c =>
-        String(c.starredSourceDeckId)===String(deckId) &&
-        String(c.starredSourceCardId)===String(cardId)) || null;
-    }
-    function ankiStarCloneCard(source, deckId, deckName) {
-      // Preserve formatting, embedded media and initial review data, but do not
-      // share nested objects or schedules with the original card.
-      const clone=typeof structuredClone==='function' ? structuredClone(source)
-        : JSON.parse(JSON.stringify(source));
-      clone.id='star_'+Date.now()+'_'+Math.random().toString(36).slice(2,12);
-      clone.starredSourceDeckId=String(deckId);
-      clone.starredSourceCardId=String(source.id);
-      clone.starredSourceDeckName=deckName;
-      clone.starredIndependent=true;
-      delete clone.starred;
-      return clone;
+      const deck = appState.decks?.[card.starredSourceDeckId];
+      return deck?.name || card.starredSourceDeckName || 'Original deck unavailable';
     }
     function ankiReconcileStarredDeck() {
-      if(!appState?.decks) return;
-      let collection=appState.decks[ANKI_STAR_DECK_ID];
-      const flagged=Object.entries(appState.decks).filter(([id,d])=>
-        !ankiIsStarDeck(id) && Array.isArray(d.cards)).flatMap(([id,deck])=>
-        deck.cards.filter(c=>c.starred===true).map(card=>({id,deck,card})));
-      if(!collection && !flagged.length) return;
-      if(!collection) {
-        collection={id:ANKI_STAR_DECK_ID,name:ANKI_STAR_DECK_NAME,
+      if (!appState?.decks) return;
+      let collection = appState.decks[ANKI_STAR_DECK_ID];
+      // On initial load, do not create an empty collection unless a star exists.
+      const sources = Object.entries(appState.decks).filter(([id,deck]) =>
+        !ankiIsStarDeck(id) && Array.isArray(deck.cards));
+      const flagged = sources.flatMap(([id,deck]) => deck.cards
+        .filter(card => card.starred === true).map(card => ({id,deck,card})));
+      if (!collection && !flagged.length) return;
+      if (!collection) {
+        collection = {id:ANKI_STAR_DECK_ID,name:ANKI_STAR_DECK_NAME,
           category:'General',isStarredCollection:true,cards:[],lastIndex:0,lastCardId:null};
-        appState.decks[ANKI_STAR_DECK_ID]=collection;
+        appState.decks[ANKI_STAR_DECK_ID] = collection;
       }
-      collection.isStarredCollection=true;
-      collection.name=ANKI_STAR_DECK_NAME;
-      if(!Array.isArray(collection.cards)) collection.cards=[];
-      // Migration: freeze old live mirrors in place. Do not replace their IDs;
-      // study queues can already be pointing at these objects.
-      for(const c of collection.cards) {
-        if(!c.starredIndependent) {
-          if(c.reviewData) c.reviewData=typeof structuredClone==='function'
-            ? structuredClone(c.reviewData) : JSON.parse(JSON.stringify(c.reviewData));
-          c.starredIndependent=true;
-        }
-      }
-      const known=new Set(collection.cards.map(ankiStarCopyKey).filter(Boolean));
+      collection.isStarredCollection = true;
+      collection.name = ANKI_STAR_DECK_NAME;
+      if (!Array.isArray(collection.cards)) collection.cards=[];
+      const existing = new Map(collection.cards.map(mirror =>
+        [String(mirror.starredSourceDeckId)+'\u0000'+String(mirror.starredSourceCardId),mirror]));
+      const next=[];
+      flagged.sort((a,b)=> a.deck.name.localeCompare(b.deck.name,undefined,{sensitivity:'base'}) ||
+        (a.deck.cards.indexOf(a.card)-b.deck.cards.indexOf(b.card)));
       for(const {id,deck,card} of flagged) {
         const key=String(id)+'\u0000'+String(card.id);
-        if(known.has(key)) continue;
-        collection.cards.push(ankiStarCloneCard(card,id,deck.name));
-        known.add(key);
+        let mirror=existing.get(key);
+        if (!mirror) mirror={};
+        // Keep the mirror's identity stable for study queues and scheduled reviews.
+        const mirrorId=mirror.id || ('star_'+Date.now()+'_'+Math.random().toString(36).slice(2,12));
+        const clone={...card,id:mirrorId,starredSourceDeckId:id,
+          starredSourceCardId:String(card.id),starredSourceDeckName:deck.name};
+        delete clone.starred;
+        for(const k of Object.keys(mirror)) if(!(k in clone)) delete mirror[k];
+        Object.assign(mirror,clone);
+        next.push(mirror);
       }
-      // Stored copies are NEVER removed because an original is edited, unlinked,
-      // deleted, or because the original deck is deleted.
-      collection.cards.sort((a,b)=>ankiStarOriginName(a).localeCompare(
-        ankiStarOriginName(b),undefined,{sensitivity:'base'}));
+      collection.cards=next;
     }
-    function ankiApplyStarMirrorToSource(card,fields) {
-      // Deliberately no-op: source cards and starred copies are independent.
-    }
-    function ankiStarRemoveCopy(card) {
-      const collection=appState.decks?.[ANKI_STAR_DECK_ID];
-      if(!collection) return false;
-      const index=collection.cards.findIndex(c=>String(c.id)===String(card.id));
-      if(index<0) return false;
-      const copy=collection.cards[index];
-      const source=ankiStarSourceFor(copy,ANKI_STAR_DECK_ID);
-      if(source) { source.card.starred=false; ankiMarkDirty(source.deckId); }
-      collection.cards.splice(index,1);
-      if(ankiIsStarDeck(appState.activeStudyDeckId)) {
-        appState.studyQueue=appState.studyQueue.filter(c=>String(c.id)!==String(copy.id));
-        selectedSidebarCardIds.delete(copy.id);
-        appState.studyIndex=Math.min(appState.studyIndex,Math.max(0,appState.studyQueue.length-1));
+    function ankiApplyStarMirrorToSource(card, fields) {
+      if (!card?.starredSourceDeckId) return;
+      const source=ankiStarSourceFor(card,ANKI_STAR_DECK_ID);
+      if (!source) return;
+      for(const field of fields) {
+        if (Object.prototype.hasOwnProperty.call(card,field)) {
+          source.card[field]=field==='reviewData' && card[field]
+            ? {...card[field]} : card[field];
+        } else delete source.card[field];
       }
-      return true;
-    }
-    function ankiStarStatusForCard(card,deckId) {
-      if(!card) return false;
-      if(ankiIsStarDeck(deckId)) return true;
-      return !!card.starred || !!ankiStarredCopyForSource(deckId,card.id);
+      ankiMarkDirty(source.deckId);
     }
     function ankiUpdateCurrentStarButton() {
       const btn=document.getElementById('ankiCurrentStarButton');
       if(!btn) return;
       const current=appState.studyQueue?.[appState.studyIndex];
-      const isCopy=ankiIsStarDeck(appState.activeStudyDeckId);
-      const starred=ankiStarStatusForCard(current,appState.activeStudyDeckId);
-      btn.classList.toggle('hidden',!current);
+      const source=ankiStarSourceFor(current,appState.activeStudyDeckId);
+      const starred=!!source?.card.starred;
+      btn.classList.toggle('hidden',!source);
       btn.setAttribute('aria-pressed',String(starred));
-      btn.title=isCopy?'Remove this independent copy from Starred Cards':
-        (starred?'Remove this card from Starred Cards':'Copy this card into Starred Cards');
-      btn.innerHTML='<i class="'+(starred?'fa-solid':'fa-regular')+
-        ' fa-star" aria-hidden="true"></i><span>'+(isCopy?'Unstar':starred?'Starred':'Star')+'</span>';
+      btn.title=starred ? 'Remove this card from Starred Cards' : 'Add this card to Starred Cards';
+      btn.innerHTML='<i class="'+(starred?'fa-solid':'fa-regular')+' fa-star" aria-hidden="true"></i><span>'+(starred?'Starred':'Star')+'</span>';
     }
     function ankiToggleCurrentCardStar() {
       const current=appState.studyQueue?.[appState.studyIndex];
-      if(current) ankiToggleCardStar(current.id);
+      if (current) ankiToggleCardStar(current.id);
     }
     function ankiStarSelectedSidebarCards() {
       const selected=appState.studyQueue.filter(c=>selectedSidebarCardIds.has(c.id));
       if(!selected.length) return;
-      const isCopy=ankiIsStarDeck(appState.activeStudyDeckId);
+      const remove=ankiIsStarDeck(appState.activeStudyDeckId);
       let changed=0;
-      if(isCopy) {
-        for(const card of [...selected]) if(ankiStarRemoveCopy(card)) changed++;
-      } else {
-        const deckId=appState.activeStudyDeckId;
-        const deck=appState.decks[deckId];
-        for(const card of selected) {
-          if(ankiStarredCopyForSource(deckId,card.id)) continue;
-          card.starred=true; changed++;
+      const sourceDeckIds=new Set();
+      for(const card of selected) {
+        const source=ankiStarSourceFor(card,appState.activeStudyDeckId);
+        if(source && !!source.card.starred===remove) {
+          source.card.starred=!remove;
+          sourceDeckIds.add(source.deckId);
+          changed++;
         }
-        if(changed) ankiMarkDirty(deckId);
-        ankiReconcileStarredDeck();
-      }
-      selectedSidebarCardIds.clear();
-      saveLocalState();renderDecks();renderSidebarList();
-      if(appState.studyQueue.length) showStudyCard();else ankiShowDueWaiting();
-      showToast(changed+' independent starred card'+(changed===1?'':'s')+
-        (isCopy?' removed; source cards preserved.':' added; source cards unchanged.'));
-    }
-    function ankiToggleCardStar(cardId) {
-      const deckId=appState.activeStudyDeckId;
-      const displayed=appState.decks?.[deckId]?.cards?.find(c=>String(c.id)===String(cardId));
-      if(!displayed) return;
-      let added=false;
-      if(ankiIsStarDeck(deckId)) {
-        ankiStarRemoveCopy(displayed);
-      } else {
-        const copy=ankiStarredCopyForSource(deckId,displayed.id);
-        if(copy) {
-          ankiStarRemoveCopy(copy);
-          displayed.starred=false;
-        } else {
-          displayed.starred=true;
-          added=true;
-        }
-        ankiMarkDirty(deckId);
       }
       ankiReconcileStarredDeck();
-      saveLocalState();renderDecks();
-      if(document.getElementById('view-study') &&
-        !document.getElementById('view-study').classList.contains('hidden')) {
-        renderSidebarList();
-        if(appState.studyQueue.length) showStudyCard();else ankiShowDueWaiting();
+      if(remove) {
+        const removedIds=new Set(selected.map(c=>String(c.id)));
+        appState.studyQueue=appState.studyQueue.filter(c=>!removedIds.has(String(c.id)));
+        appState.studyIndex=Math.min(appState.studyIndex,Math.max(0,appState.studyQueue.length-1));
       }
-      showToast(added?'Copied into Starred Cards. Changes and reviews are independent.':
-        'Removed from Starred Cards. Original card was not deleted.');
+      selectedSidebarCardIds.clear();
+      sourceDeckIds.forEach(id=>ankiMarkDirty(id));
+      saveLocalState();
+      renderDecks();renderSidebarList();
+      if(appState.studyQueue.length) showStudyCard();else ankiShowDueWaiting();
+      showToast(changed+' card'+(changed===1?'':'s')+(remove?' removed from Starred Cards.':' added to Starred Cards.'));
+    }
+    function ankiToggleCardStar(cardId) {
+      const active=appState.activeStudyDeckId;
+      const displayed=appState.decks?.[active]?.cards?.find(c=>String(c.id)===String(cardId));
+      const source=ankiStarSourceFor(displayed,active);
+      if(!source) { showToast('Original card is unavailable.'); return; }
+      source.card.starred=!source.card.starred;
+      const starred=source.card.starred;
+      ankiReconcileStarredDeck();
+      // Unstarring from the collection removes the mirror, never its source.
+      if(ankiIsStarDeck(active) && !starred) {
+        const currentId=String(displayed.id);
+        appState.studyQueue=appState.studyQueue.filter(c=>String(c.id)!==currentId);
+        selectedSidebarCardIds.delete(currentId);
+        appState.studyIndex=Math.min(appState.studyIndex,Math.max(0,appState.studyQueue.length-1));
+      }
+      ankiMarkDirty(source.deckId);
+      saveLocalState();
+      renderDecks();
+      if(document.getElementById('view-study') && !document.getElementById('view-study').classList.contains('hidden')) {
+        renderSidebarList();
+        if(appState.studyQueue.length) showStudyCard();
+        else ankiShowDueWaiting();
+      }
+      showToast(starred ? 'Starred in '+source.deck.name+'. Added to Starred Cards.' : 'Unstarred. Original card was kept.');
     }
 
     let appState = {
@@ -2588,6 +2568,21 @@ function promptCreateDeck() {
     let targetImageToReplace = null;
     let activeSketchTargetId = null;
     let annotationImageObj = null;
+    // Transient sketch context: never serialized to the card or disk.
+    let ankiLastEditorImage = null;
+    let ankiSketchMode = 'blank';
+    let ankiSketchTargetImage = null;
+    let ankiSketchStudyTarget = null;
+    let ankiSketchTextValue = '';
+    let ankiSketchInkCanvas = null;
+    let ankiSketchInkCtx = null;
+    let ankiSketchStrokes = [];
+    let ankiSketchRedoStrokes = [];
+    let ankiSketchCurrentStroke = null;
+    let ankiSketchTextBackground = null;
+    let ankiSketchOriginalSelection = null;
+    let ankiSketchLoading = false;
+    let ankiSketchOpenToken = 0;
     let isImmersive = false;
 
     let sketchCanvas, sketchCtx;
@@ -2714,7 +2709,7 @@ function promptCreateDeck() {
           cardDigest:ankiStarCardDigest(card)
         });
       }
-      return {format:'AnkiSyncStarredIndependentCollection',version:2,
+      return {format:'AnkiSyncStarredLinkedCollection',version:1,
         collectionName:ANKI_STAR_DECK_NAME,exportedAt:new Date().toISOString(),
         saveToken:token,contentDigest:digest,
         groups:[...groups].map(([sourceDeckName,cards])=>({sourceDeckName,cards}))};
@@ -2727,7 +2722,7 @@ function promptCreateDeck() {
     }
     function ankiStarExportGroupedDecks() {
       // The root is a real Anki deck, while each original subject becomes an
-      // Anki subdeck. The manifest restores INDEPENDENT copies and provenance.
+      // Anki subdeck. AnkiSync uses the linked manifest to restore live stars.
       const root={id:ANKI_STAR_DECK_ID,name:ANKI_STAR_DECK_NAME,cards:[],lastIndex:0};
       const groups=new Map();
       for(const card of (appState.decks?.[ANKI_STAR_DECK_ID]?.cards||[])) {
@@ -2761,8 +2756,7 @@ function promptCreateDeck() {
     function ankiStarRefreshExportStatus() {
       const el=document.getElementById('ankiStarExportStatus');
       if(el) el.textContent=ankiStarExportStatus();
-      // Keep the Starred Cards tile's title indicator synchronized with the
-      // existing file-status indicator below the progress bar.
+      // Keep both Starred Cards connection dots in sync with verified autosave status.
       const active=ankiStarLinkActive();
       const title=active ? 'Starred .apkg linked and autosave active'
         : ankiStarExportLink?.paused ? 'Starred .apkg autosave paused'
@@ -2844,7 +2838,7 @@ function promptCreateDeck() {
       const record=zip.file('ankisync-starred-links.json');
       if(!record) throw new Error('Selected file is not a Starred Cards export. Choose a new file with the designated filename.');
       const manifest=JSON.parse(await record.async('string'));
-      if(!(['AnkiSyncStarredLinkedCollection','AnkiSyncStarredIndependentCollection'].includes(manifest.format)) || ![1,2].includes(manifest.version) || !Array.isArray(manifest.groups))
+      if(manifest.format!=='AnkiSyncStarredLinkedCollection'||manifest.version!==1||!Array.isArray(manifest.groups))
         throw new Error('This file is not a compatible linked Starred Cards package.');
       return manifest;
     }
@@ -4170,135 +4164,356 @@ const content = await zip.generateAsync({ type: "blob" });
       });
     }
 
-    // --- APPLE PENCIL / ANNOTATION CANVAS ---
+    // --- APPLE PENCIL / IN-FIELD ANNOTATION ---
+    // Ink is kept separate from the original image until the user chooses Save.
+    // This prevents the eraser or Clear from deleting pixels from an X-ray / CT / figure.
     function initSketchCanvas() {
       sketchCanvas = document.getElementById('sketchCanvas');
       if (!sketchCanvas) return;
       sketchCtx = sketchCanvas.getContext('2d');
-
-      clearSketchCanvas();
-
+      ankiSketchInkCanvas = document.createElement('canvas');
+      ankiSketchInkCtx = ankiSketchInkCanvas.getContext('2d');
+      ankiSketchDimensions(600, 350);
       sketchCanvas.addEventListener('pointerdown', startDrawing);
       sketchCanvas.addEventListener('pointermove', draw);
       sketchCanvas.addEventListener('pointerup', stopDrawing);
-      sketchCanvas.addEventListener('pointerleave', stopDrawing);
+      sketchCanvas.addEventListener('pointercancel', stopDrawing);
+      sketchCanvas.addEventListener('lostpointercapture', stopDrawing);
+      // Select a real image inside an editable Front/Back field (not an image in the study card).
+      document.addEventListener('click', function(e) {
+        const image = e.target && e.target.closest && e.target.closest('.editor-canvas img');
+        if (image) {
+          ankiLastEditorImage = image;
+          return;
+        }
+        if (e.target && e.target.closest && e.target.closest('.editor-canvas')) ankiLastEditorImage = null;
+      }, true);
+      ankiSketchUpdateHistoryControls();
+    }
+
+    function ankiSketchDimensions(w, h) {
+      const width = Math.max(200, Math.round(w));
+      const height = Math.max(100, Math.round(h));
+      sketchCanvas.width = width;
+      sketchCanvas.height = height;
+      ankiSketchInkCanvas.width = width;
+      ankiSketchInkCanvas.height = height;
+      sketchCanvas.style.aspectRatio = width + '/' + height;
+      sketchCanvas.style.width = Math.min(width, 800) + 'px';
+    }
+
+    function ankiSketchResetInk() {
+      ankiSketchStrokes = [];
+      ankiSketchRedoStrokes = [];
+      ankiSketchCurrentStroke = null;
+      isDrawing = false;
+      ankiSketchInkCtx.clearRect(0, 0, ankiSketchInkCanvas.width, ankiSketchInkCanvas.height);
+      ankiSketchUpdateHistoryControls();
+    }
+
+    function ankiSketchUpdateHistoryControls() {
+      const undo = document.getElementById('ankiSketchUndoBtn');
+      const redo = document.getElementById('ankiSketchRedoBtn');
+      if (undo) { undo.disabled = !ankiSketchStrokes.length; undo.style.opacity = undo.disabled ? '.45' : '1'; }
+      if (redo) { redo.disabled = !ankiSketchRedoStrokes.length; redo.style.opacity = redo.disabled ? '.45' : '1'; }
     }
 
     function getMousePos(e) {
       const rect = sketchCanvas.getBoundingClientRect();
-      const scaleX = sketchCanvas.width / rect.width;
-      const scaleY = sketchCanvas.height / rect.height;
       return {
-        x: (e.clientX - rect.left) * scaleX,
-        y: (e.clientY - rect.top) * scaleY
+        x: Math.max(0, Math.min(sketchCanvas.width, (e.clientX - rect.left) * sketchCanvas.width / rect.width)),
+        y: Math.max(0, Math.min(sketchCanvas.height, (e.clientY - rect.top) * sketchCanvas.height / rect.height))
       };
     }
 
+    function ankiSketchDrawStroke(ctx, stroke) {
+      if (!stroke.points.length) return;
+      ctx.save();
+      ctx.globalCompositeOperation = stroke.tool === 'eraser' ? 'destination-out' : 'source-over';
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = stroke.tool === 'eraser' ? '#000' : stroke.color;
+      ctx.fillStyle = ctx.strokeStyle;
+      ctx.lineWidth = stroke.size * (stroke.tool === 'eraser' ? 2.4 : 1);
+      const pts = stroke.points;
+      if (pts.length === 1) {
+        ctx.beginPath(); ctx.arc(pts[0].x, pts[0].y, ctx.lineWidth / 2, 0, Math.PI * 2); ctx.fill();
+      } else {
+        ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
+        for (let i=1; i<pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function ankiSketchRenderInk() {
+      ankiSketchInkCtx.clearRect(0, 0, ankiSketchInkCanvas.width, ankiSketchInkCanvas.height);
+      for (const stroke of ankiSketchStrokes) ankiSketchDrawStroke(ankiSketchInkCtx, stroke);
+      redrawCanvasWithBackground();
+      ankiSketchUpdateHistoryControls();
+    }
+
     function startDrawing(e) {
+      if (ankiSketchLoading || !e.isPrimary) return;
+      e.preventDefault();
       isDrawing = true;
+      try { sketchCanvas.setPointerCapture(e.pointerId); } catch (_) {}
       const pos = getMousePos(e);
-      sketchCtx.beginPath();
-      sketchCtx.moveTo(pos.x, pos.y);
+      ankiSketchCurrentStroke = {
+        tool: sketchTool,
+        color: document.getElementById('sketchColor').value,
+        size: Number(document.getElementById('sketchSize').value) * Math.max(0.6, e.pointerType==='pen' ? (e.pressure || 0.5) * 1.5 : 1),
+        points: [pos]
+      };
+      ankiSketchStrokes.push(ankiSketchCurrentStroke);
+      ankiSketchRedoStrokes = [];
+      ankiSketchRenderInk();
     }
 
     function draw(e) {
-      if (!isDrawing) return;
+      if (!isDrawing || !ankiSketchCurrentStroke || !e.isPrimary) return;
+      e.preventDefault();
       const pos = getMousePos(e);
-      const color = document.getElementById('sketchColor').value;
-      const size = document.getElementById('sketchSize').value;
-
-      sketchCtx.lineWidth = size;
-      sketchCtx.lineCap = 'round';
-      sketchCtx.lineJoin = 'round';
-
-      if (sketchTool === 'eraser') {
-        if (annotationImageObj) {
-          redrawCanvasWithBackground();
-          return;
-        } else {
-          sketchCtx.strokeStyle = '#0f172a';
-        }
-      } else {
-        sketchCtx.strokeStyle = color;
-      }
-
-      if (e.pointerType === 'pen' && e.pressure > 0) {
-        sketchCtx.lineWidth = size * (e.pressure * 1.5);
-      }
-
-      sketchCtx.lineTo(pos.x, pos.y);
-      sketchCtx.stroke();
+      ankiSketchCurrentStroke.points.push(pos);
+      ankiSketchRenderInk();
     }
 
-    function stopDrawing() {
-      isDrawing = false;
-    }
+    function stopDrawing() { isDrawing = false; ankiSketchCurrentStroke = null; }
 
     function setSketchTool(tool) {
       sketchTool = tool;
       const penBtn = document.getElementById('sketchPenBtn');
       const eraserBtn = document.getElementById('sketchEraserBtn');
       if (tool === 'pen') {
-        penBtn.className = "px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white transition";
-        eraserBtn.className = "px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-700 text-slate-300 transition";
+        penBtn.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white transition';
+        eraserBtn.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-700 text-slate-300 transition';
       } else {
-        eraserBtn.className = "px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white transition";
-        penBtn.className = "px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-700 text-slate-300 transition";
+        eraserBtn.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white transition';
+        penBtn.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-700 text-slate-300 transition';
       }
     }
 
-    function clearSketchCanvas() {
+    function clearSketchCanvas() { ankiSketchResetInk(); redrawCanvasWithBackground(); }
+    function ankiSketchUndo() {
+      if (!ankiSketchStrokes.length) return;
+      ankiSketchRedoStrokes.push(ankiSketchStrokes.pop());
+      ankiSketchRenderInk();
+    }
+    function ankiSketchRedo() {
+      if (!ankiSketchRedoStrokes.length) return;
+      ankiSketchStrokes.push(ankiSketchRedoStrokes.pop());
+      ankiSketchRenderInk();
+    }
+
+    function redrawCanvasWithBackground() {
+      if (!sketchCtx) return;
+      sketchCtx.clearRect(0, 0, sketchCanvas.width, sketchCanvas.height);
       if (annotationImageObj) {
-        redrawCanvasWithBackground();
+        sketchCtx.drawImage(annotationImageObj, 0, 0, sketchCanvas.width, sketchCanvas.height);
+      } else if (ankiSketchTextBackground) {
+        sketchCtx.drawImage(ankiSketchTextBackground, 0, 0, sketchCanvas.width, sketchCanvas.height);
       } else {
         sketchCtx.fillStyle = '#0f172a';
         sketchCtx.fillRect(0, 0, sketchCanvas.width, sketchCanvas.height);
       }
+      if (ankiSketchInkCanvas) sketchCtx.drawImage(ankiSketchInkCanvas, 0, 0);
     }
 
-    function redrawCanvasWithBackground() {
-      sketchCtx.fillStyle = '#0f172a';
-      sketchCtx.fillRect(0, 0, sketchCanvas.width, sketchCanvas.height);
-      if (annotationImageObj) {
-        const hRatio = sketchCanvas.width / annotationImageObj.width;
-        const vRatio = sketchCanvas.height / annotationImageObj.height;
-        const ratio = Math.min(hRatio, vRatio);
-        const centerShiftX = (sketchCanvas.width - annotationImageObj.width * ratio) / 2;
-        const centerShiftY = (sketchCanvas.height - annotationImageObj.height * ratio) / 2;
-        sketchCtx.drawImage(annotationImageObj, 0, 0, annotationImageObj.width, annotationImageObj.height, centerShiftX, centerShiftY, annotationImageObj.width * ratio, annotationImageObj.height * ratio);
-      }
+    function ankiSketchSetInstructions(text, label) {
+      const hint = document.getElementById('ankiSketchInstructions');
+      if (hint) hint.textContent = text;
+      const saveLabel = document.getElementById('ankiSketchSaveLabel');
+      if (saveLabel) saveLabel.textContent = label;
     }
 
-    function openSketchModal(targetId, existingImgSrc = null) {
+    function ankiSketchCaptureEditorSelection(editor) {
+      const selection = window.getSelection();
+      if (!selection || !selection.rangeCount) return null;
+      const range = selection.getRangeAt(0);
+      return editor && (editor.contains(range.commonAncestorContainer) || editor === range.commonAncestorContainer) ? range.cloneRange() : null;
+    }
+
+    function openSketchModal(targetId, existingImgSrc = null, studyTarget = null) {
+      const editor = document.getElementById(targetId);
+      if (!editor) return;
       activeSketchTargetId = targetId;
+      const token = ++ankiSketchOpenToken;
+      const saveButton = document.querySelector('#sketchModal button[onclick="saveSketchToActiveEditor()"]');
+      if (saveButton) saveButton.disabled = false;
+      ankiSketchOriginalSelection = ankiSketchCaptureEditorSelection(editor);
+      ankiSketchTargetImage = !studyTarget && ankiLastEditorImage && editor.contains(ankiLastEditorImage) ? ankiLastEditorImage : null;
+      ankiSketchStudyTarget = studyTarget;
+      ankiSketchMode = studyTarget ? 'study-image' : ankiSketchTargetImage ? 'editor-image' : existingImgSrc ? 'image-insert' : 'blank';
+      annotationImageObj = null;
+      ankiSketchTextBackground = null;
+      ankiSketchTextValue = '';
       document.getElementById('sketchModal').classList.remove('hidden');
-      
-      if (existingImgSrc) {
+      setSketchTool('pen');
+      const src = existingImgSrc || (ankiSketchTargetImage && (ankiSketchTargetImage.getAttribute('src') || ankiSketchTargetImage.src));
+      if (src) {
+        ankiSketchSetInstructions('Draw directly on this image. Eraser and Clear remove ink, not the original image.', 'Save Annotation to Image');
+        ankiSketchLoading = true;
+        const save = document.querySelector('#sketchModal button[onclick="saveSketchToActiveEditor()"]');
+        if (save) save.disabled = true;
         const img = new Image();
         img.onload = function() {
+          if (token !== ankiSketchOpenToken) return;
           annotationImageObj = img;
+          const scale = Math.min(1, 2400 / Math.max(img.naturalWidth, img.naturalHeight));
+          ankiSketchDimensions(Math.round(img.naturalWidth * scale), Math.round(img.naturalHeight * scale));
+          ankiSketchResetInk();
+          ankiSketchLoading = false;
+          if (save) save.disabled = false;
           redrawCanvasWithBackground();
         };
-        img.src = existingImgSrc;
+        img.onerror = function() {
+          if (token !== ankiSketchOpenToken) return;
+          ankiSketchLoading = false;
+          if (save) save.disabled = false;
+          closeSketchModal();
+          alert('This image could not be loaded for annotation. Try importing it into the editor first.');
+        };
+        img.src = src;
       } else {
-        annotationImageObj = null;
-        clearSketchCanvas();
+        ankiSketchLoading = false;
+        ankiSketchDimensions(800, 450);
+        ankiSketchResetInk();
+        ankiSketchSetInstructions('Draw a new sketch. To write directly on a picture, tap that picture in the Front or Back field first.', 'Insert Sketch into Card');
+        redrawCanvasWithBackground();
       }
+    }
+
+    // Text annotation leaves the selected live text intact and inserts a marked-up
+    // static excerpt. This is safer than rasterizing/replacing the editable paragraphs.
+    function ankiAnnotateSelectedText(targetId) {
+      const editor = document.getElementById(targetId);
+      if (!editor) return;
+      const range = ankiSketchCaptureEditorSelection(editor);
+      const selection = window.getSelection();
+      const txt = range && !range.collapsed ? selection.toString() : (editor.innerText || '');
+      if (!txt.trim()) { showToast('Select text in the field first.'); return; }
+      if (txt.length > 4500) { alert('Please select a shorter text passage (up to 4,500 characters) for annotation.'); return; }
+      activeSketchTargetId = targetId;
+      ++ankiSketchOpenToken;
+      const saveButton = document.querySelector('#sketchModal button[onclick="saveSketchToActiveEditor()"]');
+      if (saveButton) saveButton.disabled = false;
+      ankiSketchOriginalSelection = range;
+      ankiSketchTargetImage = null;
+      ankiSketchStudyTarget = null;
+      ankiSketchMode = 'text';
+      ankiSketchTextValue = txt;
+      annotationImageObj = null;
+      const fontSize = 22;
+      const margin = 28;
+      const maxWidth = 960;
+      const measurer = document.createElement('canvas').getContext('2d');
+      measurer.font = fontSize + 'px Arial, sans-serif';
+      const lines = [];
+      const rtl = /[\u0600-\u06ff]/.test(txt);
+      for (const paragraph of txt.split(/\r?\n/)) {
+        const words = paragraph.split(/\s+/);
+        let line = '';
+        for (const word of words) {
+          const test = line ? line + ' ' + word : word;
+          if (line && measurer.measureText(test).width > maxWidth - 2 * margin) { lines.push(line); line = word; }
+          else line = test;
+        }
+        lines.push(line);
+      }
+      const lineHeight = 34;
+      const height = margin * 2 + lines.length * lineHeight;
+      const canvas = document.createElement('canvas');
+      canvas.width = maxWidth;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = document.body.classList.contains('light-mode') ? '#ffffff' : '#0f172a';
+      ctx.fillRect(0, 0, maxWidth, height);
+      ctx.fillStyle = document.body.classList.contains('light-mode') ? '#0f172a' : '#f8fafc';
+      ctx.font = fontSize + 'px Arial, sans-serif';
+      ctx.textAlign = rtl ? 'right' : 'left';
+      ctx.direction = rtl ? 'rtl' : 'ltr';
+      lines.forEach((line,i)=> ctx.fillText(line, rtl ? maxWidth-margin : margin, margin+fontSize+i*lineHeight));
+      ankiSketchTextBackground = canvas;
+      ankiSketchDimensions(canvas.width, canvas.height);
+      ankiSketchResetInk();
+      document.getElementById('sketchModal').classList.remove('hidden');
+      setSketchTool('pen');
+      ankiSketchSetInstructions('Mark up this text excerpt. Save adds an annotated image BELOW the editable original text; the original text is not changed.', 'Add Annotated Text Snapshot');
+      redrawCanvasWithBackground();
     }
 
     function closeSketchModal() {
+      ++ankiSketchOpenToken;
+      const saveButton = document.querySelector('#sketchModal button[onclick="saveSketchToActiveEditor()"]');
+      if (saveButton) saveButton.disabled = false;
       document.getElementById('sketchModal').classList.add('hidden');
       activeSketchTargetId = null;
+      ankiSketchStudyTarget = null;
+      ankiSketchTargetImage = null;
+      ankiSketchOriginalSelection = null;
       annotationImageObj = null;
+      ankiSketchTextBackground = null;
+      ankiSketchTextValue = '';
+      ankiSketchLoading = false;
+      isDrawing = false;
+    }
+
+    function ankiSketchInsertAtEditor(editor, dataUrl, textSnapshot=false) {
+      const image = document.createElement('img');
+      image.src = dataUrl;
+      image.alt = textSnapshot ? 'Apple Pencil annotated text excerpt' : 'Apple Pencil sketch';
+      image.style.maxWidth = '100%';
+      image.style.height = 'auto';
+      if (textSnapshot) {
+        // Keep original paragraphs/list items and all their editable text untouched.
+        // A separate annotation block avoids invalid <p><div> nesting.
+        const block = document.createElement('div');
+        block.setAttribute('data-anki-text-annotation', 'true');
+        block.appendChild(image);
+        editor.appendChild(block);
+      } else {
+        const range = ankiSketchOriginalSelection;
+        if (range && (editor.contains(range.commonAncestorContainer) || editor === range.commonAncestorContainer)) {
+          range.collapse(false);
+          range.insertNode(image);
+        } else editor.appendChild(image);
+      }
+      editor.dispatchEvent(new Event('input', {bubbles:true}));
     }
 
     function saveSketchToActiveEditor() {
-      if (!activeSketchTargetId) return;
-      const dataUrl = sketchCanvas.toDataURL('image/png');
-      const editor = document.getElementById(activeSketchTargetId);
-      if (editor) {
-        editor.focus();
-        document.execCommand('insertImage', false, dataUrl);
+      if (!activeSketchTargetId || ankiSketchLoading) return;
+      let dataUrl;
+      try { dataUrl = sketchCanvas.toDataURL('image/png'); }
+      catch (err) { alert('Could not save image annotation: ' + (err?.message || err)); return; }
+      const mode = ankiSketchMode;
+      if (mode === 'study-image' && ankiSketchStudyTarget) {
+        const target = ankiSketchStudyTarget;
+        const deck = appState.decks[target.deckId];
+        const source = deck && deck.cards.find(c => String(c.id) === String(target.cardId));
+        if (!source) { alert('The original card is no longer available.'); return; }
+        const temp = document.createElement('div');
+        temp.innerHTML = source[target.side] || '';
+        const image = temp.querySelectorAll('img')[target.index];
+        if (!image) { alert('The original image was not found.'); return; }
+        image.src = dataUrl;
+        source[target.side] = temp.innerHTML;
+        const queued = appState.studyQueue[appState.studyIndex];
+        if (queued && String(queued.id) === String(target.cardId)) queued[target.side] = source[target.side];
+        saveLocalState();
+        showStudyCard();
+        showToast('Image annotation saved to card.');
+      } else {
+        const editor = document.getElementById(activeSketchTargetId);
+        if (!editor) return;
+        if (mode === 'editor-image' && ankiSketchTargetImage && editor.contains(ankiSketchTargetImage)) {
+          ankiSketchTargetImage.src = dataUrl;
+          editor.dispatchEvent(new Event('input', {bubbles:true}));
+          showToast('Annotated image replaced in editor. Save Changes to keep it.');
+        } else {
+          ankiSketchInsertAtEditor(editor, dataUrl, mode === 'text');
+          showToast(mode === 'text' ? 'Annotated excerpt added. Save card to keep it.' : 'Sketch inserted. Save card to keep it.');
+        }
       }
       closeSketchModal();
     }
@@ -4321,6 +4536,7 @@ const content = await zip.generateAsync({ type: "blob" });
         const origCard = deck.cards.find(c => c.id === card.id);
         if (origCard) origCard[sideKey] = card[sideKey];
         if(ankiIsStarDeck(appState.activeStudyDeckId))
+          ankiApplyStarMirrorToSource(card,[sideKey]);
 
         saveLocalState();
         showStudyCard();
@@ -4337,7 +4553,8 @@ const content = await zip.generateAsync({ type: "blob" });
       if (imgs[imgIndex]) {
         const imgSrc = imgs[imgIndex].src;
         const editTargetId = side === 'front' ? 'editCardFront' : 'editCardBack';
-        openSketchModal(editTargetId, imgSrc);
+        const target = {deckId:appState.activeStudyDeckId, cardId:card.id, side:sideKey, index:imgIndex};
+        openSketchModal(editTargetId, imgSrc, target);
       }
     }
 
@@ -4500,12 +4717,12 @@ const content = await zip.generateAsync({ type: "blob" });
               <div class="flex items-center gap-2"><span id="ankiStarFileDot" class="anki-star-file-dot ${ankiStarLinkActive()?'anki-star-file-connected':''}" title="Dedicated Starred file connection"></span><span class="break-all">${ANKI_STAR_EXPORT_FILENAME}</span></div>
               <div id="ankiStarExportStatus">${ankiStarExportStatus()}</div>
               ${ankiStarAutoCapable() ? `<div class="flex flex-wrap gap-1.5">
-                <button type="button" onclick="ankiStarLinkExportFile()" class="px-2 py-1.5 rounded-lg border border-indigo-500/40 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20" title="Choose the Starred Cards file and authorize verified automatic export">Link Original for Autosave</button>
+                <button type="button" onclick="ankiStarLinkExportFile()" class="px-2 py-1.5 rounded-lg border border-indigo-500/40 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20" title="Choose the Starred Cards file and authorize verified automatic export">Link Starred .apkg</button>
                 <button type="button" onclick="ankiStarExportNow()" class="px-2 py-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20">Save Now</button>
                 <button type="button" onclick="ankiStarPauseExport()" class="px-2 py-1.5 rounded-lg border border-slate-500/40 text-slate-400 hover:bg-slate-500/10">Pause</button>
                 <button type="button" onclick="ankiStarDownloadRecovery()" class="px-2 py-1.5 rounded-lg border border-slate-500/40 text-slate-400 hover:bg-slate-500/10">Recovery</button>
               </div>` : ''}
-              <div class="text-slate-500">Independent card copies · grouped by source subject.</div>
+              <div class="text-slate-500">Groups stay linked to source cards in this browser.</div>
             </div>`}
             <div class="anki-deck-reset-buttons pt-1">
               <button type="button" onclick="resetStudyDeck('${deckId}')" class="text-[11px] font-bold px-2 py-2 rounded-lg bg-indigo-500/15 border border-indigo-500/40 text-indigo-300 hover:bg-indigo-500/25" title="Show all cards without changing your saved progress or review schedule"><span>Soft Reset</span></button>
@@ -5063,7 +5280,7 @@ function startStudy(deckId, practiceAll = false) {
           </div>
           <div class="flex items-center space-x-1" onclick="event.stopPropagation()">
             <button type="button" onclick="openInsertCardBelow(${index})" class="w-6 h-6 rounded-full border border-indigo-400 text-indigo-400 hover:bg-indigo-600 hover:text-white flex items-center justify-center text-xs font-bold" title="Insert new card immediately below this card">i</button>
-            <button type="button" onclick="ankiToggleCardStar('${card.id}')" class="p-1 text-amber-300 hover:text-amber-200 text-xs ml-1" title="${ankiStarStatusForCard(card,appState.activeStudyDeckId)?'Remove from starred collection':'Star this card'}" aria-label="${ankiStarStatusForCard(card,appState.activeStudyDeckId)?'Unstar card':'Star card'}"><i class="${ankiStarStatusForCard(card,appState.activeStudyDeckId)?'fa-solid':'fa-regular'} fa-star"></i></button>
+            <button type="button" onclick="ankiToggleCardStar('${card.id}')" class="p-1 text-amber-300 hover:text-amber-200 text-xs ml-1" title="${ankiStarSourceFor(card,appState.activeStudyDeckId)?.card.starred?'Remove from starred collection':'Star this card'}" aria-label="${ankiStarSourceFor(card,appState.activeStudyDeckId)?.card.starred?'Unstar card':'Star card'}"><i class="${ankiStarSourceFor(card,appState.activeStudyDeckId)?.card.starred?'fa-solid':'fa-regular'} fa-star"></i></button>
             <button onclick="copyCardToClipboard('${card.id}')" class="p-1 text-indigo-400 hover:text-white text-xs ml-1" title="Copy Card"><i class="fa-solid fa-copy"></i></button>
             <button onclick="deleteCardFromActiveDeck('${card.id}')" class="p-1 text-rose-400 hover:text-white text-xs ml-1" title="Delete Card"><i class="fa-solid fa-trash"></i></button>
           </div>
@@ -5133,9 +5350,11 @@ function startStudy(deckId, practiceAll = false) {
       if (!deleteIds.size) return;
       if(ankiIsStarDeck(appState.activeStudyDeckId)) {
         if(!confirm('Remove '+deleteIds.size+' starred cards from the collection? Original cards will NOT be deleted.')) return;
-        for(const card of [...deck.cards].filter(c=>deleteIds.has(String(c.id)))) {
-          ankiStarRemoveCopy(card);
+        for(const card of deck.cards.filter(c=>deleteIds.has(String(c.id)))) {
+          const source=ankiStarSourceFor(card,appState.activeStudyDeckId);
+          if(source) {source.card.starred=false;ankiMarkDirty(source.deckId);}
         }
+        ankiReconcileStarredDeck();
         appState.studyQueue=appState.studyQueue.filter(c=>!deleteIds.has(String(c.id)));
         selectedSidebarCardIds.clear();
         appState.studyIndex=Math.min(appState.studyIndex,Math.max(0,appState.studyQueue.length-1));
@@ -7062,35 +7281,75 @@ async function insertBackClozeField(editorId) {
   activeEditorId = editorId;
 }
 
-// Double-click inside a cloze field to select its answer for editing.
-// This lets the mouse move between separate cloze fields without using Tab.
-document.addEventListener('dblclick', function(event) {
-  const element = event.target.nodeType === Node.TEXT_NODE
-    ? event.target.parentElement : event.target;
-  const editor = element?.closest?.('#createCardBack, #modalCardBack, #editCardBack, #createCardFront, #modalCardFront, #editCardFront');
-  if (!editor) return;
+// Native-style mouse selection for all six rich-text Front/Back editors.
+// Two clicks select the clicked WORD (including when the word is inside a
+// cloze); three clicks select the visible LINE, not the entire paragraph.
+// Selection.modify follows the browser's own Unicode, directionality, wrapping
+// and inline-formatting boundaries. No editor HTML is modified by selection.
+(function ankiInstallEditorMultiClickSelection() {
+  const editorSelector = '.editor-canvas[contenteditable="true"]';
 
-  let token = element.closest?.('.anki-inline-cloze-token');
-  if (!token) {
-    const selection = window.getSelection();
-    const node = selection?.anchorNode;
-    token = (node?.nodeType === Node.TEXT_NODE
-      ? node.parentElement : node)?.closest?.('.anki-inline-cloze-token');
+  function editorFromClick(event) {
+    const target = event.target;
+    if (!(target instanceof Element)) return null;
+    // An image and noneditable child content are not text selection targets.
+    if (target.closest('img,canvas,[contenteditable="false"]')) return null;
+    return target.closest(editorSelector);
   }
-  if (!token || !editor.contains(token)) return;
-  const match = /^\{\{c(\d+)::([\s\S]*?)::([\s\S]*?)\}\}$/.exec(token.textContent);
-  if (!match) return;
-  const answerStart = 5 + match[1].length;
-  const answerEnd = answerStart + match[2].length;
-  const range = clozeTextRange(token, answerStart, answerEnd);
-  if (!range) return;
-  event.preventDefault();
-  const selection = window.getSelection();
-  selection.removeAllRanges();
-  selection.addRange(range);
-  activeEditorId = editor.id;
-  savedRange = range.cloneRange();
-});
+
+  function selectAtClick(event, unit) {
+    const editor = editorFromClick(event);
+    if (!editor) return false;
+    const selection = window.getSelection();
+    if (!selection || typeof selection.modify !== 'function') return false;
+
+    // Reposition to the character the user clicked. A triple click normally
+    // follows a double-click selection, so the previous anchor is unreliable.
+    let caret = null;
+    if (typeof document.caretRangeFromPoint === 'function') {
+      caret = document.caretRangeFromPoint(event.clientX, event.clientY);
+    } else if (typeof document.caretPositionFromPoint === 'function') {
+      const position = document.caretPositionFromPoint(event.clientX, event.clientY);
+      if (position) {
+        caret = document.createRange();
+        caret.setStart(position.offsetNode, position.offset);
+        caret.collapse(true);
+      }
+    }
+    if (!caret || !editor.contains(caret.startContainer)) return false;
+
+    selection.removeAllRanges();
+    selection.addRange(caret);
+    selection.modify('move', 'backward', unit);
+    selection.modify('extend', 'forward', unit);
+    if (!selection.rangeCount || selection.isCollapsed) return false;
+    const selectedRange = selection.getRangeAt(0);
+    // Guard against inadvertently selecting an adjacent field/container.
+    if (!editor.contains(selectedRange.startContainer) ||
+        !editor.contains(selectedRange.endContainer)) return false;
+    activeEditorId = editor.id;
+    savedRange = selectedRange.cloneRange();
+    return true;
+  }
+
+  document.addEventListener('dblclick', event => {
+    if (selectAtClick(event, 'word')) event.preventDefault();
+  });
+
+  // Prevent the browser's default third-click paragraph selection, which can
+  // overwrite our visual-line selection after the click has completed.
+  document.addEventListener('mousedown', event => {
+    if (event.button === 0 && event.detail === 3 && editorFromClick(event)) {
+      event.preventDefault();
+    }
+  }, true);
+
+  document.addEventListener('click', event => {
+    if (event.button === 0 && event.detail === 3 && selectAtClick(event, 'lineboundary')) {
+      event.preventDefault();
+    }
+  });
+})();
 
 // Tab navigates number -> answer -> hint -> next cloze answer.
 // Uses offsets across the entire editor, so colored or bold answers work too.
@@ -7171,8 +7430,11 @@ document.addEventListener('keydown', function(event) {
       const reader = new FileReader();
       reader.onload = function(evt) {
         const editor = document.getElementById(targetId);
+        if (!editor) return;
+        const before = new Set(editor.querySelectorAll('img'));
         editor.focus();
         document.execCommand('insertImage', false, evt.target.result);
+        ankiLastEditorImage = [...editor.querySelectorAll('img')].find(img => !before.has(img)) || null;
       };
       reader.readAsDataURL(file);
       event.target.value = '';
@@ -7323,6 +7585,8 @@ function saveCardEdits() {
     }
   }
 
+  if(ankiIsStarDeck(appState.activeStudyDeckId))
+    ankiApplyStarMirrorToSource(card,['title','front','back','clozeText']);
   saveLocalState();
   renderSidebarList();
   showStudyCard();
@@ -7380,6 +7644,8 @@ function saveCardEdits() {
       card.reviewData.dueAt = now + selectedRating.intervalMs;
       card.reviewData.lastReviewedAt = now;
       card.reviewData.reviewCount = (Number(card.reviewData.reviewCount) || 0) + 1;
+      if(ankiIsStarDeck(appState.activeStudyDeckId))
+        ankiApplyStarMirrorToSource(card,['reviewData']);
 
       // Count the rating in the current session (once per card for progress).
       if (!studySessionStats) {
@@ -7657,15 +7923,7 @@ function saveCardEdits() {
         // of cards already in this AnkiSync library. Cancel allows a normal
         // standalone Anki deck import instead.
         const starredManifestEntry=zip.file('ankisync-starred-links.json');
-        let starredIndependentManifest=null;
         if(starredManifestEntry && !folderBatch) {
-          try {
-            const manifest=JSON.parse(await starredManifestEntry.async('string'));
-            if(manifest.format==='AnkiSyncStarredIndependentCollection' &&
-               manifest.version===2 && Array.isArray(manifest.groups)) starredIndependentManifest=manifest;
-          } catch(err) {console.warn('Invalid independent Starred Cards manifest:',err);}
-        }
-        if(starredManifestEntry && !starredIndependentManifest && !folderBatch) {
           try {
             const linked=JSON.parse(await starredManifestEntry.async('string'));
             if(linked.format==='AnkiSyncStarredLinkedCollection'&&linked.version===1&&Array.isArray(linked.groups)) {
@@ -7934,55 +8192,6 @@ function saveCardEdits() {
               );
             }
           }
-        }
-
-        // Restore the standalone Starred Cards package as an INDEPENDENT deck.
-        // No source deck needs to exist; deleting sources cannot remove these
-        // reconstructed cards. This is the v2 counterpart of the old live links.
-        if(starredIndependentManifest && !folderBatch) {
-          const independent=[];
-          const seen=new Set();
-          for(const group of starredIndependentManifest.groups) {
-            const groupName=String(group.sourceDeckName||'Starred Cards — Other');
-            const exportedName=ANKI_STAR_DECK_NAME+'::'+groupName.replace(/::/g,' - ');
-            const parsed=importedCardsByDeck[exportedName]||[];
-            const byId=new Map(parsed.map(card=>[String(card.id),card]));
-            for(const ref of (group.cards||[])) {
-              const entry=byId.get(String(ref.mirrorCardId));
-              if(!entry) throw new Error('Starred export is incomplete: missing '+String(ref.mirrorCardId));
-              if(seen.has(String(entry.id))) continue;
-              seen.add(String(entry.id));
-              entry.starredSourceDeckId=String(ref.sourceDeckId||'');
-              entry.starredSourceCardId=String(ref.sourceCardId||'');
-              entry.starredSourceDeckName=groupName;
-              entry.starredIndependent=true;
-              delete entry.starred;
-              independent.push(entry);
-            }
-          }
-          const prior=appState.decks[ANKI_STAR_DECK_ID];
-          if(prior?.cards?.length && !confirm('Restore '+independent.length+
-             ' independent starred cards from this APKG? This replaces your current Starred Cards collection, but does not touch any source decks.')) {
-            progressContainer.classList.add('hidden');
-            event.target.value=''; return;
-          }
-          appState.decks[ANKI_STAR_DECK_ID]={...(prior||{}),
-            id:ANKI_STAR_DECK_ID,name:ANKI_STAR_DECK_NAME,category:'General',
-            isStarredCollection:true,cards:independent,lastIndex:0,lastCardId:null};
-          // Reconcile flags for original cards that remain in this browser,
-          // without copying their content or review state into starred copies.
-          for(const [id,deck] of Object.entries(appState.decks)) {
-            if(ankiIsStarDeck(id)) continue;
-            for(const card of deck.cards||[]) card.starred=!!ankiStarredCopyForSource(id,card.id);
-          }
-          if(ankiIsStarDeck(appState.activeStudyDeckId)) {
-            appState.studyQueue=[];appState.studyIndex=0;appState.activeStudyDeckId=null;
-          }
-          saveLocalState();renderDecks();
-          progressContainer.classList.add('hidden');
-          switchTab('decks');
-          showToast('Restored '+independent.length+' independent starred cards in subject groups.');
-          event.target.value='';return;
         }
 
         const linkedLastCardIdByDeck={};
