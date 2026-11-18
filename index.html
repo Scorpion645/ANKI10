@@ -256,6 +256,12 @@ body.light-mode .color-palette-bar {
       box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
     }
 
+    /* Make double- and triple-click selections clearly visible on both themes. */
+    .editor-canvas::selection, .editor-canvas *::selection {
+      background: #93c5fd;
+      color: #0f172a;
+    }
+
     .editor-canvas img {
       max-width: 100%;
       height: auto;
@@ -6543,10 +6549,14 @@ document.addEventListener('focusin', function(event) {
 document.addEventListener('pointerup', function(event) {
   const editor = ankiSelectOnPointerUp;
   ankiSelectOnPointerUp = null;
-  if (editor && editor.contains(event.target)) {
+  if (editor && editor.contains(event.target) && (event.detail || 1) < 2) {
     ankiSelectWholeEditor(editor);
-    // Mobile Safari may apply caret placement after pointerup; reselect once.
-    setTimeout(() => ankiSelectWholeEditor(editor), 0);
+    // Reapply only if this editor is still focused and the user has not
+    // started a second click; subsequent clicks select a word or line.
+    setTimeout(() => {
+      if (!ankiSelectOnPointerUp && editor.contains(document.activeElement) &&
+          window.getSelection()?.isCollapsed) ankiSelectWholeEditor(editor);
+    }, 0);
   }
 }, true);
 
@@ -7281,74 +7291,162 @@ async function insertBackClozeField(editorId) {
   activeEditorId = editorId;
 }
 
-// Native-style mouse selection for all six rich-text Front/Back editors.
-// Two clicks select the clicked WORD (including when the word is inside a
-// cloze); three clicks select the visible LINE, not the entire paragraph.
-// Selection.modify follows the browser's own Unicode, directionality, wrapping
-// and inline-formatting boundaries. No editor HTML is modified by selection.
+// Reliable word/visual-line selection for all six Front/Back rich-text editors.
+// Handle the actual second/third click instead of relying solely on dblclick:
+// dblclick events are dispatched after a mouseup/click and may be unavailable
+// for some touch/trackpad paths. Selection changes never mutate editor HTML.
 (function ankiInstallEditorMultiClickSelection() {
   const editorSelector = '.editor-canvas[contenteditable="true"]';
+  let lastTouchTap = null;
+  let pendingReselect = null;
 
-  function editorFromClick(event) {
-    const target = event.target;
-    if (!(target instanceof Element)) return null;
-    // An image and noneditable child content are not text selection targets.
-    if (target.closest('img,canvas,[contenteditable="false"]')) return null;
+  function editorFromEvent(event) {
+    const target = event.target?.nodeType === Node.ELEMENT_NODE
+      ? event.target : event.target?.parentElement;
+    if (!target || target.closest('img,canvas,[contenteditable="false"]')) return null;
     return target.closest(editorSelector);
   }
 
-  function selectAtClick(event, unit) {
-    const editor = editorFromClick(event);
-    if (!editor) return false;
-    const selection = window.getSelection();
-    if (!selection || typeof selection.modify !== 'function') return false;
-
-    // Reposition to the character the user clicked. A triple click normally
-    // follows a double-click selection, so the previous anchor is unreliable.
-    let caret = null;
+  function caretAtPoint(x, y, editor) {
+    let range = null;
     if (typeof document.caretRangeFromPoint === 'function') {
-      caret = document.caretRangeFromPoint(event.clientX, event.clientY);
+      range = document.caretRangeFromPoint(x, y);
     } else if (typeof document.caretPositionFromPoint === 'function') {
-      const position = document.caretPositionFromPoint(event.clientX, event.clientY);
-      if (position) {
-        caret = document.createRange();
-        caret.setStart(position.offsetNode, position.offset);
-        caret.collapse(true);
+      const pos = document.caretPositionFromPoint(x, y);
+      if (pos) {
+        range = document.createRange();
+        range.setStart(pos.offsetNode, pos.offset);
+        range.collapse(true);
       }
     }
-    if (!caret || !editor.contains(caret.startContainer)) return false;
+    return range && editor.contains(range.startContainer) ? range : null;
+  }
 
+  function fallbackWordRange(caret) {
+    // Selection.modify is widely implemented but not universal. The fallback
+    // handles words within a text node and does not alter markup.
+    const node = caret.startContainer;
+    if (!node || node.nodeType !== Node.TEXT_NODE) return null;
+    const text = node.textContent || '';
+    if (!text.length) return null;
+    const offset = Math.max(0, Math.min(text.length, caret.startOffset));
+    let span = null;
+    if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+      const segments = new Intl.Segmenter(undefined, {granularity: 'word'}).segment(text);
+      for (const item of segments) {
+        if (item.isWordLike && item.index <= offset && offset <= item.index + item.segment.length) {
+          span = [item.index, item.index + item.segment.length];
+          break;
+        }
+      }
+    }
+    if (!span) {
+      const re = /[\p{L}\p{N}_]+/gu;
+      for (const match of text.matchAll(re)) {
+        if (match.index <= offset && offset <= match.index + match[0].length) {
+          span = [match.index, match.index + match[0].length];
+          break;
+        }
+      }
+    }
+    if (!span) return null;
+    const range = document.createRange();
+    range.setStart(node,span[0]);
+    range.setEnd(node,span[1]);
+    return range;
+  }
+
+  function selectAtPoint(editor, x, y, kind) {
+    if (!editor?.isConnected) return false;
+    const caret = caretAtPoint(x, y, editor);
+    if (!caret) return false;
+    const selection = window.getSelection();
+    if (!selection) return false;
     selection.removeAllRanges();
     selection.addRange(caret);
-    selection.modify('move', 'backward', unit);
-    selection.modify('extend', 'forward', unit);
+    if (typeof selection.modify === 'function') {
+      selection.modify('move', 'backward', kind === 'line' ? 'lineboundary' : 'word');
+      selection.modify('extend', 'forward', kind === 'line' ? 'lineboundary' : 'word');
+    } else if (kind === 'word') {
+      const fallback = fallbackWordRange(caret);
+      if (fallback) {
+        selection.removeAllRanges();
+        selection.addRange(fallback);
+      }
+    }
     if (!selection.rangeCount || selection.isCollapsed) return false;
-    const selectedRange = selection.getRangeAt(0);
-    // Guard against inadvertently selecting an adjacent field/container.
-    if (!editor.contains(selectedRange.startContainer) ||
-        !editor.contains(selectedRange.endContainer)) return false;
+    const range = selection.getRangeAt(0);
+    if (!editor.contains(range.startContainer) || !editor.contains(range.endContainer)) return false;
     activeEditorId = editor.id;
-    savedRange = selectedRange.cloneRange();
+    savedRange = range.cloneRange();
     return true;
   }
 
-  document.addEventListener('dblclick', event => {
-    if (selectAtClick(event, 'word')) event.preventDefault();
-  });
+  function selectFromEvent(event, kind) {
+    const editor = editorFromEvent(event);
+    if (!editor) return false;
+    // Prevent a first-focus 'select all' timeout from replacing a multi-click.
+    ankiSelectOnPointerUp = null;
+    if (pendingReselect) clearTimeout(pendingReselect);
+    const x = event.clientX, y = event.clientY;
+    const result = selectAtPoint(editor, x, y, kind);
+    if (!result) return false;
+    // Some browsers finalize native click selection after the click handler.
+    // Restore only if they replaced it, and only if focus stayed in this editor.
+    const range = window.getSelection().getRangeAt(0).cloneRange();
+    pendingReselect = setTimeout(() => {
+      pendingReselect = null;
+      const selection = window.getSelection();
+      if (!editor.isConnected || !selection || document.activeElement !== editor) return;
+      if (!selection.rangeCount || selection.isCollapsed ||
+          selection.toString() !== range.toString()) {
+        selection.removeAllRanges();
+        selection.addRange(range);
+        savedRange = range.cloneRange();
+      }
+    }, 0);
+    return true;
+  }
 
-  // Prevent the browser's default third-click paragraph selection, which can
-  // overwrite our visual-line selection after the click has completed.
+  // A captured mousedown is the earliest reliable desktop click count.
+  // Prevent the browser from selecting a whole paragraph on the third press.
   document.addEventListener('mousedown', event => {
-    if (event.button === 0 && event.detail === 3 && editorFromClick(event)) {
-      event.preventDefault();
-    }
+    if (event.button !== 0 || event.detail < 2 || !editorFromEvent(event)) return;
+    ankiSelectOnPointerUp = null;
+    if (event.detail >= 3) event.preventDefault();
   }, true);
 
   document.addEventListener('click', event => {
-    if (event.button === 0 && event.detail === 3 && selectAtClick(event, 'lineboundary')) {
-      event.preventDefault();
+    if (event.button !== 0) return;
+    const kind = event.detail >= 3 ? 'line' : event.detail === 2 ? 'word' : null;
+    if (kind && selectFromEvent(event, kind)) event.preventDefault();
+  }, true);
+
+  // Backup for browser implementations that dispatch dblclick without a
+  // click event with detail=2.
+  document.addEventListener('dblclick', event => {
+    if (selectFromEvent(event, 'word')) event.preventDefault();
+  }, true);
+
+  // iPhone/iPad browsers do not consistently dispatch desktop-style click
+  // counts on touch. Recognize short, stationary double/triple taps; leave
+  // long presses, drag selection, and Pencil inking to their native handlers.
+  document.addEventListener('pointerup', event => {
+    if (event.pointerType !== 'touch' || !event.isPrimary) return;
+    const editor = editorFromEvent(event);
+    if (!editor) { lastTouchTap = null; return; }
+    const now = performance.now();
+    const close = lastTouchTap && lastTouchTap.editor === editor &&
+      now - lastTouchTap.at < 420 &&
+      Math.hypot(event.clientX - lastTouchTap.x,event.clientY - lastTouchTap.y) < 24;
+    const count = close ? Math.min(3,lastTouchTap.count + 1) : 1;
+    lastTouchTap = {editor,at:now,x:event.clientX,y:event.clientY,count};
+    if (count > 1) {
+      const kind = count === 3 ? 'line' : 'word';
+      // Keep the selection visible even if Safari emits a delayed click.
+      setTimeout(() => selectAtPoint(editor,event.clientX,event.clientY,kind),0);
     }
-  });
+  }, true);
 })();
 
 // Tab navigates number -> answer -> hint -> next cloze answer.
