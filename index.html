@@ -2469,6 +2469,7 @@ function promptCreateDeck() {
     function ankiEnsureStarredDeck() {
       let deck=appState.decks[ANKI_STAR_DECK_ID];
       if(!deck) {
+        appState.starredCollectionDeleted=false;
         deck={id:ANKI_STAR_DECK_ID,name:ANKI_STAR_DECK_NAME,category:'General',
           isStarredCollection:true,cards:[],lastIndex:0,lastCardId:null};
         appState.decks[ANKI_STAR_DECK_ID]=deck;
@@ -2476,6 +2477,13 @@ function promptCreateDeck() {
       deck.isStarredCollection=true;
       if(!Array.isArray(deck.cards)) deck.cards=[];
       return deck;
+    }
+    // A Starred deck is a separate library item, not a view automatically
+    // opened by a source deck. Create its empty tile on launch only if the
+    // user has not explicitly deleted the collection.
+    function ankiBootstrapIndependentStarredDeck() {
+      if (!appState.decks?.[ANKI_STAR_DECK_ID] && !appState.starredCollectionDeleted)
+        ankiEnsureStarredDeck();
     }
     function ankiReconcileStarredDeck() {
       // Existing collection: one-time migration of old linked mirrors into
@@ -2597,6 +2605,7 @@ function promptCreateDeck() {
     let appState = {
       decks: {},
       pendingStarredLinks: [],
+      starredCollectionDeleted: false,
       categories: ['General', 'Medical', 'Languages'],
       selectedCategory: 'ALL',
       activeStudyDeckId: null,
@@ -2641,6 +2650,7 @@ function promptCreateDeck() {
       await loadStateFromIDB();
       if(!storageReady) console.warn('Persistent browser storage unavailable; progress may not survive closing the page.');
       loadEmbeddedStudyBackup();
+      ankiBootstrapIndependentStarredDeck();
       ankiReconcileStarredDeck();
       await ankiRestoreLinkedHandles();
       await ankiRestoreRefreshHandles();
@@ -2717,6 +2727,7 @@ function promptCreateDeck() {
     function ankiApplyStoredState(value) {
       appState.decks = value.decks;
       appState.pendingStarredLinks = Array.isArray(value.pendingStarredLinks) ? value.pendingStarredLinks : [];
+      appState.starredCollectionDeleted=!!value.starredCollectionDeleted;
       appState.categories = value.categories;
       appState.selectedCategory = value.selectedCategory || 'ALL';
       ankiLastBrowserSaveAt = Number(value.browserSavedAt) || 0;
@@ -2882,7 +2893,6 @@ function promptCreateDeck() {
       } finally { ankiBrowserWriteRunning=false; }
     }
     function saveLocalState() {
-      ankiApplyPendingStarLinks();
       ankiReconcileStarredDeck();
       ankiStarNoticeChange();
       ankiLastBrowserSaveAt = Math.max(Date.now(), ankiLastBrowserSaveAt + 1);
@@ -2890,6 +2900,7 @@ function promptCreateDeck() {
       const snapshot = {
         decks: appState.decks,
         pendingStarredLinks: appState.pendingStarredLinks || [],
+        starredCollectionDeleted: !!appState.starredCollectionDeleted,
         categories: appState.categories,
         selectedCategory: appState.selectedCategory,
         browserSavedAt: ankiLastBrowserSaveAt
@@ -2994,6 +3005,7 @@ function promptCreateDeck() {
         return 'Browser collection saved locally · iPhone: use Save As / Save to Files for a separate package';
       const e=ankiStarExportLink;
       if(!e) return 'Dedicated .apkg auto-export: OFF · link once to enable';
+      if(e.needsRecovery) return 'Starred original selected (read-only) · click Backup & Enable';
       if(e.paused) return 'Starred .apkg auto-export: PAUSED';
       if(!e.verified) return 'Starred file remembered · Restore Access to reconnect';
       const last=e.lastSavedAt?new Date(e.lastSavedAt).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}):'not yet';
@@ -3069,6 +3081,8 @@ function promptCreateDeck() {
         });
         if(!row?.handle) return;
         let valid=false;
+        let diskHasCopies=false;
+        let diskDigest=null;
         try {
           const permission=await row.handle.queryPermission({mode:'readwrite'});
           if(permission==='granted') {
@@ -3077,15 +3091,20 @@ function promptCreateDeck() {
             if(valid) {
               const marker=await ankiStarValidateLinkedPackage(file);
               valid=marker.version===2 && marker.format==='AnkiSyncStarredIndependentCollection';
+              diskHasCopies=(marker.groups||[]).some(group=>(group.cards||[]).length>0);
+              diskDigest=marker.contentDigest||null;
             }
           }
         }catch(err) {valid=false;console.warn('Starred link requires reconnection:',err);}
         ankiStarExportLink={handle:row.handle,lastDiskStamp:row.lastDiskStamp,
           lastSavedAt:row.lastSavedAt||null,savedDigest:row.savedDigest||null,
-          verified:valid,paused:!!row.paused,dirty:false,busy:false};
+          verified:valid,paused:!!row.paused ||
+            (valid && diskDigest!==ankiStarContentDigest()) ||
+            (diskHasCopies && !(appState.decks?.[ANKI_STAR_DECK_ID]?.cards||[]).length),
+          dirty:false,busy:false};
         ankiStarRefreshExportStatus();
-        // Detect changes to cards made while the page wasn't running.
-        if(valid && !row.paused) ankiStarNoticeChange();
+        // An empty local collection must never overwrite a populated archive.
+        if(valid && !ankiStarExportLink.paused) ankiStarNoticeChange();
       }catch(err){console.warn('Cannot restore Starred export link:',err);}
     }
     async function ankiStarValidateLinkedPackage(file) {
@@ -3099,9 +3118,11 @@ function promptCreateDeck() {
         throw new Error('The selected .apkg does not contain a compatible Starred Cards collection. No file was modified.');
       return manifest;
     }
-    async function ankiStarRetainRecovery(file) {
+    async function ankiStarRetainRecovery(file,entry=ankiStarExportLink) {
       if(!file||file.size===0) return;
-      if(!idbDB) throw new Error('Browser recovery storage unavailable. Existing Starred file will not be overwritten.');
+      // The same SHA-256 verified on-disk recovery path is used for regular
+      // source decks when IndexedDB is blocked. Never overwrite without it.
+      if(!idbDB) return ankiVerifyDiskRecovery(entry);
       await new Promise((resolve,reject)=>{
         const tx=idbDB.transaction('state','readwrite');
         tx.objectStore('state').put(file,ANKI_STAR_RECOVERY_KEY);
@@ -3109,6 +3130,37 @@ function promptCreateDeck() {
         tx.onerror=()=>reject(tx.error||new Error('Starred export recovery storage failed'));
         tx.onabort=()=>reject(tx.error||new Error('Starred export recovery storage aborted'));
       });
+    }
+    async function ankiOpenStarredDeckFile() {
+      try {
+        // File selection is read-only. Desktop browsers can remember the
+        // selected handle for future Refresh; mobile browsers select afresh.
+        let file=null,handle=null;
+        if(typeof window.showOpenFilePicker==='function' && !ankiMobileSave()) {
+          const picked=await window.showOpenFilePicker({multiple:false,
+            types:[{description:'Independent Starred .apkg',accept:{'application/octet-stream':['.apkg']}}]});
+          handle=picked?.[0]||null;
+          if(handle) file=await handle.getFile();
+        } else file=await ankiRefreshPickerFile('.apkg');
+        if(!file) return;
+        const manifest=await ankiStarValidateLinkedPackage(file);
+        if(manifest.format!=='AnkiSyncStarredIndependentCollection' || manifest.version!==2)
+          throw new Error('This is an older linked Starred file. Use Import/Export to convert it first; the existing file was not changed.');
+        await handleAnkiFileUpload({target:{files:[file],value:''}}, {independentStarOpen:true});
+        if(appState.decks[ANKI_STAR_DECK_ID]) {
+          appState.decks[ANKI_STAR_DECK_ID].sourceFileName=file.name;
+          if(handle) {
+            ankiRefreshHandles.set(ANKI_STAR_DECK_ID,handle);
+            await ankiStoreRefreshHandle(ANKI_STAR_DECK_ID,handle);
+          }
+          switchTab('decks');
+          showToast('Independent Starred Cards loaded from '+file.name+'. Open it with Study or View All.');
+        }
+      } catch(err) {
+        if(err?.name==='AbortError') return;
+        console.error('Open independent Starred deck failed:',err);
+        alert('Could not open Starred Cards: '+(err?.message||err)+'\nThe selected file was not modified.');
+      }
     }
     // Link an existing Starred .apkg by its internal collection marker, not its
     // filename. Choosing an existing file is read-only until the user explicitly
@@ -3163,22 +3215,31 @@ function promptCreateDeck() {
         if(marker.version!==2 || marker.format!=='AnkiSyncStarredIndependentCollection')
           throw new Error('This is an older linked Starred Cards archive. Import it first to convert its cards, then use Save As to export an independent Starred .apkg. The old file was not modified.');
         diskDigest=marker.contentDigest||null;
+        const localCopies=appState.decks?.[ANKI_STAR_DECK_ID]?.cards||[];
+        const diskHasCopies=(marker.groups||[]).some(group=>(group.cards||[]).length>0);
+        if(!localCopies.length && diskHasCopies && diskDigest!==ankiStarContentDigest())
+          throw new Error('This existing Starred file has cards not loaded into the app. Click Open Starred .apkg on its tile FIRST. Nothing was overwritten.');
         // Never silently replace an already-populated Starred collection.
         if(diskDigest!==ankiStarContentDigest() && !confirm(
           'The selected file ('+file.name+') contains different Starred Cards from the deck currently open.\n\n'+
           'OK: back up the selected file in browser recovery storage, then REPLACE that .apkg with the current Starred Cards deck.\n'+
           'Cancel: leave both copies unchanged. To load the file instead, use Refresh on the Starred Cards tile.')) return;
-        // An existing file is never overwritten without a recovery copy.
-        await ankiStarRetainRecovery(file);
+        // IndexedDB retains the original immediately. If it is unavailable,
+        // do not enable writes until a NEW recovery file is verified on disk.
+        if(idbDB) await ankiStarRetainRecovery(file);
       }
       ankiStarCancelExportTimer();
       const sameContent=file.size>0 && diskDigest===ankiStarContentDigest();
+      const needsRecovery=!idbDB && file.size>0;
       ankiStarExportLink={handle,lastDiskStamp:ankiFileStamp(file),
         savedDigest:sameContent?diskDigest:null,lastSavedAt:null,
-        verified:true,paused:false,dirty:!sameContent,busy:false};
+        verified:!needsRecovery,paused:needsRecovery,needsRecovery,
+        dirty:!sameContent,busy:false};
       await ankiStarStoreExportLink();
       renderDecks();
-      if(sameContent) {
+      if(needsRecovery) {
+        showToast('Starred .apkg selected read-only · click Backup & Enable before autosave.');
+      } else if(sameContent) {
         ankiStarRefreshExportStatus();
         showToast('★ Starred Cards linked to '+file.name+' · content verified; no file was overwritten.');
       } else {
@@ -3205,7 +3266,7 @@ function promptCreateDeck() {
           const existingMarker=await ankiStarValidateLinkedPackage(before);
           if(existingMarker.version!==2 || existingMarker.format!=='AnkiSyncStarredIndependentCollection')
             throw new Error('Older Starred Cards packages cannot be overwritten automatically. Import and convert it first.');
-          await ankiStarRetainRecovery(before);
+          await ankiStarRetainRecovery(before,e);
         }
         ankiReconcileStarredDeck();
         const digest=ankiStarContentDigest();
@@ -3234,6 +3295,13 @@ function promptCreateDeck() {
         e.lastDiskStamp=ankiFileStamp(after);
         e.savedDigest=digest;
         e.lastSavedAt=Date.now();
+        // A brand-new .apkg did not need a pre-existing backup for its FIRST
+        // write; before any subsequent overwrites make one on disk.
+        if(!idbDB && before.size===0) {
+          e.needsRecovery=true;
+          e.verified=false;
+          e.paused=true;
+        }
         await ankiStarStoreExportLink();
         showToast('★ Starred Cards '+(manual?'saved':'autosaved')+' and verified · '+
           (appState.decks?.[ANKI_STAR_DECK_ID]?.cards||[]).length+' cards');
@@ -3248,6 +3316,54 @@ function promptCreateDeck() {
         e.busy=false;
         if(!e.paused && ankiStarContentDigest()!==e.savedDigest) ankiStarScheduleExport();
         ankiStarRefreshExportStatus();
+      }
+    }
+    async function ankiStarBackupAndEnableAutosave() {
+      const e=ankiStarExportLink;
+      if(!e?.handle || !e.needsRecovery)
+        return showToast('Select Link Original for Autosave before creating its recovery file.');
+      if(typeof window.showSaveFilePicker!=='function')
+        return showToast('Use Windows Chrome or Edge with the PC launcher to create a verified .apkg recovery copy.');
+      const suggested=(e.handle.name||ANKI_STAR_EXPORT_FILENAME).replace(/\.apkg$/i,'')+
+        ' - RECOVERY - '+new Date().toISOString().replace(/[:.]/g,'-')+'.apkg';
+      let backupHandle=null,writer=null;
+      try {
+        // File picker must be the FIRST await in this user-click callback.
+        backupHandle=await window.showSaveFilePicker({suggestedName:suggested,
+          types:[{description:'Starred deck recovery',accept:{'application/octet-stream':['.apkg']}}]});
+        if(!backupHandle) return;
+        if(backupHandle.name===e.handle.name ||
+           (typeof backupHandle.isSameEntry==='function' && await backupHandle.isSameEntry(e.handle)))
+          throw new Error('Recovery filename must differ from the original. Nothing was overwritten.');
+        const previous=await backupHandle.getFile();
+        if(previous.size>0) throw new Error('Choose a NEW empty recovery filename. Nothing was overwritten.');
+        const original=await e.handle.getFile();
+        if(ankiFileStamp(original)!==e.lastDiskStamp) throw new Error('Original Starred file changed. Link it again first.');
+        await ankiStarValidateLinkedPackage(original);
+        const digest=await ankiSha256File(original);
+        writer=await backupHandle.createWritable({keepExistingData:false});
+        await writer.write(original);
+        await writer.close();writer=null;
+        const saved=await backupHandle.getFile();
+        if(saved.size!==original.size || await ankiSha256File(saved)!==digest)
+          throw new Error('The recovery copy failed SHA-256 verification. The original remains read-only.');
+        e.recoveryHandle=backupHandle;
+        e.recoverySize=original.size;
+        e.recoveryHash=digest;
+        const check=await e.handle.getFile();
+        if(ankiFileStamp(check)!==e.lastDiskStamp) throw new Error('The original changed during backup; re-link before enabling.');
+        e.needsRecovery=false;
+        e.verified=true;
+        e.paused=false;
+        e.dirty=ankiStarContentDigest()!==e.savedDigest;
+        renderDecks();
+        if(e.dirty) ankiStarScheduleExport();
+        showToast('Separate Starred .apkg recovery verified; original autosave enabled.');
+      }catch(error) {
+        if(writer) try{await writer.abort();}catch(_){}
+        if(error?.name==='AbortError') return;
+        console.error('Starred recovery creation failed:',error);
+        alert('Starred auto-save remains disabled: '+(error.message||error)+'\nThe original file was not modified.');
       }
     }
     async function ankiStarPauseExport() {
@@ -3698,16 +3814,10 @@ function promptCreateDeck() {
             if(marker.version!==2 || marker.format!=='AnkiSyncStarredIndependentCollection')
               throw new Error('Old-style Starred archive requires manual conversion before linking.');
             const diskDigest=marker.contentDigest||null;
-            // The manifest may contain stars from another device. Load
-            // matching source links before enabling any automatic writes.
-            const pending=appState.pendingStarredLinks||[];
-            const seen=new Set(pending.map(x=>[x.sourceDeckName,x.sourceCardId,x.cardDigest].join('|')));
-            for(const group of marker.groups||[]) for(const card of group.cards||[]) {
-              const key=[card.sourceDeckName,card.sourceCardId,card.cardDigest].join('|');
-              if(!seen.has(key)) {pending.push(card);seen.add(key);}
-            }
-            appState.pendingStarredLinks=pending;
-            if(ankiApplyPendingStarLinks()>0) {ankiReconcileStarredDeck();saveLocalState();}
+            // The file belongs to the independent Starred deck. Never
+            // reconstruct cards here by importing an unrelated source deck.
+            // An independent collection is never rebuilt from another deck
+            // during source-folder connection. Open its own .apkg separately.
             const currentDigest=ankiStarContentDigest();
             ankiStarExportLink={handle,lastDiskStamp:ankiFileStamp(file),
               lastSavedAt:null,savedDigest:diskDigest,verified:true,
@@ -4112,6 +4222,7 @@ function promptCreateDeck() {
         if (backup && backup.format === 'AnkiSyncStudyBackup' && backup.version === 1 &&
             backup.decks && typeof backup.decks === 'object' && Array.isArray(backup.categories)) {
           appState.decks = backup.decks;
+          appState.starredCollectionDeleted=!!backup.starredCollectionDeleted;
           appState.categories = backup.categories;
           appState.selectedCategory = backup.selectedCategory || 'ALL';
           saveLocalState();
@@ -4142,6 +4253,7 @@ function promptCreateDeck() {
           exportedAt: new Date().toISOString(),
           decks: appState.decks,
           pendingStarredLinks: appState.pendingStarredLinks || [],
+          starredCollectionDeleted: !!appState.starredCollectionDeleted,
           categories: appState.categories,
           selectedCategory: appState.selectedCategory,
           browserSavedAt: ankiLastBrowserSaveAt
@@ -4180,6 +4292,7 @@ function promptCreateDeck() {
           exportedAt: new Date().toISOString(),
           decks: appState.decks,
           pendingStarredLinks: appState.pendingStarredLinks || [],
+          starredCollectionDeleted: !!appState.starredCollectionDeleted,
           categories: appState.categories,
           selectedCategory: appState.selectedCategory,
           browserSavedAt: ankiLastBrowserSaveAt
@@ -4273,6 +4386,7 @@ function promptCreateDeck() {
 
         appState.decks = backup.decks;
         appState.pendingStarredLinks = Array.isArray(backup.pendingStarredLinks) ? backup.pendingStarredLinks : [];
+        appState.starredCollectionDeleted=!!backup.starredCollectionDeleted;
         appState.categories = backup.categories;
         appState.selectedCategory = backup.selectedCategory || 'ALL';
         appState.activeStudyDeckId = null;
@@ -5250,24 +5364,26 @@ const content = await zip.generateAsync({ type: "blob" });
             </div>
             <div class="text-[11px] space-y-1.5" data-anki-autosave-deck="${ankiEscapeHtml(deckId)}">
               <div id="ankiAutoSaveStatus-${ankiEscapeHtml(deckId)}" class="text-slate-400">${ankiAutoSaveStatusForDeck(deckId)}</div>
-              ${(!ankiMobileSave() && typeof window.showOpenFilePicker==='function') ? `<div class="flex flex-wrap gap-1.5">
+              <div class="flex flex-wrap gap-1.5">
                 <button type="button" onclick="ankiLinkOriginalForAutosave('${deckId}')" class="px-2 py-1.5 rounded-lg border border-indigo-500/40 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20" title="Choose the original APKG and authorize periodic in-place saves">Link Original for Autosave</button>
                 ${ankiLinkedHandles.get(deckId)?.needsRecovery ? `<button type="button" onclick="ankiBackupAndEnableOriginalAutosave('${deckId}')" class="px-2 py-1.5 rounded-lg border border-amber-500/50 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20" title="Create and verify a separate original .apkg recovery file before allowing overwrites">Backup &amp; Enable</button>` : ''}
                 <button type="button" onclick="ankiAutosaveNow('${deckId}')" class="px-2 py-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20" title="Write verified progress to the linked APKG now">Save Now</button>
                 <button type="button" onclick="ankiPauseLinkedAutosave('${deckId}')" class="px-2 py-1.5 rounded-lg border border-slate-500/40 text-slate-400 hover:bg-slate-500/10" title="Stop writing automatically to this APKG">Pause</button>
                 <button type="button" onclick="ankiDownloadRecoveryCopy('${deckId}')" class="px-2 py-1.5 rounded-lg border border-slate-500/40 text-slate-400 hover:bg-slate-500/10" title="Download a recovery backup of the original archive">Recovery</button>
-              </div>` : ''}
+              </div>
             </div>` : `<div class="space-y-1.5 text-[11px] text-slate-400">
               <div class="break-all"><i class="fa-solid fa-file-zipper" aria-hidden="true"></i> ${ankiEscapeHtml(ankiStarExportLink?.handle?.name||ANKI_STAR_EXPORT_FILENAME)}</div>
               <div><i class="fa-solid fa-clock" aria-hidden="true"></i> Last browser save: ${ankiEscapeHtml(lastSave)}</div>
               <div id="ankiStarExportStatus">${ankiStarExportStatus()}</div>
-              ${ankiStarAutoCapable() ? `<div class="flex flex-wrap gap-1.5">
-                <button type="button" onclick="ankiStarLinkExportFile()" class="px-2 py-1.5 rounded-lg border border-indigo-500/40 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20" title="Select an existing independent Starred .apkg, regardless of its filename">Link Starred .apkg</button>
+              <div class="flex flex-wrap gap-1.5">
+                <button type="button" onclick="ankiOpenStarredDeckFile()" class="px-2 py-1.5 rounded-lg border border-indigo-500/40 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20" title="Load Starred Cards directly from its own package; no source deck is needed">Open Starred .apkg</button>
+                <button type="button" onclick="ankiStarLinkExportFile()" class="px-2 py-1.5 rounded-lg border border-indigo-500/40 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20" title="Link this independent deck to its original Starred .apkg for autosave">Link Original for Autosave</button>
                 <button type="button" onclick="ankiStarCreateExportFile()" class="px-2 py-1.5 rounded-lg border border-indigo-500/40 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20" title="Create and link a new independent Starred .apkg">New Starred .apkg</button>
+                ${ankiStarExportLink?.needsRecovery ? `<button type="button" onclick="ankiStarBackupAndEnableAutosave()" class="px-2 py-1.5 rounded-lg border border-amber-500/50 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20" title="Make a separate verified recovery copy before enabling Starred .apkg overwrites">Backup &amp; Enable</button>` : ''}
                 <button type="button" onclick="ankiStarExportNow()" class="px-2 py-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20">Save Now</button>
                 <button type="button" onclick="ankiStarPauseExport()" class="px-2 py-1.5 rounded-lg border border-slate-500/40 text-slate-400 hover:bg-slate-500/10">Pause</button>
                 <button type="button" onclick="ankiStarDownloadRecovery()" class="px-2 py-1.5 rounded-lg border border-slate-500/40 text-slate-400 hover:bg-slate-500/10">Recovery</button>
-              </div>` : ''}
+              </div>
               <div class="text-slate-500">Independent copies · original cards are unchanged by study or edits here.</div>
             </div>`}
             <div class="anki-deck-reset-buttons pt-1">
@@ -5473,6 +5589,7 @@ const content = await zip.generateAsync({ type: "blob" });
         : `Delete deck "${deck.name}" and its ${deck.cards?.length||0} cards? This cannot be undone.`;
       if(!window.confirm(warning)) return;
       if(starred) {
+        appState.starredCollectionDeleted=true;
         // Never re-create the collection from old import flags or pending links.
         // Only the membership marker is cleared; content/review data is untouched.
         for(const [id,original] of Object.entries(appState.decks)) {
@@ -9112,7 +9229,15 @@ function saveCardEdits() {
                 'This replaces only the existing Starred Cards collection. Original cards in other decks are never touched.')) {
               progressContainer.classList.add('hidden');return;
             }
+            if(ankiStarExportLink?.handle &&
+               (ankiStarExportLink.handle.name!==file.name ||
+                ankiStarExportLink.savedDigest!==marker.contentDigest)) {
+              ankiStarExportLink.paused=true;
+              ankiStarCancelExportTimer();
+              void ankiStarStoreExportLink().catch(err=>console.warn('Could not pause prior Starred link:',err));
+            }
             const target=ankiEnsureStarredDeck();
+            target.sourceFileName=file.name;
             target.cards=imported.map(c=>({...c,starredIndependent:true}));
             target.lastIndex=0;target.lastCardId=null;
             // The file contains copies, not live links; never set source.starred.
@@ -9121,6 +9246,7 @@ function saveCardEdits() {
             renderCategories();renderDecks();
             if(!stored) alert('Starred deck imported, but browser storage failed. Export a backup before refreshing.');
             progressContainer.classList.add('hidden');
+            switchTab('decks');
             showToast('Imported '+imported.length+' independent Starred Cards.');
             return;
           }
