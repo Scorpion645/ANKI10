@@ -1,6 +1,370 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script id="ankisync-ios-native-file-bridge">
+/* Native-only extension. It does not modify card formatting or review logic. */
+(function () {
+  'use strict';
+  const channel=window.webkit?.messageHandlers?.AnkiNativeBridge;
+  if(!channel) return;
+  let counter=0;
+  const pending=new Map();
+  const MAX_BYTES=512*1024*1024;
+  function call(action,extra={}) {
+    const id='native_'+(++counter);
+    return new Promise((resolve,reject)=>{
+      pending.set(id,{resolve,reject,chunks:[],received:0,name:''});
+      try{channel.postMessage({id,action,...extra});}
+      catch(err){pending.delete(id);reject(err);}
+    });
+  }
+  const native={
+    available:true,
+    chooseFolder:()=>call('chooseFolder'),
+    status:()=>call('status'),
+    listFiles:()=>call('listFiles'),
+    readFile:(path)=>call('readFile',{path}),
+    __deliver:(message)=>{
+      if(!message||typeof message.id!=='string') return;
+      const item=pending.get(message.id);if(!item)return;
+      if(message.kind==='start') {
+        if(!Number.isSafeInteger(message.size)||message.size<0||message.size>MAX_BYTES){
+          pending.delete(message.id);item.reject(new Error('Selected .apkg is too large for this bridge (512 MB maximum).'));return;
+        }
+        item.name=message.name;item.size=message.size;
+        return;
+      }
+      if(message.kind==='chunk'){
+        try{
+          const raw=atob(message.data);
+          const bytes=new Uint8Array(raw.length);
+          for(let i=0;i<raw.length;i++)bytes[i]=raw.charCodeAt(i);
+          item.received+=bytes.length;
+          if(item.received>MAX_BYTES || (item.size!==undefined&&item.received>item.size))throw new Error('Native file transfer exceeded its expected size');
+          item.chunks.push(bytes);
+        }catch(err){pending.delete(message.id);item.reject(err);}
+        return;
+      }
+      if(message.kind==='complete'){
+        pending.delete(message.id);
+        if(item.received!==item.size){item.reject(new Error('Incomplete original file transfer; nothing was imported.'));return;}
+        item.resolve(new File(item.chunks,item.name,{type:'application/octet-stream'}));
+        return;
+      }
+      if(message.kind==='result') {
+        pending.delete(message.id);
+        if(message.ok)item.resolve(message.data);
+        else item.reject(new Error(message.error||'Native file access failed'));
+      }
+    }
+  };
+  // iOS-only authorized links. A green dot means the original file has been
+  // linked and a SHA-256-verified recovery archive has actually been stored.
+  const nativeLinks = new Map();
+  const nativeTimers = new Map();
+  const NATIVE_REGULAR_DELAY = 120000;
+  const NATIVE_STAR_DELAY = 5000;
+  native.links = nativeLinks;
+  native.syncLinks = async function () {
+    const status = await native.status();
+    nativeLinks.clear();
+    for (const [id, record] of Object.entries(status?.links || {})) {
+      if (!record?.path || !record?.sha256) continue;
+      nativeLinks.set(id, { ...record, paused:record.paused === '1',
+        dirty:false, busy:false, savedDigest:id === 'anki_starred_cards_collection_v1' &&
+          typeof ankiStarContentDigest === 'function' ? ankiStarContentDigest() : '' });
+    }
+    return status;
+  };
+  native.linked = function (deckId) {
+    const e = nativeLinks.get(String(deckId));
+    return !!(e && !e.paused && e.path && e.sha256);
+  };
+  native.statusForDeck = function (deckId) {
+    const e=nativeLinks.get(String(deckId));
+    if (!e) return 'iCloud original-file autosave: OFF · Link Original to enable';
+    if (e.paused) return 'iCloud original-file autosave: PAUSED';
+    if (e.busy) return 'Verifying and saving original iCloud .apkg…';
+    if (e.dirty) return 'Unsaved changes · automatic save scheduled';
+    const time=e.lastSavedAt ? new Date(e.lastSavedAt).toLocaleTimeString() : 'not yet';
+    return 'Connected · verified recovery backup · last autosave: '+time;
+  };
+  native.chooseDeckPath=async function(deckId){
+    const deck=appState.decks?.[deckId];
+    if (!deck) throw new Error('This deck is not currently loaded.');
+    const files=await native.listFiles();
+    if(!files.length)throw new Error('No .apkg files found in the authorized iCloud folder.');
+    const norm=p=>String(p||'').replace(/\\/g,'/').replace(/^Anki\//,'');
+    const preferred=norm(deck.sourceFilePath||'');
+    const fileName=deck.sourceFileName||'';
+    let path=files.find(p=>norm(p)===preferred && preferred);
+    if(!path && fileName){
+      const exact=files.filter(p=>p.split('/').pop()===fileName);
+      if(exact.length===1)path=exact[0];
+    }
+    if(!path && deckId === 'anki_starred_cards_collection_v1'){
+      const matches=files.filter(p=>/starred.*\.apkg$/i.test(p));
+      if(matches.length===1)path=matches[0];
+    }
+    // Always show the resolved path so the user knows what is being linked.
+    if(path){
+      if(!confirm('Link this original iCloud file for verified autosave?\n\n'+path+
+        '\n\nA recovery copy will be made on this device before any overwrite.'))return null;
+      return path;
+    }
+    const options=files.filter(p=>/\.apkg$/i.test(p));
+    const selected=prompt('Choose the original .apkg for '+deck.name+':\n\n'+
+      options.map((path,i)=>(i+1)+'. '+path).join('\n')+'\n\nEnter the file number:', '1');
+    if(selected===null)return null;
+    const n=Number(selected);
+    if(!Number.isInteger(n)||n<1||n>options.length)throw new Error('Invalid file number.');
+    return options[n-1];
+  };
+  native.linkDeck=async function(deckId){
+    try{
+      if(!appState.decks?.[deckId])return;
+      const path=await native.chooseDeckPath(deckId);
+      if(!path)return;
+      const file=await native.readFile(path);
+      const isStar=typeof ankiIsStarDeck==='function' && ankiIsStarDeck(deckId);
+      if(isStar){
+        const marker=await ankiStarValidateLinkedPackage(file);
+        if(marker.version!==2 || marker.format!=='AnkiSyncStarredIndependentCollection')
+          throw new Error('This is an older Starred Cards file. Export a current independent Starred .apkg before linking.');
+        if(!(appState.decks[deckId]?.cards?.length||0) &&
+           (marker.groups||[]).some(group=>(group.cards||[]).length>0))
+          throw new Error('Your loaded Starred Cards collection is empty, but the original file contains cards. Choose Open Starred .apkg first; linking an empty deck could overwrite a populated collection.');
+        if(marker.contentDigest && marker.contentDigest!==ankiStarContentDigest() &&
+           !confirm('The Starred .apkg contains different cards or study progress.\n'+
+             'Linking will keep your currently loaded collection; future autosaves may replace that file.\n\nContinue?')) return;
+      } else {
+        const deck=appState.decks[deckId];
+        if(!Array.isArray(deck.cards) || !deck.cards.length)
+          throw new Error('The loaded deck is empty. Import its actual .apkg before enabling automatic replacement.');
+        if(deck.sourceFileName && file.name!==deck.sourceFileName)
+          throw new Error('Wrong original file. Expected '+deck.sourceFileName+'. Nothing changed.');
+        await ankiValidateZipBlob(file);
+        if(!deck.sourceFileName){
+          if(!confirm('Confirm '+file.name+' is the original .apkg for '+deck.name+'.'))return;
+        }
+      }
+      const result=await call('linkFile',{deckId,path});
+      native.cancelTimer(deckId);
+      nativeLinks.set(deckId,{...result,paused:false,dirty:false,busy:false,
+        savedDigest:isStar?ankiStarContentDigest():''});
+      if(!isStar){
+        appState.decks[deckId].sourceFileName=file.name;
+        appState.decks[deckId].sourceFilePath=path;
+        await saveLocalState();
+      }else{
+        appState.decks[deckId].sourceFileName=file.name;
+        appState.decks[deckId].sourceFilePath=path;
+        await saveLocalState();
+      }
+      renderDecks();
+      if(isStar)ankiStarRefreshExportStatus();else ankiRefreshAutosaveStatus(deckId);
+      notice('Original linked with verified recovery copy. iCloud autosave is enabled.');
+    }catch(err){
+      console.error('Native iCloud link failed',err);
+      alert('Could not link original for autosave:\n'+(err.message||err)+
+        '\n\nYour original .apkg was not changed.');
+    }
+  };
+  native.cancelTimer=function(deckId){
+    if(nativeTimers.has(deckId))clearTimeout(nativeTimers.get(deckId));
+    nativeTimers.delete(deckId);
+  };
+  native.markDirty=function(deckId){
+    const e=nativeLinks.get(String(deckId));
+    if(!e || e.paused)return;
+    e.dirty=true;
+    if(!nativeTimers.has(deckId)){
+      const delay=deckId==='anki_starred_cards_collection_v1'?NATIVE_STAR_DELAY:NATIVE_REGULAR_DELAY;
+      nativeTimers.set(deckId,setTimeout(()=>{
+        nativeTimers.delete(deckId);
+        void native.saveDeck(deckId,false);
+      },delay));
+    }
+    if(deckId==='anki_starred_cards_collection_v1')ankiStarRefreshExportStatus();
+    else ankiRefreshAutosaveStatus(deckId);
+  };
+  native.markStarChange=function(){
+    const id='anki_starred_cards_collection_v1';
+    const e=nativeLinks.get(id);
+    if(e && !e.paused && e.savedDigest!==ankiStarContentDigest())native.markDirty(id);
+  };
+  native.pauseDeck=async function(deckId){
+    const e=nativeLinks.get(deckId);
+    if(!e){notice('Original not linked.');return;}
+    try{
+      await call('setPaused',{deckId,paused:true});
+      e.paused=true;e.dirty=false;native.cancelTimer(deckId);
+      renderDecks();
+      notice('Original-file autosave paused.');
+    }catch(err){alert('Could not pause autosave: '+err.message);}
+  };
+  native.exportRecovery=async function(deckId){
+    try { await call('exportRecovery',{deckId}); }
+    catch(err) { alert('Could not export recovery archive: '+(err.message||err)); }
+  };
+  native.unlinkDeck=function(deckId){
+    native.cancelTimer(deckId);
+    nativeLinks.delete(deckId);
+    // Deleting a tile NEVER deletes the original iCloud .apkg or its backup.
+    void call('unlinkFile',{deckId}).catch(e=>console.warn('Native unlink:',e));
+  };
+  native.writeFile=async function(deckId,path,expectedHash,blob){
+    const size=blob?.size||0;
+    if(size<100 || size>MAX_BYTES)throw new Error('Generated package size is invalid or exceeds 512 MB.');
+    const transferId='write_'+(++counter);
+    const raw=new Uint8Array(await blob.arrayBuffer());
+    try{
+      await call('beginWrite',{deckId,path,expectedHash,size,transferId});
+      const piece=96*1024;
+      for(let i=0;i<raw.length;i+=piece){
+        const slice=raw.subarray(i,Math.min(raw.length,i+piece));
+        let encoded='';
+        // Convert a bounded chunk; do not expand a whole large file to a JS string.
+        for(let j=0;j<slice.length;j++)encoded+=String.fromCharCode(slice[j]);
+        await call('writeChunk',{transferId,data:btoa(encoded)});
+      }
+      return await call('completeWrite',{transferId});
+    }catch(err){
+      try{await call('abortWrite',{transferId});}catch(_){}
+      throw err;
+    }
+  };
+  native.saveDeck=async function(deckId,manual=true){
+    const e=nativeLinks.get(deckId),deck=appState.decks?.[deckId];
+    if(!e||e.paused||!deck){
+      if(manual)notice('Link the original file before saving to iCloud.');
+      return;
+    }
+    if(e.busy)return;
+    if(!manual&&!e.dirty)return;
+    native.cancelTimer(deckId);
+    e.busy=true;e.dirty=false;
+    const isStar=typeof ankiIsStarDeck==='function'&&ankiIsStarDeck(deckId);
+    if(isStar)ankiStarRefreshExportStatus();else ankiRefreshAutosaveStatus(deckId);
+    try{
+      const original=await native.readFile(e.path);
+      const zip=await ankiValidateZipBlob(original);
+      let output;
+      if(isStar){
+        const old=await ankiStarValidateLinkedPackage(original);
+        if(old.version!==2 || old.format!=='AnkiSyncStarredIndependentCollection')
+          throw new Error('Linked Starred .apkg is not a current independent package.');
+        const digest=ankiStarContentDigest();
+        const token=String(Date.now())+'-'+Math.random().toString(36).slice(2);
+        const built=await saveAllDecksToFile(deckId,{buildOnly:true,
+          exportFilename:original.name,starManifest:ankiStarManifest(digest,token)});
+        output=built?.blob;
+        if(!output)throw new Error('Starred export failed.');
+        const verify=await ankiValidateZipBlob(output);
+        const text=await verify.file('ankisync-starred-links.json')?.async('string');
+        const manifest=text?JSON.parse(text):null;
+        if(manifest?.saveToken!==token || manifest.contentDigest!==digest)
+          throw new Error('Starred file failed export verification.');
+        e.savedDigest=digest;
+      }else{
+        const snapshot=ankiLinkedStateSnapshot(deckId);
+        const token=String(Date.now())+'-'+Math.random().toString(36).slice(2);
+        const state={...snapshot,saveToken:token};
+        const progress={format:'AnkiSyncPortableProgress',version:1,
+          exportedAt:snapshot.exportedAt,decks:[{name:snapshot.deckName,
+          lastIndex:snapshot.lastIndex,lastCardId:snapshot.lastCardId,
+          cards:snapshot.cards.map(c=>({id:String(c.id),reviewData:c.reviewData||null}))}]};
+        zip.file('ankisync-progress.json',JSON.stringify(progress));
+        zip.file('ankisync-linked-state.json',JSON.stringify(state));
+        output=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:3}});
+        const verify=await ankiValidateZipBlob(output);
+        const validated=JSON.parse(await verify.file('ankisync-linked-state.json').async('string'));
+        if(validated.saveToken!==token || validated.cards?.length!==snapshot.cards.length)
+          throw new Error('Generated file failed progress verification.');
+        const originalEntries=Object.keys(zip.files).filter(n=>!zip.files[n].dir&&
+          !/^ankisync-(linked-state|progress)\.json$/.test(n));
+        if(!originalEntries.every(n=>!!verify.file(n)))
+          throw new Error('Original .apkg entries were not preserved.');
+      }
+      if(!output || output.size<100)throw new Error('New package is empty.');
+      const result=await native.writeFile(deckId,e.path,e.sha256,output);
+      e.sha256=result.sha256;e.lastSavedAt=Date.now();
+      notice((manual?'Saved':'Autosaved')+' and verified in iCloud: '+deck.name);
+    }catch(err){
+      console.error('Native original-file save paused',err);
+      e.paused=true;
+      try{await call('setPaused',{deckId,paused:true});}catch(_){}
+      alert('iCloud autosave PAUSED.\n'+(err.message||err)+
+        '\n\nYour locally loaded deck is preserved. The original was not intentionally overwritten; '+
+        'if a write failed verification, check the recovery backup.');
+    }finally{
+      e.busy=false;
+      if(e.dirty&&!e.paused)native.markDirty(deckId);
+      if(isStar)ankiStarRefreshExportStatus();else ankiRefreshAutosaveStatus(deckId);
+    }
+  };
+
+  window.AnkiNative=native;
+  function notice(msg){if(typeof window.showToast==='function')showToast(msg);else alert(msg);}
+  async function folderStatus(){
+    const label=document.getElementById('ankiNativeFolderLabel');
+    if(!label)return;
+    try{
+      const status=await native.status();
+      label.textContent=status?.connected?'iCloud: '+status.folder:'Connect iCloud Anki';
+      label.title=status?.connected?'Folder connection saved. Tap to choose a different folder.':'Choose the iCloud Drive Anki folder once.';
+    }catch(err){label.textContent='Connect iCloud Anki';}
+  }
+  window.ankiNativeConnectFolder=async function(){
+    try{
+      const result=await native.chooseFolder();
+      await folderStatus();
+      await native.syncLinks();
+      if(typeof renderDecks==='function')renderDecks();
+      notice('iCloud folder connected: '+result.folder+'. Use Refresh to reopen the original deck.');
+    }catch(err){ if(err.message!=='Cancelled') alert('Could not connect folder: '+err.message); }
+  };
+  window.ankiNativeImportDeck=async function(){
+    try{
+      const files=await native.listFiles();
+      if(!files.length){alert('No .apkg or .colpkg files were found in the selected folder.');return;}
+      const max=files.length;
+      const list=files.map((name,i)=>`${i+1}. ${name}`).join('\n');
+      const selected=prompt('Import from connected iCloud Anki folder. Enter a file number:\n\n'+list,'1');
+      if(selected===null)return;
+      const n=Number(selected);
+      if(!Number.isInteger(n)||n<1||n>max){alert('Enter a number between 1 and '+max);return;}
+      const file=await native.readFile(files[n-1]);
+      const relPath=files[n-1];
+      await handleAnkiFileUpload({target:{files:[file],value:''}}, {relativePath:relPath});
+      notice('Imported '+file.name+' from the connected iCloud folder.');
+    }catch(err){alert('iCloud import failed: '+err.message);}
+  };
+  window.addEventListener('DOMContentLoaded',()=>{
+    const tabBar=document.getElementById('appTabBar');
+    if(!tabBar)return;
+    const controls=document.createElement('div');
+    controls.id='ankiNativeCloudTools';
+    controls.className='flex flex-wrap items-center gap-2 mb-4';
+    tabBar.insertAdjacentElement('afterend',controls);
+    const c=document.createElement('button');
+    c.type='button';c.id='ankiNativeConnectBtn';
+    c.className='px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold transition shadow';
+    c.title='Authorize persistent access to your iCloud Drive Anki folder';
+    c.innerHTML='<i class="fa-solid fa-folder-open"></i> <span id="ankiNativeFolderLabel">iCloud Anki</span>';
+    c.onclick=window.ankiNativeConnectFolder;
+    const load=document.createElement('button');
+    load.type='button';load.id='ankiNativeImportBtn';
+    load.className='px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-xl text-xs font-semibold transition shadow';
+    load.title='Import an Anki .apkg from the connected folder';
+    load.innerHTML='<i class="fa-solid fa-file-import"></i> iCloud Decks';
+    load.onclick=window.ankiNativeImportDeck;
+    controls.appendChild(c);
+    controls.appendChild(load);
+    folderStatus();
+  });
+})();
+</script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Anki Sync & Reader with IndexedDB Storage</title>
@@ -1124,6 +1488,140 @@ body.light-mode #ankiReviewOverview .anki-review-new {color:#0e7490;}
 }
 
 </style>
+<script id="ankisync-local-pc-bridge">
+/* AnkiSync PC fixed-folder bridge — no Windows file selection dialogs.
+ * The session token is injected only by the local launcher, never stored here.
+ */
+(function(){
+  'use strict';
+  const BASE='/__ankisync/';
+  const available=()=>location.hostname==='127.0.0.1' && location.port==='47621' &&
+    location.protocol==='http:' && typeof window.__ANKISYNC_LOCAL_BRIDGE_TOKEN__==='string';
+  async function call(endpoint,{method='GET',area,name,body,expected}={}){
+    if(!available())throw Error('Open AnkiSync using the bundled Start-AnkiSync-on-PC.cmd launcher.');
+    let url=BASE+endpoint;
+    const query=new URLSearchParams();
+    if(area)query.set('area',area);
+    if(name)query.set('name',name);
+    if([...query].length)url+='?'+query.toString();
+    const headers={'X-AnkiSync-Bridge-Token':window.__ANKISYNC_LOCAL_BRIDGE_TOKEN__};
+    if(expected) headers['X-AnkiSync-Expected-SHA256']=expected;
+    const response=await fetch(url,{method,headers,body,cache:'no-store',credentials:'same-origin'});
+    if(!response.ok){
+      let message='Local iCloud bridge returned '+response.status;
+      try{const data=await response.json();if(data?.error)message=data.error;}catch(_){}
+      throw Error(message);
+    }
+    return response;
+  }
+  const ensureName=name=>{
+    if(typeof name!=='string'||!name||/[\\/:\x00]/.test(name)||
+       name==='.'||name==='..'||!/\.apkg$/i.test(name))
+       throw Error('AnkiSync local bridge only accepts a .apkg filename inside the Anki folder.');
+    return name;
+  };
+  async function readFile(handle){
+    const response=await call('file',{area:handle.area,name:handle.name});
+    const blob=await response.blob();
+    handle.expectedSHA=response.headers.get('X-AnkiSync-SHA256');
+    const modified=Number(response.headers.get('X-AnkiSync-Mtime'))||Date.now();
+    return new File([blob],handle.name,{type:'application/octet-stream',lastModified:modified});
+  }
+  function uint8(data){
+    if(data instanceof Uint8Array)return data;
+    if(data instanceof ArrayBuffer)return new Uint8Array(data);
+    if(ArrayBuffer.isView(data))return new Uint8Array(data.buffer,data.byteOffset,data.byteLength);
+    throw Error('Unsupported local file write data');
+  }
+  class FileHandle {
+    constructor(name,area){this.name=ensureName(name);this.area=area;this.kind='file';this.isAnkiPCBridge=true;this.expectedSHA=null;}
+    async queryPermission(){await call('ping');return 'granted';}
+    async requestPermission(){return this.queryPermission();}
+    async isSameEntry(other){return !!other&&this.area===other.area&&this.name===other.name&&other.isAnkiPCBridge;}
+    async getFile(){return readFile(this);}
+    async createWritable({keepExistingData=false}={}){
+      // The archive's existing save path writes from byte 0 then truncates.
+      // Keep a real staging buffer to correctly support partial writes too.
+      const expectedBefore=this.expectedSHA;
+      if(!expectedBefore)throw Error('Open and verify the original before starting any write');
+      let contents=new Uint8Array();
+      if(keepExistingData) {
+        const old=await this.getFile();
+        if(this.expectedSHA!==expectedBefore)
+          throw Error('iCloud changed while opening a writer. Refresh and merge before saving.');
+        contents=new Uint8Array(await old.arrayBuffer());
+      }
+      let offset=0, closed=false;
+      const handle=this;
+      return {
+        async write(value){
+          if(closed)throw Error('File writer is already closed');
+          let data=value,position=offset;
+          if(value&&!(value instanceof Blob)&&typeof value==='object'&&value.type){
+            if(value.type==='seek'){offset=Number(value.position);return;}
+            if(value.type==='truncate'){await this.truncate(value.size);return;}
+            if(value.type!=='write')throw Error('Unsupported write operation');
+            data=value.data;
+            position=Number(value.position??offset);
+          }
+          if(!Number.isSafeInteger(position)||position<0)throw Error('Invalid file position');
+          const src=uint8(await (data instanceof Blob?data.arrayBuffer():data));
+          const end=position+src.length;
+          if(end>1024*1024*1024)throw Error('APKG is too large to write using the bridge');
+          if(contents.length<end){const expanded=new Uint8Array(end);expanded.set(contents);contents=expanded;}
+          contents.set(src,position);offset=end;
+        },
+        async truncate(size){
+          if(!Number.isSafeInteger(size)||size<0)throw Error('Invalid file length');
+          const next=new Uint8Array(size);next.set(contents.subarray(0,Math.min(size,contents.length)));
+          contents=next;if(offset>size)offset=size;
+        },
+        async close(){
+          if(closed)throw Error('File writer is already closed');
+          if(!handle.expectedSHA) {
+            // Requires that the app read the current original and its hash.
+            // This avoids an accidental overwrite after a concurrent change.
+            throw Error('File must be read and verified before writing.');
+          }
+          const response=await call('write',{method:'POST',area:handle.area,name:handle.name,
+            expected:expectedBefore,body:new Blob([contents],{type:'application/octet-stream'})});
+          const result=await response.json();
+          handle.expectedSHA=result.sha256;
+          closed=true;contents=new Uint8Array();
+        },
+        async abort(){closed=true;contents=new Uint8Array();}
+      };
+    }
+  }
+  class DirectoryHandle {
+    constructor(area){this.name=area==='original'?'Anki':'AnkiSync-Recovery';this.kind='directory';this.area=area;this.isAnkiPCBridge=true;}
+    async queryPermission(){await call('ping');return 'granted';}
+    async requestPermission(){return this.queryPermission();}
+    async getFileHandle(name,{create=false}={}){
+      ensureName(name);
+      if(create){
+        if(this.area!=='recovery')throw Error('Original files cannot be created by the bridge');
+        await call('create',{method:'POST',area:'recovery',name});
+      }else await call('stat',{area:this.area,name});
+      return new FileHandle(name,this.area);
+    }
+    async getDirectoryHandle(name,{create=false}={}){
+      if(this.area!=='original'||name!=='AnkiSync-Recovery')
+        throw Error('Only the dedicated AnkiSync-Recovery folder is available');
+      return new DirectoryHandle('recovery');
+    }
+  }
+  window.AnkiPCBridge={
+    get available(){return available();},
+    async check(){return (await (await call('ping')).json());},
+    directory(){return new DirectoryHandle('original');},
+    file(name){return new FileHandle(name,'original');},
+    recoveryFile(name){return new FileHandle(name,'recovery');}
+  };
+})();
+
+</script>
+<script>window.__ANKISYNC_LOCAL_BRIDGE_TOKEN__="ux7L9NlfHp3ZEaM5M2ppbPjG81LuX2ldHmCFcv0u3ocT7CBG4c5BZ-_tACcjA1TE";</script>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col font-sans antialiased selection:bg-indigo-500 selection:text-white">
 
@@ -1926,6 +2424,7 @@ body.light-mode #ankiReviewOverview .anki-review-new {color:#0e7490;}
       <div class="flex flex-wrap items-center justify-between gap-3 bg-slate-900 p-2.5 rounded-xl border border-slate-700">
         <div class="flex items-center space-x-2">
           <button type="button" onclick="setSketchTool('pen')" id="sketchPenBtn" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white transition">Pen</button>
+          <button type="button" onclick="setSketchTool('highlighter')" id="sketchHighlighterBtn" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-700 text-slate-300 transition" title="Translucent highlighter for images or annotated text"><i class="fa-solid fa-highlighter" aria-hidden="true"></i> Highlighter</button>
           <button type="button" onclick="setSketchTool('eraser')" id="sketchEraserBtn" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-700 text-slate-300 transition">Eraser</button>
         </div>
         <div class="flex items-center space-x-3">
@@ -2656,7 +3155,14 @@ function promptCreateDeck() {
       await ankiRestoreRefreshHandles();
       await ankiStarRestoreExportLink();
       await ankiRestoreSourceFolder();
-      await ankiLinkFromSourceFolder(false);
+      // A fixed local bridge does not opt in ALL decks for writing by default.
+      // Reconnect only the decks whose link had been explicitly authorized.
+      if(!window.AnkiPCBridge?.available)await ankiLinkFromSourceFolder(false);
+      if(window.AnkiNative?.available) {
+        try { await window.AnkiNative.syncLinks(); }
+        catch(err) { console.warn('Native iCloud link restore failed:',err); }
+      }
+      window.AnkiSyncAuto?.onReady();
       renderCategories();
       renderDecks();
       ankiUpdateSourceFolderStatus();
@@ -2937,7 +3443,8 @@ function promptCreateDeck() {
     let ankiStarExportDueAt = 0;
     function ankiStarAutoCapable() {
       return !ankiMobileSave() && !!window.isSecureContext &&
-        typeof window.showSaveFilePicker === 'function' && typeof JSZip !== 'undefined';
+        (typeof window.showSaveFilePicker === 'function' || window.AnkiPCBridge?.available) &&
+        typeof JSZip !== 'undefined';
     }
     // Hash of the actual live card material, ratings, sources, and subject names.
     // The digest lets us detect content updates without re-exporting the whole
@@ -2998,9 +3505,11 @@ function promptCreateDeck() {
       ])];
     }
     function ankiStarLinkActive() {
+      if(window.AnkiNative?.available) return window.AnkiNative.linked(ANKI_STAR_DECK_ID);
       return !!(ankiStarExportLink?.handle && ankiStarExportLink.verified && !ankiStarExportLink.paused);
     }
     function ankiStarExportStatus() {
+      if(window.AnkiNative?.available) return window.AnkiNative.statusForDeck(ANKI_STAR_DECK_ID);
       if(!ankiStarAutoCapable())
         return 'Browser collection saved locally · iPhone: use Save As / Save to Files for a separate package';
       const e=ankiStarExportLink;
@@ -3026,7 +3535,7 @@ function promptCreateDeck() {
         : ankiStarExportLink?.handle && !ankiStarExportLink.verified
           ? 'Starred .apkg remembered; restore file permission to reconnect'
           : 'Starred .apkg not connected for autosave';
-      ['ankiStarFileDot','ankiStarHeaderFileDot'].forEach(id=>{
+      ['ankiStarFileDot','ankiStarHeaderFileDot','ankiLinkDot-'+ANKI_STAR_DECK_ID].forEach(id=>{
         const dot=document.getElementById(id);
         if(!dot) return;
         dot.classList.toggle('anki-star-file-connected',active);
@@ -3054,12 +3563,23 @@ function promptCreateDeck() {
       ankiStarRefreshExportStatus();
     }
     function ankiStarNoticeChange() {
+      if(window.AnkiSyncAuto?.enabledFor(ANKI_STAR_DECK_ID))return window.AnkiSyncAuto.dirty(ANKI_STAR_DECK_ID);
+      if(window.AnkiNative?.available) return window.AnkiNative.markStarChange();
       const e=ankiStarExportLink;
       if(!e || e.paused) return;
       if(ankiStarContentDigest()!==e.savedDigest) ankiStarScheduleExport();
     }
     async function ankiStarStoreExportLink() {
       const e=ankiStarExportLink;
+      if(window.AnkiPCBridge?.available && e?.handle?.isAnkiPCBridge){
+        localStorage.setItem(ANKI_STAR_EXPORT_KEY,JSON.stringify({
+          filename:e.handle.name,lastDiskStamp:e.lastDiskStamp,
+          lastSavedAt:e.lastSavedAt||null,savedDigest:e.savedDigest||null,
+          paused:!!e.paused,recoveryName:e.recoveryHandle?.name||null,
+          recoveryHash:e.recoveryHash||null,recoverySize:e.recoverySize||null
+        }));
+        return;
+      }
       if(!e||!idbDB) return;
       await new Promise((resolve,reject)=>{
         const tx=idbDB.transaction('state','readwrite');
@@ -3072,6 +3592,29 @@ function promptCreateDeck() {
       });
     }
     async function ankiStarRestoreExportLink() {
+      if(window.AnkiPCBridge?.available) {
+        try{
+          const raw=localStorage.getItem(ANKI_STAR_EXPORT_KEY);
+          if(!raw)return;
+          const row=JSON.parse(raw);
+          if(!row?.filename)return;
+          const handle=window.AnkiPCBridge.file(row.filename);
+          const file=await handle.getFile();
+          const manifest=await ankiStarValidateLinkedPackage(file);
+          const exact=ankiFileStamp(file)===row.lastDiskStamp &&
+            manifest.contentDigest===ankiStarContentDigest();
+          const recoveryHandle=row.recoveryName?window.AnkiPCBridge.recoveryFile(row.recoveryName):null;
+          if(exact && recoveryHandle)await ankiVerifyDiskRecovery({
+            recoveryHandle,recoveryHash:row.recoveryHash,recoverySize:row.recoverySize});
+          ankiStarExportLink={handle,lastDiskStamp:row.lastDiskStamp,
+            savedDigest:row.savedDigest,lastSavedAt:row.lastSavedAt||null,
+            recoveryHandle,recoveryHash:row.recoveryHash,recoverySize:row.recoverySize,
+            recoveryMode:recoveryHandle?'disk':'indexeddb',
+            paused:!!row.paused||!exact,verified:exact&&!row.paused,
+            dirty:false,busy:false};
+        }catch(err){console.warn('Starred file needs re-linking:',err);}
+        return;
+      }
       if(!idbDB || !ankiStarAutoCapable()) return;
       try {
         const row=await new Promise(resolve=>{
@@ -3136,7 +3679,14 @@ function promptCreateDeck() {
         // File selection is read-only. Desktop browsers can remember the
         // selected handle for future Refresh; mobile browsers select afresh.
         let file=null,handle=null;
-        if(typeof window.showOpenFilePicker==='function' && !ankiMobileSave()) {
+        if(window.AnkiNative?.available){
+          const names=await window.AnkiNative.listFiles();
+          const remembered=appState.decks?.[ANKI_STAR_DECK_ID]?.sourceFileName;
+          const selected=names.find(name=>name===remembered) ||
+            names.find(name=>/starred.*\.apkg$/i.test(name));
+          if(!selected)throw new Error('No Starred Cards .apkg found in the connected iCloud folder.');
+          file=await window.AnkiNative.readFile(selected);
+        } else if(typeof window.showOpenFilePicker==='function' && !ankiMobileSave()) {
           const picked=await window.showOpenFilePicker({multiple:false,
             types:[{description:'Independent Starred .apkg',accept:{'application/octet-stream':['.apkg']}}]});
           handle=picked?.[0]||null;
@@ -3166,8 +3716,20 @@ function promptCreateDeck() {
     // filename. Choosing an existing file is read-only until the user explicitly
     // approves any replacement of different content.
     async function ankiStarLinkExportFile() {
+      if(window.AnkiNative?.available) return window.AnkiNative.linkDeck(ANKI_STAR_DECK_ID);
+      if(window.AnkiPCBridge?.available) {
+        const deck=appState.decks?.[ANKI_STAR_DECK_ID];
+        const filename=deck?.sourceFileName;
+        if(!filename || !/\.apkg$/i.test(filename)) {
+          alert('Open or import your existing Starred Cards .apkg first. AnkiSync will then link that exact filename without a picker.');
+          return;
+        }
+        try {await ankiStarConnectExportHandle(window.AnkiPCBridge.file(filename));}
+        catch(err){alert('Starred .apkg linking stopped safely: '+(err.message||err));}
+        return;
+      }
       if(!ankiStarAutoCapable() || typeof window.showOpenFilePicker!=='function') {
-        showToast('Linked .apkg saving requires Chrome or Edge on Windows. On iPhone, use Save As / Save to Files.');return;
+        alert('Starred original-file autosave needs current Chrome or Edge opened through Start-AnkiSync-on-PC.cmd at http://127.0.0.1:47621/. The native file picker must be allowed. No original was modified.');return;
       }
       try {
         // Ask for the file while the button's user activation is still active.
@@ -3178,7 +3740,7 @@ function promptCreateDeck() {
         if(!chosen?.length) return;
         await ankiStarConnectExportHandle(chosen[0]);
       }catch(err){
-        if(err?.name==='AbortError') return;
+        if(err?.name==='AbortError') {showToast('Starred original-file selection canceled; no changes made.');return;}
         console.error('Link Starred file failed:',err);
         alert('Starred Cards link was not completed: '+(err.message||err));
       }
@@ -3187,6 +3749,10 @@ function promptCreateDeck() {
     // existing filename or folder. A newly created empty file is populated only
     // after the Starred package has been constructed and checked.
     async function ankiStarCreateExportFile() {
+      if(window.AnkiNative?.available) {
+        alert('To create a new Starred .apkg on iPhone/iPad, use Save As, save it to the connected iCloud Anki folder, then choose Link Original for Autosave.');
+        return;
+      }
       if(!ankiStarAutoCapable()) {
         showToast('Creating a linked .apkg requires Chrome or Edge on Windows.');return;
       }
@@ -3210,6 +3776,7 @@ function promptCreateDeck() {
         throw new Error('Write access was not granted. The file was not modified.');
       const file=await handle.getFile();
       let diskDigest=null;
+      let starBackupFailed=null;
       if(file.size>0) {
         const marker=await ankiStarValidateLinkedPackage(file);
         if(marker.version!==2 || marker.format!=='AnkiSyncStarredIndependentCollection')
@@ -3226,11 +3793,17 @@ function promptCreateDeck() {
           'Cancel: leave both copies unchanged. To load the file instead, use Refresh on the Starred Cards tile.')) return;
         // IndexedDB retains the original immediately. If it is unavailable,
         // do not enable writes until a NEW recovery file is verified on disk.
-        if(idbDB) await ankiStarRetainRecovery(file);
+        if(idbDB) {
+          try { await ankiStarRetainRecovery(file); }
+          catch(error) {
+            console.warn('Large Starred recovery unavailable in IndexedDB; disk backup required:',error);
+            starBackupFailed=error;
+          }
+        }
       }
       ankiStarCancelExportTimer();
       const sameContent=file.size>0 && diskDigest===ankiStarContentDigest();
-      const needsRecovery=!idbDB && file.size>0;
+      const needsRecovery=(!idbDB || !!starBackupFailed) && file.size>0;
       ankiStarExportLink={handle,lastDiskStamp:ankiFileStamp(file),
         savedDigest:sameContent?diskDigest:null,lastSavedAt:null,
         verified:!needsRecovery,paused:needsRecovery,needsRecovery,
@@ -3247,7 +3820,22 @@ function promptCreateDeck() {
         await ankiStarExportNow(true);
       }
     }
+    async function ankiAttachStarSyncSnapshot(blob,filename,token) {
+      const zip=await ankiValidateZipBlob(blob);
+      const snapshot=ankiLinkedStateSnapshot(ANKI_STAR_DECK_ID);
+      zip.file('ankisync-linked-state.json',JSON.stringify({...snapshot,
+        sourceFileName:filename,saveToken:token}));
+      const output=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:3}});
+      const checked=await ankiValidateZipBlob(output);
+      const saved=JSON.parse(await checked.file('ankisync-linked-state.json').async('string'));
+      if(saved.saveToken!==token || !Array.isArray(saved.cards)||saved.cards.length!==snapshot.cards.length)
+        throw Error('Independent Starred card/review snapshot verification failed.');
+      return output;
+    }
     async function ankiStarExportNow(manual=true) {
+      if(window.AnkiSyncAuto?.enabledFor(ANKI_STAR_DECK_ID) && !window.AnkiSyncAuto.isCommitting)
+        return window.AnkiSyncAuto.syncNow(ANKI_STAR_DECK_ID,manual);
+      if(window.AnkiNative?.available) return window.AnkiNative.saveDeck(ANKI_STAR_DECK_ID,manual);
       const e=ankiStarExportLink;
       if(!e || e.paused || !e.verified) {if(manual) showToast('Grant access to the linked Starred Cards file first.');return;}
       if(e.busy) {e.dirty=true;return;}
@@ -3266,7 +3854,8 @@ function promptCreateDeck() {
           const existingMarker=await ankiStarValidateLinkedPackage(before);
           if(existingMarker.version!==2 || existingMarker.format!=='AnkiSyncStarredIndependentCollection')
             throw new Error('Older Starred Cards packages cannot be overwritten automatically. Import and convert it first.');
-          await ankiStarRetainRecovery(before,e);
+          if(e.recoveryHandle) await ankiVerifyDiskRecovery(e);
+          else await ankiStarRetainRecovery(before,e);
         }
         ankiReconcileStarredDeck();
         const digest=ankiStarContentDigest();
@@ -3276,7 +3865,10 @@ function promptCreateDeck() {
           starManifest:ankiStarManifest(digest,token)
         });
         if(!result?.blob || result.blob.size<100) throw new Error('Starred APKG build returned an empty archive.');
-        const test=await ankiValidateZipBlob(result.blob);
+        // Independent Starred decks also carry exact card/review fields for
+        // cross-device three-way merging. Preserve the standard Anki database.
+        const prepared=await ankiAttachStarSyncSnapshot(result.blob,e.handle.name,token);
+        const test=await ankiValidateZipBlob(prepared);
         const marker=JSON.parse(await test.file('ankisync-starred-links.json').async('string'));
         if(marker.saveToken!==token || marker.contentDigest!==digest)
           throw new Error('Starred package manifest verification failed.');
@@ -3285,11 +3877,11 @@ function promptCreateDeck() {
         if(ankiFileStamp(again)!==e.lastDiskStamp)
           throw new Error('Starred file changed during export; overwrite blocked.');
         writer=await e.handle.createWritable({keepExistingData:true,mode:'exclusive'});
-        await writer.write({type:'write',position:0,data:result.blob});
-        await writer.truncate(result.blob.size);
+        await writer.write({type:'write',position:0,data:prepared});
+        await writer.truncate(prepared.size);
         await writer.close();writer=null;
         const after=await e.handle.getFile();
-        if(after.size!==result.blob.size) throw new Error('Saved Starred file size mismatch; automatic export paused.');
+        if(after.size!==prepared.size) throw new Error('Saved Starred file size mismatch; automatic export paused.');
         const verified=await ankiStarValidateLinkedPackage(after);
         if(verified.saveToken!==token) throw new Error('Starred file failed readback verification.');
         e.lastDiskStamp=ankiFileStamp(after);
@@ -3320,6 +3912,20 @@ function promptCreateDeck() {
     }
     async function ankiStarBackupAndEnableAutosave() {
       const e=ankiStarExportLink;
+      if(window.AnkiPCBridge?.available && e?.needsRecovery){
+        try{
+          if(!confirm('Create and verify a separate Starred .apkg recovery file before enabling autosave? The original will not be changed during this step.'))return;
+          ankiSourceFolderHandle=window.AnkiPCBridge.directory();
+          ankiSourceFolderHasPermission=true;
+          const original=await e.handle.getFile();
+          const recovered=await ankiMakeVerifiedFolderRecovery(ANKI_STAR_DECK_ID,original,e.handle);
+          if(!recovered)throw Error('Could not create verified on-disk recovery');
+          Object.assign(e,recovered,{needsRecovery:false,verified:true,paused:false});
+          await ankiStarStoreExportLink();renderDecks();
+          showToast('Starred recovery verified · autosave enabled');
+        }catch(err){alert('Starred recovery failed safely: '+(err.message||err));}
+        return;
+      }
       if(!e?.handle || !e.needsRecovery)
         return showToast('Select Link Original for Autosave before creating its recovery file.');
       if(typeof window.showSaveFilePicker!=='function')
@@ -3367,6 +3973,7 @@ function promptCreateDeck() {
       }
     }
     async function ankiStarPauseExport() {
+      if(window.AnkiNative?.available) return window.AnkiNative.pauseDeck(ANKI_STAR_DECK_ID);
       const e=ankiStarExportLink;
       if(!e) return;
       e.paused=true;ankiStarCancelExportTimer();
@@ -3374,6 +3981,9 @@ function promptCreateDeck() {
       ankiStarRefreshExportStatus();showToast('Starred Cards file autosave paused.');
     }
     async function ankiStarDownloadRecovery() {
+      if(window.AnkiNative?.available) {
+        await window.AnkiNative.exportRecovery(ANKI_STAR_DECK_ID);return;
+      }
       if(!idbDB) return showToast('Recovery storage is unavailable in this browser.');
       try {
         const file=await new Promise(resolve=>{
@@ -3433,7 +4043,8 @@ function promptCreateDeck() {
     const ankiAutosaveDueAt = new Map();
     // A lightweight UI-only clock: does not perform disk writes or change schedules.
     setInterval(() => {
-      for (const deckId of ankiLinkedHandles.keys()) ankiRefreshAutosaveStatus(deckId);
+      for (const deckId of (window.AnkiNative?.available ? window.AnkiNative.links.keys() : ankiLinkedHandles.keys()))
+        if(!ankiIsStarDeck(deckId)) ankiRefreshAutosaveStatus(deckId);
     }, 1000);
     const ankiLinkKey = deckId => 'anki-linked-file:' + deckId;
     const ankiRecoveryKey = deckId => 'anki-original-recovery:' + deckId;
@@ -3442,11 +4053,13 @@ function promptCreateDeck() {
       (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
 
     function ankiLinkConfirmed(deckId) {
+      if(window.AnkiNative?.available) return window.AnkiNative.linked(deckId);
       const link=ankiLinkedHandles.get(deckId);
       return !!(link && link.verified && !link.paused && link.handle);
     }
     function ankiAutoSaveStatusForDeck(deckId) {
-      if (ankiMobileSave() || !window.showOpenFilePicker)
+      if(window.AnkiNative?.available) return window.AnkiNative.statusForDeck(deckId);
+      if (ankiMobileSave() || (!window.showOpenFilePicker && !window.AnkiPCBridge?.available))
         return 'Browser progress autosaves locally · automatic original-file replacement unavailable';
       const entry=ankiLinkedHandles.get(deckId);
       if (!entry) return 'Original-file autosave: OFF — Link Original to enable';
@@ -3482,6 +4095,8 @@ function promptCreateDeck() {
       ankiAutosaveDueAt.delete(deckId);
     }
     function ankiMarkDirty(deckId) {
+      if(window.AnkiSyncAuto?.enabledFor(deckId))return window.AnkiSyncAuto.dirty(deckId);
+      if(window.AnkiNative?.available) return window.AnkiNative.markDirty(deckId);
       const linked=ankiLinkedHandles.get(deckId);
       if(!linked || linked.paused || !appState.decks[deckId]) return;
       linked.dirty=true;
@@ -3508,6 +4123,57 @@ function promptCreateDeck() {
         exportedAt:new Date().toISOString(),cards:deck.cards||[]
       };
     }
+
+    // A native iPad/iPhone linked save embeds precise review timestamps in
+    // ankisync-linked-state.json. Do not silently fall back to Anki SQLite
+    // scheduling when that manifest is present but malformed or mismatched.
+    // The iPad also preserves edits and card IDs in this sidecar.
+    function ankiReviewStampSummary(cards) {
+      const arr=Array.isArray(cards)?cards:[];
+      const reviews=arr.filter(c=>c?.reviewData &&
+        (c.reviewData.lastRating || Number(c.reviewData.lastReviewedAt)>0 || Number(c.reviewData.reviewCount)>0));
+      const due=arr.map(c=>Number(c?.reviewData?.dueAt)).filter(n=>Number.isFinite(n)&&n>0);
+      const played=arr.map(c=>Number(c?.reviewData?.lastReviewedAt)).filter(n=>Number.isFinite(n)&&n>0);
+      const ratingCounts={};
+      for(const c of reviews){const r=String(c.reviewData?.lastRating||'Unspecified');ratingCounts[r]=(ratingCounts[r]||0)+1;}
+      return {cards:arr.length,reviewed:reviews.length,dueStamps:due.length,
+        earliestDue:due.length?due.reduce((a,b)=>Math.min(a,b),Infinity):null,
+        latestReview:played.length?played.reduce((a,b)=>Math.max(a,b),0):null,ratings:ratingCounts};
+    }
+    function ankiReviewStampDate(value) {
+      return value && Number.isFinite(Number(value)) ? new Date(Number(value)).toLocaleString() : 'None';
+    }
+    function ankiVerifyRestoredReviewStamps(expected,actual) {
+      const actualMap=new Map((actual||[]).map(c=>[String(c.id),c]));
+      let checked=0;
+      for(const card of expected||[]) {
+        const saved=card.reviewData;
+        if(!saved)continue;
+        const found=actualMap.get(String(card.id));
+        if(!found || JSON.stringify(found.reviewData||null)!==JSON.stringify(saved))
+          throw new Error('The imported review timestamps did not match the iPad snapshot for card '+String(card.id)+'. Import was stopped to protect progress.');
+        checked++;
+      }
+      return checked;
+    }
+    async function ankiReadImportLinkedState(zip,file) {
+      const entry=zip?.file?.('ankisync-linked-state.json');
+      if(!entry)return null;
+      let snapshot;
+      try {snapshot=JSON.parse(await entry.async('string'));}
+      catch(err){throw new Error('The .apkg contains an unreadable iPad saved-state file. Import stopped rather than silently losing your review timestamps: '+err.message);}
+      if(snapshot?.format!=='AnkiSyncLinkedDeckState' || snapshot.version!==1 ||
+          !Array.isArray(snapshot.cards) || !snapshot.cards.length ||
+          !snapshot.cards.every(c=>c && c.id!==undefined && typeof c.front==='string' && typeof c.back==='string' &&
+            (!c.reviewData || typeof c.reviewData==='object')))
+        throw new Error('The .apkg has AnkiSync saved-state data, but it is invalid or from an unsupported format. Import stopped; original file was not changed.');
+      if(snapshot.sourceFileName && snapshot.sourceFileName!==file.name &&
+        !confirm('This file contains iPad review progress saved under a different original filename:\n'+
+          snapshot.sourceFileName+'\n\nSelected file: '+file.name+'\n\nRestore these saved cards and review stamps anyway?'))
+        throw new Error('Import cancelled: iPad saved-state filename was different.');
+      return snapshot;
+    }
+
     async function ankiValidateZipBlob(file) {
       if(!file || file.size<100) throw new Error('The selected original is empty or too small. It was NOT overwritten.');
       const zip=await JSZip.loadAsync(file);
@@ -3555,10 +4221,47 @@ function promptCreateDeck() {
       return true;
     }
     async function ankiRequireRecoveryBeforeWrite(deckId,file,entry) {
+      // A separate on-disk recovery remains authoritative even if IndexedDB
+      // exists but cannot store the large .apkg (QuotaExceededError, etc.).
+      if(entry?.recoveryMode==='disk' || entry?.recoveryHandle)
+        return ankiVerifyDiskRecovery(entry);
       if(idbDB) return ankiBackupOriginalOnce(deckId,file);
-      // A stored, verified copy of the pristine original is retained separately
-      // and is NEVER replaced during autosave. Recheck it on every write.
-      return ankiVerifyDiskRecovery(entry);
+      throw new Error('No verified recovery backup. Use Backup & Enable before saving.');
+    }
+    // Optional one-click recovery when the user already authorized the Anki
+    // iCloud directory for read/write access. This never changes the original.
+    // It is offered only after explicit confirmation and verifies every byte.
+    async function ankiMakeVerifiedFolderRecovery(deckId,original,originalHandle) {
+      if(!ankiSourceFolderHandle || !ankiSourceFolderHasPermission) return null;
+      if(await ankiSourceFolderHandle.queryPermission({mode:'readwrite'})!=='granted') return null;
+      const dir=await ankiSourceFolderHandle.getDirectoryHandle('AnkiSync-Recovery',{create:true});
+      const safe=(original.name||'Deck.apkg').replace(/[^a-z0-9.() _-]/gi,'_');
+      const stamp=new Date().toISOString().replace(/[:.]/g,'-');
+      const targetName='ORIGINAL-BACKUP-'+stamp+'-'+String(deckId).replace(/[^a-z0-9_-]/gi,'').slice(0,18)+'-'+safe;
+      const backupHandle=await dir.getFileHandle(targetName,{create:true});
+      if(typeof backupHandle.isSameEntry==='function' && await backupHandle.isSameEntry(originalHandle))
+        throw new Error('Recovery destination resolves to the original file. Original was not modified.');
+      if((await backupHandle.getFile()).size!==0)
+        throw new Error('The recovery filename already exists. Choose Backup & Enable manually.');
+      const beforeStamp=ankiFileStamp(original);
+      const hash=await ankiSha256File(original);
+      let writer=null;
+      try {
+        writer=await backupHandle.createWritable({keepExistingData:false});
+        await writer.write(original);
+        await writer.close();writer=null;
+        const backup=await backupHandle.getFile();
+        if(backup.size!==original.size || await ankiSha256File(backup)!==hash)
+          throw new Error('The iCloud recovery copy failed its SHA-256 readback check. Original remains read-only.');
+        const unchanged=await originalHandle.getFile();
+        if(ankiFileStamp(unchanged)!==beforeStamp)
+          throw new Error('Original changed while its recovery copy was being made. Reconnect before autosaving.');
+      } catch(error) {
+        if(writer) try{await writer.abort();}catch(_){}
+        throw error;
+      }
+      return {recoveryMode:'disk',recoveryHandle:backupHandle,
+        recoveryHash:hash,recoverySize:original.size};
     }
     async function ankiBackupAndEnableOriginalAutosave(deckId) {
       const deck=appState.decks?.[deckId];
@@ -3608,6 +4311,7 @@ function promptCreateDeck() {
         if(ankiFileStamp(stillCurrent)!==entry.lastDiskStamp)
           throw new Error('Original changed while creating the recovery copy. Re-link it before enabling autosave.');
         entry.needsRecovery=false;
+        entry.recoveryMode='disk';
         entry.verified=true;
         entry.paused=false;
         entry.dirty=false;
@@ -3623,11 +4327,28 @@ function promptCreateDeck() {
       }
     }
     async function ankiStoreLinkedHandle(deckId,entry) {
+      if(window.AnkiPCBridge?.available && entry.handle?.isAnkiPCBridge) {
+        // Virtual file handles are intentionally not structured-cloneable.
+        // Only non-sensitive metadata is remembered, not file bytes or tokens.
+        localStorage.setItem(ankiLinkKey(deckId),JSON.stringify({
+          filename:entry.handle.name,lastDiskStamp:entry.lastDiskStamp,
+          lastSavedAt:entry.lastSavedAt||null,paused:!!entry.paused,
+          recoveryMode:entry.recoveryMode||'indexeddb',
+          recoveryName:entry.recoveryHandle?.name||null,
+          recoveryHash:entry.recoveryHash||null,
+          recoverySize:entry.recoverySize||null
+        }));
+        return;
+      }
       if(!idbDB) return;
       await new Promise((resolve,reject)=>{
         const tx=idbDB.transaction('state','readwrite');
         tx.objectStore('state').put({handle:entry.handle,lastDiskStamp:entry.lastDiskStamp,
-          lastSavedAt:entry.lastSavedAt||null,paused:!!entry.paused},ankiLinkKey(deckId));
+          lastSavedAt:entry.lastSavedAt||null,paused:!!entry.paused,
+          recoveryMode:entry.recoveryMode||'indexeddb',
+          recoveryHandle:entry.recoveryHandle||null,
+          recoveryHash:entry.recoveryHash||null,
+          recoverySize:entry.recoverySize||null},ankiLinkKey(deckId));
         tx.oncomplete=()=>resolve();
         tx.onerror=()=>reject(tx.error||new Error('Unable to remember file handle'));
         tx.onabort=()=>reject(tx.error||new Error('File handle storage blocked'));
@@ -3637,19 +4358,56 @@ function promptCreateDeck() {
     // browser/site does not require selecting the file again when the browser
     // retains permission. A missing permission is shown as a reconnect state:
     // requesting it silently is forbidden by the browser.
+    async function ankiReadVerifiedLinkedSnapshot(zip,filename) {
+      const entry=zip?.file('ankisync-linked-state.json');
+      if(!entry)return null;
+      let snapshot;
+      try {snapshot=JSON.parse(await entry.async('string'));}
+      catch(e){throw new Error('This original contains an unreadable AnkiSync saved state. Refresh from a verified backup instead of overwriting it.');}
+      if(snapshot?.format!=='AnkiSyncLinkedDeckState' || snapshot.version!==1 ||
+         snapshot.sourceFileName!==filename || !Array.isArray(snapshot.cards) ||
+         !snapshot.cards.length || snapshot.cards.some(c=>!c || c.id==null ||
+           typeof c.front!=='string' || typeof c.back!=='string'))
+        throw new Error('The original contains an incompatible AnkiSync saved state. Original-file autosave is disabled until the file is checked.');
+      return snapshot;
+    }
+    function ankiLiveDeckMatchesSnapshot(deck,snapshot) {
+      if(!snapshot || !Array.isArray(deck?.cards) || deck.cards.length!==snapshot.cards.length) return false;
+      const byId=new Map(deck.cards.map(c=>[String(c.id),c]));
+      if(byId.size!==snapshot.cards.length)return false;
+      for(const from of snapshot.cards){
+        const live=byId.get(String(from.id));
+        if(!live || live.front!==from.front || live.back!==from.back ||
+           live.title!==from.title ||
+           JSON.stringify(live.reviewData||null)!==JSON.stringify(from.reviewData||null))return false;
+      }
+      return true;
+    }
+
     async function ankiRevalidateOriginalHandle(deckId,handle,previous=null) {
       const deck=appState.decks?.[deckId];
       if(!deck || !handle || handle.name!==deck.sourceFileName) return false;
       if((await handle.queryPermission({mode:'readwrite'}))!=='granted') return false;
       const file=await handle.getFile();
       const zip=await ankiValidateZipBlob(file);
-      // Never write until the source's current archive has been backed up and
-      // the review timestamps have been reconciled with local data.
-      await ankiBackupOriginalOnce(deckId,file);
+      const savedState=await ankiReadVerifiedLinkedSnapshot(zip,file.name);
+      if(savedState && !ankiLiveDeckMatchesSnapshot(deck,savedState))
+        throw new Error('This original has newer/different saved AnkiSync cards. Click Refresh first; its changes must not be overwritten by an older browser copy.');
+      // A remembered connection must not silently start writing if the iCloud
+      // file changed elsewhere since this browser last saw it.
+      if(previous?.lastDiskStamp && previous.lastDiskStamp!==ankiFileStamp(file))
+        throw new Error('Original changed on another device. Refresh this deck before re-linking it.');
+      // Large archives may use a verified separate recovery when the browser
+      // cannot retain their full bytes in IndexedDB.
+      if(previous?.recoveryMode==='disk') await ankiVerifyDiskRecovery(previous);
+      else await ankiBackupOriginalOnce(deckId,file);
       const merge=await ankiReadProgressFromOriginalZip(zip,deck);
       const entry={handle,lastDiskStamp:ankiFileStamp(file),
         lastSavedAt:previous?.lastSavedAt||null,paused:!!previous?.paused,
-        verified:true,dirty:false,busy:false};
+        verified:true,dirty:false,busy:false,
+        ...(previous?.recoveryMode==='disk' ? {recoveryMode:'disk',
+          recoveryHandle:previous.recoveryHandle,recoveryHash:previous.recoveryHash,
+          recoverySize:previous.recoverySize} : {})};
       ankiCancelAutosaveTimer(deckId);
       ankiLinkedHandles.set(deckId,entry);
       await ankiStoreLinkedHandle(deckId,entry);
@@ -3658,6 +4416,29 @@ function promptCreateDeck() {
       return true;
     }
     async function ankiRestoreLinkedHandles() {
+      if(window.AnkiPCBridge?.available) {
+        for(const [deckId,deck] of Object.entries(appState.decks||{})) {
+          try {
+            const raw=localStorage.getItem(ankiLinkKey(deckId));
+            if(!raw)continue;
+            const row=JSON.parse(raw);
+            if(!row?.filename || row.filename!==deck.sourceFileName)continue;
+            const handle=window.AnkiPCBridge.file(row.filename);
+            const previous={...row,
+              recoveryHandle:row.recoveryName?
+                window.AnkiPCBridge.recoveryFile(row.recoveryName):null};
+            ankiLinkedHandles.set(deckId,{handle,lastDiskStamp:row.lastDiskStamp,
+              lastSavedAt:row.lastSavedAt||null,verified:false,
+              paused:!!row.paused,recoveryMode:row.recoveryMode||'indexeddb',
+              recoveryHandle:previous.recoveryHandle,
+              recoveryHash:row.recoveryHash,recoverySize:row.recoverySize});
+            if(!row.paused)await ankiRevalidateOriginalHandle(deckId,handle,previous);
+          } catch(err) {
+            console.warn('PC iCloud original requires re-linking:',deckId,err);
+          }
+        }
+        return;
+      }
       if(!idbDB) return;
       for(const deckId of Object.keys(appState.decks||{})) {
         try {
@@ -3672,6 +4453,8 @@ function promptCreateDeck() {
           // asking the user to browse to the original file again.
           ankiLinkedHandles.set(deckId,{handle:row.handle,lastDiskStamp:row.lastDiskStamp,
             lastSavedAt:row.lastSavedAt||null,paused:!!row.paused,
+            recoveryMode:row.recoveryMode||'indexeddb',recoveryHandle:row.recoveryHandle||null,
+            recoveryHash:row.recoveryHash||null,recoverySize:row.recoverySize||null,
             verified:false,dirty:false,busy:false});
           try {await ankiRevalidateOriginalHandle(deckId,row.handle,row);}
           catch(err){console.warn('Remembered original needs permission or verification:',err);}
@@ -3747,6 +4530,8 @@ function promptCreateDeck() {
     let ankiSourceFolderHandle=null;
     let ankiSourceFolderHasPermission=false;
     function ankiSourceFolderStatus() {
+      if(window.AnkiPCBridge?.available)
+        return 'Connected to fixed iCloud Anki folder through the local PC launcher';
       if(ankiMobileSave() || !window.showDirectoryPicker)
         return 'File permissions are device-specific; iPhone uses Save to Files';
       if(!ankiSourceFolderHandle) return 'Choose your Anki folder once on this computer to recognize deck files automatically';
@@ -3758,6 +4543,7 @@ function promptCreateDeck() {
       if(e) e.textContent=ankiSourceFolderStatus();
     }
     async function ankiStoreSourceFolder() {
+      if(window.AnkiPCBridge?.available)return;
       if(!idbDB || !ankiSourceFolderHandle) return;
       await new Promise((resolve,reject)=>{
         const tx=idbDB.transaction('state','readwrite');
@@ -3767,6 +4553,12 @@ function promptCreateDeck() {
       });
     }
     async function ankiRestoreSourceFolder() {
+      if(window.AnkiPCBridge?.available) {
+        ankiSourceFolderHandle=window.AnkiPCBridge.directory();
+        ankiSourceFolderHasPermission=true;
+        ankiUpdateSourceFolderStatus();
+        return;
+      }
       if(!idbDB || ankiMobileSave() || !window.showDirectoryPicker) return;
       try {
         ankiSourceFolderHandle=await new Promise(resolve=>{
@@ -3838,6 +4630,17 @@ function promptCreateDeck() {
       return {linked,missing,skipped};
     }
     async function ankiConnectSourceFolder() {
+      if(window.AnkiPCBridge?.available) {
+        try {
+          const details=await window.AnkiPCBridge.check();
+          if(!details.folderExists)throw Error('iCloud Anki folder is not downloaded at '+details.folder);
+          ankiSourceFolderHandle=window.AnkiPCBridge.directory();
+          ankiSourceFolderHasPermission=true;
+          ankiUpdateSourceFolderStatus();
+          await ankiLinkFromSourceFolder(true);
+        }catch(err){alert('Could not connect local iCloud folder: '+(err.message||err));}
+        return;
+      }
       if(ankiMobileSave() || !window.showDirectoryPicker) {
         showToast('Automatic file access is not supported in this browser. Use Save to Files on iPhone.');return;
       }
@@ -3937,6 +4740,21 @@ function promptCreateDeck() {
       });
     }
     async function ankiRefreshSourceFile(deckId,expectedName) {
+      // Within the signed iOS wrapper, read the latest *real* APKG through
+      // the previously authorized iCloud directory, never a stale cached copy.
+      if(window.AnkiNative?.available){
+        const deck=appState.decks?.[deckId];
+        const name=expectedName||deck?.sourceFileName||
+          (ankiIsStarDeck(deckId)?'00. Starred Cards.apkg':'');
+        if(!name)throw new Error('This deck has no recorded original filename. Use iCloud Decks to import it once.');
+        let path=ankiImportNormalizePath(deck?.sourceFilePath||name);
+        if(!path||path.split('/').pop()!==name)path=name;
+        // The user selected the Anki folder itself, not its parent.
+        if(path.startsWith('Anki/'))path=path.slice(5);
+        const file=await window.AnkiNative.readFile(path);
+        if(file.name!==name)throw new Error('Original file name differs from the imported deck; no changes applied.');
+        return {file,handle:null};
+      }
       let handle=null, file=null;
       if(ankiIsStarDeck(deckId)) handle=ankiStarExportLink?.handle || ankiRefreshHandles.get(deckId) || null;
       else handle=ankiLinkedHandles.get(deckId)?.handle || ankiRefreshHandles.get(deckId) || null;
@@ -3971,6 +4789,10 @@ function promptCreateDeck() {
           console.warn('Remembered refresh file cannot be opened:',err);
           handle=null;
         }
+      }
+      if(!file && window.AnkiPCBridge?.available && expectedName) {
+        handle=window.AnkiPCBridge.file(expectedName);
+        file=await handle.getFile();
       }
       if(!file && typeof window.showOpenFilePicker==='function') {
         const selection=await window.showOpenFilePicker({multiple:false,
@@ -4018,11 +4840,80 @@ function promptCreateDeck() {
       }
     }
 
-    async function ankiLinkOriginalForAutosave(deckId) {
-      const deck=appState.decks[deckId];
+    async function ankiInspectSavedApkg(deckId) {
+      // READ ONLY. This reveals whether iCloud for Windows has downloaded the
+      // updated file from the iPad and whether its AnkiSync sidecar is present.
+      const deck=appState.decks?.[deckId];
       if(!deck) return;
-      if(ankiMobileSave() || typeof window.showOpenFilePicker!=='function') {
-        alert('This browser cannot automatically overwrite an iCloud Drive file. Browser-local progress continues saving. Use Save As / Save to Files instead.');
+      try {
+        let file=null;
+        const linked=ankiLinkedHandles.get(deckId);
+        if(linked?.handle && (await linked.handle.queryPermission({mode:'read'}))==='granted')
+          file=await linked.handle.getFile();
+        if(!file) {
+          if(window.AnkiPCBridge?.available && deck.sourceFileName)
+            file=await window.AnkiPCBridge.file(deck.sourceFileName).getFile();
+          else if(typeof window.showOpenFilePicker==='function') {
+            const handles=await window.showOpenFilePicker({multiple:false,
+              types:[{description:'Anki package',accept:{'application/octet-stream':['.apkg']}}]});
+            if(!handles?.length)return;
+            file=await handles[0].getFile();
+          } else {
+            file=await ankiRefreshPickerFile('.apkg');
+          }
+        }
+        if(!file)return;
+        const zip=await ankiValidateZipBlob(file);
+        const state=zip.file('ankisync-linked-state.json');
+        const progress=zip.file('ankisync-progress.json');
+        let text='File: '+file.name+'\nSize: '+file.size+' bytes\n'+
+          'Last modified on this PC: '+(file.lastModified?new Date(file.lastModified).toLocaleString():'unknown');
+        if(state) {
+          const data=JSON.parse(await state.async('string'));
+          const summary=ankiReviewStampSummary(data.cards);
+          const local=ankiReviewStampSummary(deck.cards);
+          text+='\nSaved AnkiSync state: '+(data.exportedAt||'unknown')+
+            '\nDeck name in saved state: '+(data.deckName||'not supplied')+
+            '\n\nIN SELECTED iCLOUD FILE:'+
+            '\nCards: '+summary.cards+' · Rated/reviewed: '+summary.reviewed+
+            '\nCards with due timestamps: '+summary.dueStamps+
+            '\nLatest review: '+ankiReviewStampDate(summary.latestReview)+
+            '\nEarliest next due: '+ankiReviewStampDate(summary.earliestDue)+
+            '\nRating counts: '+JSON.stringify(summary.ratings)+
+            '\n\nCURRENT BROWSER COPY:'+
+            '\nCards: '+local.cards+' · Rated/reviewed: '+local.reviewed+
+            '\nCards with due timestamps: '+local.dueStamps+
+            '\nLatest review: '+ankiReviewStampDate(local.latestReview)+
+            '\nEarliest next due: '+ankiReviewStampDate(local.earliestDue);
+        } else text+='\nNo AnkiSync linked-state snapshot found.';
+        if(progress) text+='\nPortable progress manifest: PRESENT';
+        else text+='\nPortable progress manifest: ABSENT';
+        alert(text+'\n\nThis is a read-only check. No deck was changed.');
+      } catch(err) {
+        if(err?.name==='AbortError')return;
+        alert('Could not inspect .apkg: '+(err.message||err));
+      }
+    }
+
+    async function ankiLinkOriginalForAutosave(deckId, selectionMode='folder') {
+      if(window.AnkiNative?.available) return window.AnkiNative.linkDeck(deckId);
+      const deck=appState.decks[deckId];
+      if(!deck) {
+        alert('The selected deck is no longer loaded. Import it again before linking its original file.');
+        return;
+      }
+      const statusNode=document.getElementById('ankiAutoSaveStatus-'+deckId);
+      const setLinkStatus=message=>{if(statusNode)statusNode.textContent=message;};
+      // File System Access requires a secure, top-level browser context and an
+      // explicit user gesture. Do not let an unsupported context appear idle.
+      if(ankiMobileSave() || !window.isSecureContext ||
+         (typeof window.showOpenFilePicker!=='function' && !window.AnkiPCBridge?.available)) {
+        const origin=(location?.href||'unknown location').split('?')[0];
+        setLinkStatus('Link unavailable in this browser/window; use the PC launcher in Chrome or Edge');
+        alert('This window cannot grant original-file write access.\n\nCurrent page: '+origin+
+          '\nSecure browser context: '+!!window.isSecureContext+
+          '\nNative file picker available: '+(typeof window.showOpenFilePicker==='function')+
+          '\n\nClose other AnkiSync launcher windows, extract the PC ZIP to a normal local folder, double-click Start-AnkiSync-on-PC.cmd, and open http://127.0.0.1:47621/ in current Chrome or Edge.\n\nUse the top-level browser tab, not an embedded preview. The original .apkg has NOT been modified.');
         return;
       }
       const legacyImport = !deck.sourceFileName && Array.isArray(deck.cards) &&
@@ -4033,38 +4924,144 @@ function promptCreateDeck() {
       if(deck.sourceFileName && !/\.apkg$/i.test(deck.sourceFileName)) {
         alert('Original file must be an .apkg package.');return;
       }
-      // No preliminary confirmation dialog. File selection and the browser's
-      // own write-permission prompt already require deliberate user approval.
+      // The original filename is already known. On Windows, authorize the Anki
+      // folder once and obtain the matching file handle from that directory.
+      // This avoids an individual APKG picker that can return AbortError for
+      // cloud-backed files. A separate Choose .apkg option remains available.
+      // Both flows require explicit Chrome/Edge read/write authorization.
+      let stage='selecting original file';
       try {
-        const chosen=await window.showOpenFilePicker({multiple:false,
-          types:[{description:'Anki Package',accept:{'application/octet-stream':['.apkg']}}]});
-        const handle=chosen?.[0];
-        if(!handle) return;
-        if(deck.sourceFileName && handle.name!==deck.sourceFileName)
-          throw new Error('Selected '+handle.name+' but this deck came from '+deck.sourceFileName+'. Nothing was written.');
+        let handle=null;
+        const useFolder=selectionMode!=='file' && !!deck.sourceFileName &&
+          (window.AnkiPCBridge?.available || typeof window.showDirectoryPicker==='function');
+        if(useFolder) {
+          let folder=window.AnkiPCBridge?.available ?
+            window.AnkiPCBridge.directory() : ankiSourceFolderHandle;
+          if(window.AnkiPCBridge?.available){
+            ankiSourceFolderHandle=folder;
+            ankiSourceFolderHasPermission=true;
+          }
+          // The directory picker must be called immediately from this click
+          // when permission has not already been granted. Never precede it with
+          // asynchronous IndexedDB or ZIP operations.
+          if(!folder || !ankiSourceFolderHasPermission) {
+            stage='selecting the iCloud Anki folder';
+            setLinkStatus('Choose the Anki FOLDER containing your original .apkg files…');
+            folder=await window.showDirectoryPicker({
+              id:'ankisync-originals-folder',mode:'readwrite'
+            });
+            if(!folder) return;
+            ankiSourceFolderHandle=folder;
+            ankiSourceFolderHasPermission=(await folder.queryPermission({mode:'readwrite'}))==='granted';
+            if(!ankiSourceFolderHasPermission)
+              throw new Error('Read/write access to the selected Anki folder was not granted. No original file was modified.');
+            try {await ankiStoreSourceFolder();}
+            catch(e) {console.warn('Folder selected, but its permission cannot be remembered after restart:',e);}
+            ankiUpdateSourceFolderStatus();
+          }
+          stage='locating the exact original .apkg inside Anki';
+          setLinkStatus('Finding '+deck.sourceFileName+' in the authorized Anki folder…');
+          try {
+            handle=await folder.getFileHandle(deck.sourceFileName,{create:false});
+          } catch(e) {
+            if(e?.name==='NotFoundError')
+              throw new Error('The selected folder does not contain '+deck.sourceFileName+
+                '. Choose the parent Anki folder containing that file (not AnkiSync-Updates), or use Choose .apkg instead. The original was not modified.');
+            throw e;
+          }
+        } else {
+          stage='selecting the original .apkg file';
+          if(window.AnkiPCBridge?.available && deck.sourceFileName) {
+            setLinkStatus('Connecting directly to '+deck.sourceFileName+' in the fixed iCloud folder…');
+            handle=window.AnkiPCBridge.file(deck.sourceFileName);
+          } else {
+          setLinkStatus('Opening the original .apkg file picker…');
+          // File picker is the FIRST awaited operation on this explicit button.
+          const chosen=await window.showOpenFilePicker({multiple:false,
+            types:[{description:'Anki Package',accept:{'application/octet-stream':['.apkg']}}]});
+          handle=chosen?.[0]||null;
+          }
+        }
+        if(!handle) {setLinkStatus('No original selected · autosave remains off');return;}
+        stage='validating file name';
+        if(deck.sourceFileName && handle.name.toLocaleLowerCase()!==deck.sourceFileName.toLocaleLowerCase())
+          throw new Error('Selected '+handle.name+' but the deck was imported from '+deck.sourceFileName+'. Choose that exact original .apkg, not a renamed or backup copy. Nothing was written.');
         if(!deck.sourceFileName && !/\.apkg$/i.test(handle.name))
           throw new Error('Select an original .apkg file.');
         // Request permission during the user-initiated picker gesture; a
         // long ZIP inspection can otherwise expire the activation required by Chrome.
-        const p=await handle.requestPermission({mode:'readwrite'});
-        if(p!=='granted') throw new Error('Write access was not granted; original left read-only.');
+        stage='requesting read/write permission';
+        setLinkStatus('Checking browser write permission…');
+        let p=await handle.queryPermission({mode:'readwrite'});
+        // A file obtained from an already-authorized folder normally inherits
+        // its permission. Do not request it again after the gesture expires.
+        if(p!=='granted' && typeof handle.requestPermission==='function')
+          p=await handle.requestPermission({mode:'readwrite'});
+        if(p!=='granted') throw new Error('Browser permission was '+p+'. Choose Allow/Grant when Chrome or Edge requests read/write access. Original left read-only.');
+        stage='opening and validating original archive';
+        setLinkStatus('Validating linked .apkg and its saved review timestamps…');
+        if(typeof JSZip==='undefined') throw new Error('The ZIP library failed to load. Connect to the internet and reload AnkiSync, then retry.');
         const file=await handle.getFile();
         const sourceZip=await ankiValidateZipBlob(file);
+        const originalState=await ankiReadVerifiedLinkedSnapshot(sourceZip,file.name);
         if(legacyImport && !deck.sourceFileName) {
           if(!confirm('Confirm '+handle.name+' is the original archive for deck '+deck.name+'. AnkiSync will replace it automatically when you study.')) return;
           deck.sourceFileName=handle.name;
           saveLocalState();
         }
-        if(idbDB) await ankiBackupOriginalOnce(deckId,file);
-        // Synchronize review records *from* the original before allowing writes.
-        // Newer local reviews take precedence; notes/media are never replaced.
-        const restored=await ankiReadProgressFromOriginalZip(sourceZip,deck);
+        // IndexedDB can be open yet still reject a full recovery .apkg due
+        // to quota. In that case keep a read-only link and offer a separate,
+        // verified disk backup instead of silently leaving the dot OFF.
+        stage='creating safe recovery backup';
+        setLinkStatus('Verifying the recovery backup before enabling writes…');
+        let backupError=null;
+        if(idbDB) {
+          try { await ankiBackupOriginalOnce(deckId,file); }
+          catch(error) { backupError=error; console.warn('Large browser recovery unavailable; use disk recovery:',error); }
+        }
+        // Never link a stale browser copy as a writer to an archive saved on
+        // iPad. The sidecar is the full authoritative AnkiSync edit + review
+        // snapshot, not just reviewData. Explicitly reconcile it first.
+        stage='comparing imported deck with the original';
+        let restored={updated:0,retained:0,found:false};
+        if(originalState && !ankiLiveDeckMatchesSnapshot(deck,originalState)) {
+          if(!confirm('The selected original includes '+originalState.cards.length+
+            ' AnkiSync cards/edits from '+(originalState.exportedAt||'another device')+'.\n\n'+
+            'Your browser copy is different. OK: replace ONLY this browser deck with the file state before linking autosave.\n'+
+            'Cancel: do not link, save, or replace anything.'))return;
+          deck.cards=originalState.cards.map(c=>({...c}));
+          deck.lastIndex=Math.min(Math.max(0,Number(originalState.lastIndex)||0),Math.max(0,deck.cards.length-1));
+          deck.lastCardId=originalState.lastCardId||null;
+          restored={updated:deck.cards.length,retained:0,found:true};
+        } else {
+          // Without a full sidecar, retain existing conservative review merging.
+          restored=await ankiReadProgressFromOriginalZip(sourceZip,deck);
+        }
+        // If browser storage cannot hold a recovery archive, the previously
+        // authorized iCloud folder can hold a separate verified recovery copy.
+        // This is OPTIONAL and requires confirmation for each affected deck.
+        let verifiedFolderBackup=null;
+        if((!idbDB || backupError) && ankiSourceFolderHandle && ankiSourceFolderHasPermission) {
+          stage='offering a verified iCloud folder recovery copy';
+          const approved=confirm('This browser cannot retain a full recovery backup for '+deck.name+'.\n\n'+
+            'Create a separate verified recovery copy in Anki/AnkiSync-Recovery now?\n'+
+            'This will NOT modify the original .apkg.\n\n'+
+            'OK: create and verify a recovery copy, then enable autosave.\n'+
+            'Cancel: keep original read-only and use Backup & Enable later.');
+          if(approved) {
+            stage='writing and verifying separate iCloud recovery file';
+            setLinkStatus('Writing verified recovery copy to AnkiSync-Recovery…');
+            verifiedFolderBackup=await ankiMakeVerifiedFolderRecovery(deckId,file,handle);
+          }
+        }
         // A pre-existing connection must not save during the reconciliation.
         ankiCancelAutosaveTimer(deckId);
-        const mustBackupOnDisk=!idbDB;
+        const mustBackupOnDisk=(!idbDB || !!backupError) && !verifiedFolderBackup;
+        stage='remembering the linked file';
         const entry={handle,lastDiskStamp:ankiFileStamp(file),lastSavedAt:null,
           paused:mustBackupOnDisk,verified:!mustBackupOnDisk,needsRecovery:mustBackupOnDisk,
-          dirty:false,busy:false};
+          recoveryMode:verifiedFolderBackup?'disk':mustBackupOnDisk?'disk':'indexeddb',
+          ...(verifiedFolderBackup||{}),dirty:false,busy:false};
         ankiLinkedHandles.set(deckId,entry);
         if(restored.updated>0) {
           saveLocalState();
@@ -4083,21 +5080,40 @@ function promptCreateDeck() {
           : 'no saved AnkiSync review snapshot in this file; local progress kept';
         if(mustBackupOnDisk) {
           renderDecks();
+          setLinkStatus('Read-only connection · select Backup & Enable to verify a separate recovery copy');
           showToast('Original selected read-only · choose Backup & Enable for verified recovery');
-          alert('MA Sleep / original deck was selected successfully, and the source file was NOT modified.\n\n'+
-            'IndexedDB recovery storage is unavailable in this browser. To safely enable autosave, '+
+          alert('The original deck was selected successfully, and the source file was NOT modified.\n\n'+
+            'A verified recovery copy could not be stored in browser storage'+
+            (backupError ? ' ('+(backupError.name||'storage error')+')' : '')+'. To safely enable autosave, '+
             'click Backup & Enable on this deck tile and save a separate recovery .apkg file. '+
             'The original will remain read-only until the recovery file is written and verified.');
         } else {
-          showToast('Original linked · '+syncMessage+' · autosave ready');
+          ankiRefreshAutosaveStatus(deckId);
+          showToast('Original linked · '+syncMessage+' · autosave ready'+(!idbDB?' (relink required after page reload)':''));
         }
       } catch(error) {
-        if(error?.name==='AbortError') return;
-        console.error('Link original failed:',error);
-        alert('Original was NOT modified. '+(error.message||error));
+        if(error?.name==='AbortError') {
+          // AbortError can mean user cancellation, OS picker refusal, or a
+          // cloud-provider failure. Do not mislabel all of them as cancellation.
+          setLinkStatus('Browser/Windows canceled or blocked '+stage+' · autosave OFF'+
+            (error.message?' · '+error.message:''));
+          showToast('File/folder picker did not complete. Original not changed.');
+          console.warn('Link picker returned AbortError during '+stage,error);
+          alert('The browser or Windows did not complete '+stage+'.\n\n'+
+            (error.message||'Reason not reported by the browser.')+'\n\n'+
+            'Try Link Original again and choose the Anki folder itself. '+
+            'Alternatively use Choose .apkg instead, or check that your iCloud files are downloaded locally.\n'+
+            'No original file was modified.');
+          return;
+        }
+        console.error('Link original failed during '+stage+':',error);
+        setLinkStatus('Link failed during '+stage+': '+(error?.message||error));
+        alert('Original-file link stopped during '+stage+'.\n\n'+(error?.message||error)+
+          '\n\nOriginal .apkg was NOT modified.');
       }
     }
     async function ankiPauseLinkedAutosave(deckId) {
+      if(window.AnkiNative?.available) return window.AnkiNative.pauseDeck(deckId);
       const entry=ankiLinkedHandles.get(deckId);
       if(!entry) {showToast('This deck has no linked original.');return;}
       entry.paused=true;entry.dirty=false;ankiCancelAutosaveTimer(deckId);
@@ -4105,6 +5121,9 @@ function promptCreateDeck() {
       ankiRefreshAutosaveStatus(deckId);showToast('Original-file autosave paused.');
     }
     async function ankiDownloadRecoveryCopy(deckId) {
+      if(window.AnkiNative?.available) {
+        await window.AnkiNative.exportRecovery(deckId);return;
+      }
       if(!idbDB) {
         const entry=ankiLinkedHandles.get(deckId);
         if(entry?.recoveryHandle) {
@@ -4135,6 +5154,9 @@ function promptCreateDeck() {
     }
 
     async function ankiAutosaveNow(deckId,manual=true) {
+      if(window.AnkiSyncAuto?.enabledFor(deckId) && !window.AnkiSyncAuto.isCommitting)
+        return window.AnkiSyncAuto.syncNow(deckId,manual);
+      if(window.AnkiNative?.available) return window.AnkiNative.saveDeck(deckId,manual);
       const entry=ankiLinkedHandles.get(deckId);
       if(!entry || entry.paused || !entry.verified) {
         if(manual) showToast('Restore browser permission for the original file before using Save Now.');
@@ -4887,11 +5909,12 @@ const content = await zip.generateAsync({ type: "blob" });
       if (!stroke.points.length) return;
       ctx.save();
       ctx.globalCompositeOperation = stroke.tool === 'eraser' ? 'destination-out' : 'source-over';
+      ctx.globalAlpha = stroke.tool === 'highlighter' ? 0.30 : 1;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
       ctx.strokeStyle = stroke.tool === 'eraser' ? '#000' : stroke.color;
       ctx.fillStyle = ctx.strokeStyle;
-      ctx.lineWidth = stroke.size * (stroke.tool === 'eraser' ? 2.4 : 1);
+      ctx.lineWidth = stroke.size * (stroke.tool === 'eraser' ? 2.4 : stroke.tool === 'highlighter' ? 5 : 1);
       const pts = stroke.points;
       if (pts.length === 1) {
         ctx.beginPath(); ctx.arc(pts[0].x, pts[0].y, ctx.lineWidth / 2, 0, Math.PI * 2); ctx.fill();
@@ -4937,16 +5960,24 @@ const content = await zip.generateAsync({ type: "blob" });
 
     function stopDrawing() { isDrawing = false; ankiSketchCurrentStroke = null; }
 
+    // Remember a separate color for the pen and translucent highlighter.
+    // Switching tools does not destroy previously drawn strokes.
+    let ankiSketchPenColor = '#ffffff';
+    let ankiSketchHighlightColor = '#fde047';
     function setSketchTool(tool) {
-      sketchTool = tool;
-      const penBtn = document.getElementById('sketchPenBtn');
-      const eraserBtn = document.getElementById('sketchEraserBtn');
-      if (tool === 'pen') {
-        penBtn.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white transition';
-        eraserBtn.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-700 text-slate-300 transition';
-      } else {
-        eraserBtn.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white transition';
-        penBtn.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-700 text-slate-300 transition';
+      if (!['pen','eraser','highlighter'].includes(tool)) return;
+      const colorInput=document.getElementById('sketchColor');
+      if(colorInput) {
+        if(sketchTool==='pen') ankiSketchPenColor=colorInput.value;
+        else if(sketchTool==='highlighter') ankiSketchHighlightColor=colorInput.value;
+      }
+      sketchTool=tool;
+      if(colorInput && tool==='pen')colorInput.value=ankiSketchPenColor;
+      if(colorInput && tool==='highlighter')colorInput.value=ankiSketchHighlightColor;
+      for(const [id,name] of [['sketchPenBtn','pen'],['sketchHighlighterBtn','highlighter'],['sketchEraserBtn','eraser']]) {
+        const btn=document.getElementById(id);
+        if(btn)btn.className='px-3 py-1.5 rounded-lg text-xs font-semibold '+
+          (tool===name?'bg-indigo-600 text-white':'bg-slate-700 text-slate-300')+' transition';
       }
     }
 
@@ -5008,7 +6039,7 @@ const content = await zip.generateAsync({ type: "blob" });
       setSketchTool('pen');
       const src = existingImgSrc || (ankiSketchTargetImage && (ankiSketchTargetImage.getAttribute('src') || ankiSketchTargetImage.src));
       if (src) {
-        ankiSketchSetInstructions('Draw directly on this image. Eraser and Clear remove ink, not the original image.', 'Save Annotation to Image');
+        ankiSketchSetInstructions('Draw directly on this image. Pen and translucent Highlighter draw over the image; Eraser and Clear remove ink, not the original image.', 'Save Annotation to Image');
         ankiSketchLoading = true;
         const save = document.querySelector('#sketchModal button[onclick="saveSketchToActiveEditor()"]');
         if (save) save.disabled = true;
@@ -5346,46 +6377,33 @@ const content = await zip.generateAsync({ type: "blob" });
           <div class="space-y-3">
             <div class="flex items-start justify-between gap-2">
               <h3 class="font-bold text-slate-100 text-base leading-snug break-words min-w-0">${ankiEscapeHtml(deck.name)}</h3>
-              ${!isStarred ? `<span id="ankiLinkDot-${ankiEscapeHtml(deckId)}" class="anki-link-indicator ${ankiLinkConfirmed(deckId)?'anki-link-connected':''}" role="img" aria-label="${ankiLinkConfirmed(deckId)?'Original file linked':'Original file not linked'}" title="${ankiLinkConfirmed(deckId)?'Original .apkg linked; write permission granted':'Original .apkg not connected for autosave'}"></span>
               <div class="flex gap-3 items-center shrink-0">
-                <button type="button" onclick="renameAnkiDeck('${deckId}')" class="text-indigo-400 hover:text-indigo-300" title="Rename deck" aria-label="Rename deck"><i class="fa-solid fa-pen-to-square"></i></button>
+                <span id="ankiLinkDot-${ankiEscapeHtml(deckId)}" class="anki-link-indicator ${ankiLinkConfirmed(deckId)?'anki-link-connected':''}" role="img" aria-label="${ankiLinkConfirmed(deckId)?'Original .apkg linked and autosave active':'Original .apkg not linked'}" title="${ankiLinkConfirmed(deckId)?'Original .apkg linked and autosave active':'Original .apkg not connected for autosave'}"></span>
+                ${!isStarred ? `<button type="button" onclick="renameAnkiDeck('${deckId}')" class="text-indigo-400 hover:text-indigo-300" title="Rename deck" aria-label="Rename deck"><i class="fa-solid fa-pen-to-square"></i></button>` : `<span class="text-amber-300" title="Independent Starred Cards"><i class="fa-solid fa-star"></i></span>`}
                 <button type="button" onclick="deleteDeck('${deckId}')" class="text-slate-400 hover:text-rose-400" title="Delete deck" aria-label="Delete deck"><i class="fa-solid fa-trash"></i></button>
-              </div>` : `<div class="flex gap-3 items-center shrink-0"><span id="ankiStarHeaderFileDot" class="anki-link-indicator ${ankiStarLinkActive()?'anki-link-connected':''}" role="img" aria-label="${ankiStarLinkActive()?'Starred .apkg linked and autosave active':'Starred .apkg not connected for autosave'}" title="${ankiStarLinkActive()?'Starred .apkg linked and autosave active':'Starred .apkg not connected for autosave'}"></span><span class="text-amber-300" title="Independent starred deck"><i class="fa-solid fa-star"></i></span><button type="button" onclick="deleteDeck('${deckId}')" class="text-slate-400 hover:text-rose-400" title="Delete Starred Cards only (keep all original cards)" aria-label="Delete Starred Cards"><i class="fa-solid fa-trash"></i></button></div>`}
+              </div>
             </div>
             <div class="text-xs text-slate-400" data-anki-due-count="${ankiEscapeHtml(deckId)}" data-anki-due-current="${due}">${total} cards · ${due} due</div>
-            ${isStarred ? `<details class="text-xs text-slate-400"><summary class="cursor-pointer font-semibold text-indigo-300">Starred groups · ${groupedStarCounts.length} subject${groupedStarCounts.length===1?'':'s'}</summary><div class="rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-3 py-2 mt-2 space-y-1">${groupedStarCounts.length ? groupedStarCounts.map(([name,count])=>`<div class="flex justify-between gap-2"><span class="break-words min-w-0">${ankiEscapeHtml(name)}</span><span class="font-bold text-amber-300">${count}</span></div>`).join('') : '<div class="text-slate-400">Star cards in other decks to build this collection.</div>'}</div></details>` : ''}
             <div class="flex items-center justify-between text-xs font-semibold text-slate-400">
               <span>Studied ${studied} / ${total}</span><span class="text-indigo-400">${percent}%</span>
             </div>
             <div class="w-full bg-slate-900 rounded-full h-2 overflow-hidden"><div class="bg-indigo-500 h-full rounded-full" style="width:${percent}%"></div></div>
-            ${!isStarred ? `<div class="space-y-1.5 text-[11px] text-slate-400">
-              <div class="break-all"><i class="fa-solid fa-file-zipper" aria-hidden="true"></i> ${ankiEscapeHtml(filename)}</div>
+            <div class="space-y-1.5 text-[11px] text-slate-400">
+              <div class="break-all"><i class="fa-solid fa-file-zipper" aria-hidden="true"></i> ${ankiEscapeHtml(isStarred ? (window.AnkiNative?.links?.get(ANKI_STAR_DECK_ID)?.name||ankiStarExportLink?.handle?.name||deck.sourceFileName||ANKI_STAR_EXPORT_FILENAME) : filename)}</div>
               <div><i class="fa-solid fa-clock" aria-hidden="true"></i> Last browser save: ${ankiEscapeHtml(lastSave)}</div>
             </div>
             <div class="text-[11px] space-y-1.5" data-anki-autosave-deck="${ankiEscapeHtml(deckId)}">
-              <div id="ankiAutoSaveStatus-${ankiEscapeHtml(deckId)}" class="text-slate-400">${ankiAutoSaveStatusForDeck(deckId)}</div>
+              <div id="${isStarred ? 'ankiStarExportStatus' : 'ankiAutoSaveStatus-'+ankiEscapeHtml(deckId)}" class="text-slate-400">${isStarred ? ankiStarExportStatus() : ankiAutoSaveStatusForDeck(deckId)}</div>
               <div class="flex flex-wrap gap-1.5">
-                <button type="button" onclick="ankiLinkOriginalForAutosave('${deckId}')" class="px-2 py-1.5 rounded-lg border border-indigo-500/40 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20" title="Choose the original APKG and authorize periodic in-place saves">Link Original for Autosave</button>
-                ${ankiLinkedHandles.get(deckId)?.needsRecovery ? `<button type="button" onclick="ankiBackupAndEnableOriginalAutosave('${deckId}')" class="px-2 py-1.5 rounded-lg border border-amber-500/50 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20" title="Create and verify a separate original .apkg recovery file before allowing overwrites">Backup &amp; Enable</button>` : ''}
-                <button type="button" onclick="ankiAutosaveNow('${deckId}')" class="px-2 py-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20" title="Write verified progress to the linked APKG now">Save Now</button>
-                <button type="button" onclick="ankiPauseLinkedAutosave('${deckId}')" class="px-2 py-1.5 rounded-lg border border-slate-500/40 text-slate-400 hover:bg-slate-500/10" title="Stop writing automatically to this APKG">Pause</button>
-                <button type="button" onclick="ankiDownloadRecoveryCopy('${deckId}')" class="px-2 py-1.5 rounded-lg border border-slate-500/40 text-slate-400 hover:bg-slate-500/10" title="Download a recovery backup of the original archive">Recovery</button>
+                <button type="button" onclick="${isStarred ? 'ankiStarLinkExportFile()' : `ankiLinkOriginalForAutosave('${deckId}')`}" class="px-2 py-1.5 rounded-lg border border-indigo-500/40 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20" title="Link original .apkg; on PC select the iCloud Anki folder once">Link Original for Autosave</button>
+                ${!isStarred && !window.AnkiNative?.available ? `<button type="button" onclick="ankiLinkOriginalForAutosave('${deckId}','file')" class="px-2 py-1.5 rounded-lg border border-slate-500/40 text-slate-400 hover:bg-slate-500/10" title="Alternative: choose the original .apkg file directly">Choose .apkg instead</button>` : ''}
+                ${!window.AnkiNative?.available && (isStarred ? ankiStarExportLink?.needsRecovery : ankiLinkedHandles.get(deckId)?.needsRecovery) ? `<button type="button" onclick="${isStarred ? 'ankiStarBackupAndEnableAutosave()' : `ankiBackupAndEnableOriginalAutosave('${deckId}')`}" class="px-2 py-1.5 rounded-lg border border-amber-500/50 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20">Backup &amp; Enable</button>` : ''}
+                <button type="button" onclick="${isStarred ? 'ankiStarExportNow()' : `ankiAutosaveNow('${deckId}')`}" class="px-2 py-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20" title="Save changes to the linked original .apkg">Save Now</button>
+                ${!isStarred ? `<button type="button" onclick="ankiInspectSavedApkg('${deckId}')" class="px-2 py-1.5 rounded-lg border border-slate-500/40 text-slate-400 hover:bg-slate-500/10" title="Inspect the original file without importing or modifying it">Check .apkg</button>` : ''}
+                <button type="button" onclick="${isStarred ? 'ankiStarPauseExport()' : `ankiPauseLinkedAutosave('${deckId}')`}" class="px-2 py-1.5 rounded-lg border border-slate-500/40 text-slate-400 hover:bg-slate-500/10">Pause</button>
+                <button type="button" onclick="${isStarred ? 'ankiStarDownloadRecovery()' : `ankiDownloadRecoveryCopy('${deckId}')`}" class="px-2 py-1.5 rounded-lg border border-slate-500/40 text-slate-400 hover:bg-slate-500/10">Recovery</button>
               </div>
-            </div>` : `<div class="space-y-1.5 text-[11px] text-slate-400">
-              <div class="break-all"><i class="fa-solid fa-file-zipper" aria-hidden="true"></i> ${ankiEscapeHtml(ankiStarExportLink?.handle?.name||ANKI_STAR_EXPORT_FILENAME)}</div>
-              <div><i class="fa-solid fa-clock" aria-hidden="true"></i> Last browser save: ${ankiEscapeHtml(lastSave)}</div>
-              <div id="ankiStarExportStatus">${ankiStarExportStatus()}</div>
-              <div class="flex flex-wrap gap-1.5">
-                <button type="button" onclick="ankiOpenStarredDeckFile()" class="px-2 py-1.5 rounded-lg border border-indigo-500/40 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20" title="Load Starred Cards directly from its own package; no source deck is needed">Open Starred .apkg</button>
-                <button type="button" onclick="ankiStarLinkExportFile()" class="px-2 py-1.5 rounded-lg border border-indigo-500/40 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20" title="Link this independent deck to its original Starred .apkg for autosave">Link Original for Autosave</button>
-                <button type="button" onclick="ankiStarCreateExportFile()" class="px-2 py-1.5 rounded-lg border border-indigo-500/40 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20" title="Create and link a new independent Starred .apkg">New Starred .apkg</button>
-                ${ankiStarExportLink?.needsRecovery ? `<button type="button" onclick="ankiStarBackupAndEnableAutosave()" class="px-2 py-1.5 rounded-lg border border-amber-500/50 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20" title="Make a separate verified recovery copy before enabling Starred .apkg overwrites">Backup &amp; Enable</button>` : ''}
-                <button type="button" onclick="ankiStarExportNow()" class="px-2 py-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20">Save Now</button>
-                <button type="button" onclick="ankiStarPauseExport()" class="px-2 py-1.5 rounded-lg border border-slate-500/40 text-slate-400 hover:bg-slate-500/10">Pause</button>
-                <button type="button" onclick="ankiStarDownloadRecovery()" class="px-2 py-1.5 rounded-lg border border-slate-500/40 text-slate-400 hover:bg-slate-500/10">Recovery</button>
-              </div>
-              <div class="text-slate-500">Independent copies · original cards are unchanged by study or edits here.</div>
-            </div>`}
+            </div>
             <div class="anki-deck-reset-buttons pt-1">
               <button type="button" onclick="resetStudyDeck('${deckId}')" class="text-[11px] font-bold px-2 py-2 rounded-lg bg-indigo-500/15 border border-indigo-500/40 text-indigo-300 hover:bg-indigo-500/25" title="Show all cards without changing your saved progress or review schedule"><span>Soft Reset</span></button>
               <button type="button" onclick="requestAnkiHardReset('${deckId}')" class="text-[11px] font-bold px-2 py-2 rounded-lg bg-rose-500/10 border border-rose-500/40 text-rose-300 hover:bg-rose-500/20" title="Clear study progress and due dates after confirmation"><span>Hard Reset</span></button>
@@ -5395,7 +6413,6 @@ const content = await zip.generateAsync({ type: "blob" });
             <button type="button" onclick="startStudy('${deckId}')" class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl">Study</button>
             <button type="button" onclick="saveAllDecksToFile('${deckId}')" class="py-2.5 px-3 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl">Save As</button>
             <button type="button" onclick="ankiRefreshDeckFromOriginal('${deckId}')" class="py-2.5 px-3 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-bold rounded-xl" title="Re-import this deck from the original .apkg file"><i class="fa-solid fa-rotate" aria-hidden="true"></i> Refresh</button>
-            ${isStarred ? `<button type="button" onclick="startStudy('${deckId}',true)" class="px-3 py-2.5 text-xs font-bold rounded-xl border border-amber-500/40 text-amber-300" title="Browse every starred card, even if its review is not due">View All</button>` : ''}
           </div>
           <div class="flex gap-2">
             <button type="button" onclick="ankiShowReviewOverview(['${deckId}'])" class="flex-1 px-3 py-2 rounded-xl border border-indigo-500/40 bg-indigo-500/10 text-indigo-300 text-xs font-semibold hover:bg-indigo-500/20" title="Show due cards, last played times, and next review dates"><i class="fa-solid fa-calendar-check"></i> Review Schedule</button>
@@ -5403,7 +6420,31 @@ const content = await zip.generateAsync({ type: "blob" });
           <div class="flex gap-2">
             <button type="button" onclick="ankiOpenCopyCardsPicker('${deckId}')" class="flex-1 px-3 py-2 rounded-xl border border-indigo-500/40 bg-indigo-500/10 text-indigo-300 text-xs font-semibold hover:bg-indigo-500/20" title="Choose cards from this entire deck to copy into another deck"><i class="fa-solid fa-copy"></i> Copy Cards</button>
             <button type="button" onclick="ankiOpenCombineDecks('${deckId}')" class="flex-1 px-3 py-2 rounded-xl border border-indigo-500/40 bg-indigo-500/10 text-indigo-300 text-xs font-semibold hover:bg-indigo-500/20" title="Combine this deck with a different deck, preserving originals"><i class="fa-solid fa-layer-group"></i> Combine</button>
-          </div>`;
+          </div>
+          ${isStarred ? `<details class="text-xs text-slate-400 pt-1"><summary class="cursor-pointer font-semibold text-indigo-300">Starred Cards options and subject groups</summary>
+            <div class="rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-3 py-2 mt-2 space-y-2">
+              <div class="flex flex-wrap gap-1.5">
+                <button type="button" onclick="startStudy('${deckId}',true)" class="px-2 py-1.5 rounded-lg border border-amber-500/40 text-amber-300">View All</button>
+                <button type="button" onclick="ankiOpenStarredDeckFile()" class="px-2 py-1.5 rounded-lg border border-indigo-500/40 text-indigo-300">Open Starred .apkg</button>
+                <button type="button" onclick="ankiStarCreateExportFile()" class="px-2 py-1.5 rounded-lg border border-indigo-500/40 text-indigo-300">New Starred .apkg</button>
+              </div>
+              <div class="text-slate-400">Independent copies · editing here never changes original cards.</div>
+              ${groupedStarCounts.length ? groupedStarCounts.map(([name,count])=>`<div class="flex justify-between gap-2"><span class="break-words min-w-0">${ankiEscapeHtml(name)}</span><span class="font-bold text-amber-300">${count}</span></div>`).join('') : '<div class="text-slate-400">No starred cards yet.</div>'}
+            </div>
+          </details>` : ''}`;
+        // Optional cloud synchronization controls; the existing layout and
+        // original-file buttons retain their behavior when sync is disabled.
+        const syncRow=document.createElement('div');
+        syncRow.className='rounded-xl border border-indigo-500/30 bg-indigo-500/5 px-3 py-2 space-y-2';
+        const syncIdArg=encodeURIComponent(String(deckId)).replace(/'/g,'%27');
+        syncRow.innerHTML=`<div class="flex flex-wrap items-center gap-2">
+          <button type="button" onclick="AnkiSyncAuto.toggle(decodeURIComponent('${syncIdArg}'))"
+            class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-indigo-500/15 border border-indigo-500/40 text-indigo-300"
+            title="Enable or disable verified two-way iCloud synchronization for this deck">${window.AnkiSyncAuto?.enabledFor(deckId)?'Pause Sync':'Enable Sync'}</button>
+          <button type="button" onclick="AnkiSyncAuto.syncNow(decodeURIComponent('${syncIdArg}'),true)"
+            class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-700 border border-slate-600 text-slate-200">Sync Now</button></div>
+          <div id="ankiSyncState-${ankiEscapeHtml(deckId)}" class="text-[11px] text-slate-400 break-words">${window.AnkiSyncAuto?.label(deckId)||'Automatic sync: OFF'}</div>`;
+        cardEl.appendChild(syncRow);
         grid.appendChild(cardEl);
       });
       emptyNotice?.classList.toggle('hidden', visibleCount > 0);
@@ -5588,6 +6629,7 @@ const content = await zip.generateAsync({ type: "blob" });
         ? `Delete ★ Starred Cards and its ${deck.cards?.length||0} independent copies?\n\nOriginal card content and review progress will remain unchanged; their star membership markers will be cleared. The Starred Cards file on disk will NOT be deleted. You can create a new Starred Cards deck by starring a card again.`
         : `Delete deck "${deck.name}" and its ${deck.cards?.length||0} cards? This cannot be undone.`;
       if(!window.confirm(warning)) return;
+      if(window.AnkiNative?.available) window.AnkiNative.unlinkDeck(deckId);
       if(starred) {
         appState.starredCollectionDeleted=true;
         // Never re-create the collection from old import flags or pending links.
@@ -5605,6 +6647,16 @@ const content = await zip.generateAsync({ type: "blob" });
         }
         ankiRefreshHandles.delete(deckId);
       }
+      // A deleted deck must never silently regain a previous file-write link
+      // when a same-named deck is imported later. The actual iCloud .apkg is
+      // intentionally untouched by deleting a tile.
+      if(window.AnkiPCBridge?.available){
+        try{
+          localStorage.removeItem(ankiLinkKey(deckId));
+          if(starred)localStorage.removeItem(ANKI_STAR_EXPORT_KEY);
+        }catch(e){console.warn('Could not clear remembered bridge metadata:',e);}
+      }
+      ankiLinkedHandles.delete(deckId);
       delete appState.decks[deckId];
       if(appState.activeStudyDeckId===deckId) {
         appState.activeStudyDeckId=null;
@@ -7182,54 +8234,14 @@ function openAddCardModal() {
     }
 
     
-/* Rich editor usability: initial click/focus selects its entire contents, then
-   later clicks can position the caret normally.  Programmatic editor.focus()
-   from formatting tools is still free to restore its saved selection. */
+/* Rich editor usability: a tap or click places the caret normally.
+   Whole-field selection remains available only through the existing explicit
+   Select All toolbar control or standard OS keyboard shortcuts. */
 const ankiAutoSelectEditorIds = new Set([
   'createCardFront','createCardBack',
   'modalCardFront','modalCardBack',
   'editCardFront','editCardBack'
 ]);
-const ankiBackEditorIds = ['createCardBack','modalCardBack','editCardBack'];
-let ankiSelectOnPointerUp = null;
-function ankiSelectWholeEditor(editor) {
-  if (!editor || !editor.isConnected || document.activeElement !== editor) return;
-  const selection = window.getSelection();
-  if (!selection) return;
-  const range = document.createRange();
-  range.selectNodeContents(editor);
-  selection.removeAllRanges();
-  selection.addRange(range);
-  activeEditorId = editor.id;
-  savedRange = range.cloneRange();
-}
-document.addEventListener('pointerdown', function(event) {
-  const editor = event.target.closest?.('[contenteditable="true"]');
-  if (editor && ankiAutoSelectEditorIds.has(editor.id) && document.activeElement !== editor) {
-    ankiSelectOnPointerUp = editor;
-  } else {
-    ankiSelectOnPointerUp = null;
-  }
-}, true);
-document.addEventListener('focusin', function(event) {
-  const editor = event.target;
-  if (!editor || !ankiAutoSelectEditorIds.has(editor.id)) return;
-  // Mouse placement can collapse a focus selection; pointerup reapplies it once.
-  ankiSelectWholeEditor(editor);
-}, true);
-document.addEventListener('pointerup', function(event) {
-  const editor = ankiSelectOnPointerUp;
-  ankiSelectOnPointerUp = null;
-  if (editor && editor.contains(event.target) && (event.detail || 1) < 2) {
-    ankiSelectWholeEditor(editor);
-    // Reapply only if this editor is still focused and the user has not
-    // started a second click; subsequent clicks select a word or line.
-    setTimeout(() => {
-      if (!ankiSelectOnPointerUp && editor.contains(document.activeElement) &&
-          window.getSelection()?.isCollapsed) ankiSelectWholeEditor(editor);
-    }, 0);
-  }
-}, true);
 
 /* Explicit Select All toolbar control for rich Front/Back editors.
    Uses a DOM Range, so formatting, cloze markup and images are not modified. */
@@ -7332,6 +8344,7 @@ function ankiResizeBackEditor(editor) {
   editor.style.height = 'auto'; // permits shrinking after deleting text
   editor.style.height = Math.max(120, Math.ceil(editor.scrollHeight) + 3) + 'px';
 }
+const ankiBackEditorIds=['createCardBack','editCardBack','modalCardBack'];
 function ankiResizeVisibleBackEditors() {
   for (const id of ankiBackEditorIds) ankiResizeBackEditor(document.getElementById(id));
 }
@@ -9113,22 +10126,17 @@ function saveCardEdits() {
         }
 
         const linkedLastCardIdByDeck={};
-        // Optional linked-autosave snapshot: restore the exact AnkiSync card
-        // rendering/edit state from the sidecar, while leaving Anki's original
-        // SQLite collection and media entries intact for Anki Desktop.
-        if (zip.file && zip.file('ankisync-linked-state.json')) {
-          try {
-            const linkedState=JSON.parse(await zip.file('ankisync-linked-state.json').async('string'));
-            if (linkedState.format==='AnkiSyncLinkedDeckState' && linkedState.version===1 &&
-                linkedState.sourceFileName===file.name && Array.isArray(linkedState.cards) &&
-                linkedState.cards.every(c=>c && c.id !== undefined && typeof c.front==='string') &&
-                Object.keys(importedCardsByDeck).length===1) {
-              const onlyName=Object.keys(importedCardsByDeck)[0];
-              importedCardsByDeck[onlyName]=linkedState.cards;
-              importedLastIndexByDeck[onlyName]=Number(linkedState.lastIndex)||0;
-              linkedLastCardIdByDeck[onlyName]=linkedState.lastCardId||null;
-            }
-          } catch(err) {console.warn('AnkiSync linked-state snapshot was not restored:',err);}
+        // Prefer the exact iPad/iPhone linked state over the original Anki
+        // database, including when that database contains several subdecks.
+        // Never silently discard a present sidecar with saved due timestamps.
+        const ankiLinkedSnapshot=await ankiReadImportLinkedState(zip,file);
+        if(ankiLinkedSnapshot) {
+          const name=String(ankiLinkedSnapshot.deckName||ankiImportFileStem(file.name)).trim() || ankiImportFileStem(file.name);
+          for(const oldName of Object.keys(importedCardsByDeck)) delete importedCardsByDeck[oldName];
+          importedCardsByDeck[name]=ankiLinkedSnapshot.cards.map(card=>({...card}));
+          importedLastIndexByDeck[name]=Number(ankiLinkedSnapshot.lastIndex)||0;
+          linkedLastCardIdByDeck[name]=ankiLinkedSnapshot.lastCardId||null;
+          ankiVerifyRestoredReviewStamps(ankiLinkedSnapshot.cards,importedCardsByDeck[name]);
         }
 
         // Prompt user to select which decks to import (bypass automatically if only 1 deck)
@@ -9309,7 +10317,8 @@ function saveCardEdits() {
             namespace='file_'+(hash>>>0).toString(36)+'_';
           }
           const incoming=matching.flatMap(n=>importedCardsByDeck[n]||[]).map(c=>({
-            ...c,id:(namespace && !String(c.id).startsWith(namespace)) ? namespace+String(c.id) : String(c.id)
+            ...c,id:ankiLinkedSnapshot ? String(c.id) :
+              ((namespace && !String(c.id).startsWith(namespace)) ? namespace+String(c.id) : String(c.id))
           }));
           if(!incoming.length) throw new Error('The original archive has no importable cards for this deck.');
           const oldCards=target.cards||[];
@@ -9322,6 +10331,7 @@ function saveCardEdits() {
               ' cards from the original file? Browser-only edits or review progress may be lost. The source file will not be changed.')) {
             progressContainer.classList.add('hidden');return;
           }
+          if(ankiLinkedSnapshot)ankiVerifyRestoredReviewStamps(ankiLinkedSnapshot.cards,incoming);
           target.cards=incoming;
           // A connected autosave must acknowledge that the disk copy was
           // intentionally reloaded; otherwise its stale timestamp stops saving.
@@ -9340,7 +10350,7 @@ function saveCardEdits() {
           const fileLastId=matching.length===1 ?
             (linkedLastCardIdByDeck[matching[0]] || portableProgress?.decks?.find(d=>d.name===matching[0])?.lastCardId) : null;
           if(fileLastId && incoming.some(c=>ankiImportCardKey(c)===ankiImportCardKey({id:fileLastId})))
-            target.lastCardId=namespace+String(fileLastId);
+            target.lastCardId=ankiLinkedSnapshot ? String(fileLastId) : namespace+String(fileLastId);
           else target.lastCardId=null;
           ankiReconcileStarredDeck();
           const stored=await saveLocalState();
@@ -9362,9 +10372,24 @@ function saveCardEdits() {
           for (const char of sourceFilePath) { hash ^= char.charCodeAt(0); hash = Math.imul(hash, 16777619); }
           const sourceNamespace = (hash >>> 0).toString(36);
           const allCards = selectedDecks.flatMap(name => importedCardsByDeck[name] || [])
-            .map(card => ({...card, id: `file_${sourceNamespace}_${card.id}`}));
+            .map(card => ({...card, id:ankiLinkedSnapshot ? String(card.id) :
+              `file_${sourceNamespace}_${card.id}`}));
           let existing=ankiImportFindExistingDeck(canonicalPath,sourceFingerprint,importedName,allCards);
-          if(existing) {
+          if(existing && ankiLinkedSnapshot) {
+            if(!confirm('This .apkg contains a saved AnkiSync study snapshot from '+
+                (ankiLinkedSnapshot.exportedAt||'an unknown time')+'.\n\n'+
+                'Replace the browser copy of '+existing.name+' with its '+allCards.length+
+                ' saved cards, edits and review progress?\n\n'+
+                'Any newer browser-only edits in this deck will be lost. The original file will NOT be changed.')) {
+              progressContainer.classList.add('hidden'); return;
+            }
+            existing.cards=allCards;
+            existing.lastIndex=Math.min(Math.max(0,Number(ankiLinkedSnapshot.lastIndex)||0),Math.max(0,allCards.length-1));
+            existing.lastCardId=ankiLinkedSnapshot.lastCardId||null;
+            ankiCancelAutosaveTimer(existing.id);
+            const connection=ankiLinkedHandles.get(existing.id);
+            if(connection) {connection.paused=true;connection.verified=false;connection.dirty=false;}
+          } else if(existing) {
             ankiImportMergeCards(existing,allCards);
           } else {
             const deckId = 'deck_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
@@ -9389,13 +10414,42 @@ function saveCardEdits() {
           // actual .apkg filename rather than the embedded Anki deck name.
           // Preserve the internal name as the lookup key for portable progress.
           const importedFileDeckName = file.name.replace(/\.(apkg|colpkg)$/i, '').trim();
-          const targetDeckId = document.getElementById('ankiImportTargetDeck')?.value || '__new__';
+          let targetDeckId = document.getElementById('ankiImportTargetDeck')?.value || '__new__';
+          // A normal PC file import should update the *same* previously loaded
+          // deck when the selected file contains a newer native iPad snapshot.
+          // Never overwrite an existing deck without explicit confirmation.
+          if(targetDeckId==='__new__' && ankiLinkedSnapshot) {
+            const matches=Object.values(appState.decks||{}).filter(d=>
+              !ankiIsStarDeck(d.id) && d.sourceFileName===file.name);
+            if(matches.length===1) {
+              const existing=matches[0];
+              if(confirm('AnkiSync found your existing deck "'+existing.name+'".\n\n'+
+                'Update it with the '+ankiLinkedSnapshot.cards.length+
+                ' saved cards, edits and review progress from '+file.name+'?\n'+
+                'Saved in .apkg: '+(ankiLinkedSnapshot.exportedAt||'unknown')+'\n\n'+
+                'Local-only changes will be replaced. The .apkg itself will NOT be modified.'))
+                targetDeckId=existing.id;
+              else {progressContainer.classList.add('hidden');return;}
+            }
+          }
           if (targetDeckId !== '__new__' && appState.decks[targetDeckId]) {
             const targetDeck = appState.decks[targetDeckId];
             ankiImportedDeckIds.add(String(targetDeckId));
             if (!targetDeck.sourceFileName && /\.apkg$/i.test(file.name)) targetDeck.sourceFileName=file.name;
             if (!Array.isArray(targetDeck.cards)) targetDeck.cards = [];
-            selectedDecks.forEach(deckName => {
+            if(ankiLinkedSnapshot) {
+              // The original iOS archive contains the complete live deck,
+              // rather than incremental card additions. Preserve native IDs.
+              const sourceName=selectedDecks[0];
+              targetDeck.cards=(importedCardsByDeck[sourceName]||[]).map(c=>({...c}));
+              targetDeck.lastIndex=Math.min(Math.max(0,Number(ankiLinkedSnapshot.lastIndex)||0),
+                Math.max(0,targetDeck.cards.length-1));
+              targetDeck.lastCardId=ankiLinkedSnapshot.lastCardId||null;
+              targetDeck.sourceFileName=file.name;
+              targetDeck.sourceFingerprint=await ankiImportFingerprintFile(file);
+              const connection=ankiLinkedHandles.get(targetDeckId);
+              if(connection) {connection.paused=true;connection.verified=false;connection.dirty=false;ankiCancelAutosaveTimer(targetDeckId);}
+            } else selectedDecks.forEach(deckName => {
               // Re-import of the same AnkiSync cards updates their progress
               // without creating duplicate cards in the destination deck.
               const knownCards = new Map(targetDeck.cards.map((card, index) =>
@@ -9418,9 +10472,11 @@ function saveCardEdits() {
                 if (storedDeck && storedDeck.lastCardId) targetDeck.lastCardId = storedDeck.lastCardId;
               }
             });
-            showToast(portableProgress
-              ? 'Imported cards and their saved AnkiSync review progress.'
-              : `Added ${selectedDecks.reduce((n, name) => n + importedCardsByDeck[name].length, 0)} cards to "${targetDeck.name}". Existing cards were kept.`);
+            showToast(ankiLinkedSnapshot ?
+              'Restored '+targetDeck.cards.length+' cards and iPad saved state from '+
+                (ankiLinkedSnapshot.exportedAt||file.name) :
+              (portableProgress ? 'Imported cards and their saved AnkiSync review progress.' :
+                `Added ${selectedDecks.reduce((n, name) => n + importedCardsByDeck[name].length, 0)} cards to "${targetDeck.name}". Existing cards were kept.`));
           } else {
             selectedDecks.forEach(deckName => {
               // A full-library APKG can contain Starred Cards as an ordinary
@@ -9455,9 +10511,20 @@ function saveCardEdits() {
                   : {})
               };
             });
-            showToast("Selected decks imported successfully!");
+            showToast(ankiLinkedSnapshot ?
+              'Imported iPad saved state: '+ankiLinkedSnapshot.cards.length+' cards · '+
+                (ankiLinkedSnapshot.exportedAt||'date unknown') :
+              'Selected decks imported successfully!');
           }
-          saveLocalState();
+          if(ankiLinkedSnapshot) {
+            const matched=[...ankiImportedDeckIds].map(id=>appState.decks[id]).find(deck=>
+              deck && (deck.cards||[]).length===ankiLinkedSnapshot.cards.length &&
+              (deck.cards||[]).some(card=>String(card.id)===String(ankiLinkedSnapshot.cards[0].id)));
+            if(!matched)throw new Error('iPad saved-state deck was not found after import. Your original file was unchanged.');
+            ankiVerifyRestoredReviewStamps(ankiLinkedSnapshot.cards,matched.cards);
+          }
+          const importStored=await saveLocalState();
+          if(!importStored)alert('The imported review stamps were read, but browser storage could not save them. Keep your source .apkg and do not refresh the page until you make a backup.');
           renderDecks();
           refreshAnkiImportDeckOptions();
         }
@@ -9747,5 +10814,469 @@ function updateDeckCategory(deckId, newCategory) {
     window.addEventListener('DOMContentLoaded', setupFloatingEditButton);
 
   </script>
+<script id="ankisync-sync-merge-core">
+/* AnkiSync v1 three-way merge core: pure and independent from browser APIs.
+   Changes to the same field on different devices are NEVER chosen silently. */
+(function(root, factory) {
+  const core=factory();
+  if(typeof module==='object' && module.exports)module.exports=core;
+  if(root)root.AnkiSyncMergeCore=core;
+})(typeof window!=='undefined'?window:(typeof globalThis!=='undefined'?globalThis:null),function(){
+  'use strict';
+  const MISSING='~AnkiSync:MISSING:v1~';
+  const clone=x=> x===undefined?undefined:JSON.parse(JSON.stringify(x));
+  function canonical(x){
+    if(x===undefined)return MISSING;
+    if(x===null||typeof x!=='object')return JSON.stringify(x);
+    if(Array.isArray(x))return '['+x.map(canonical).join(',')+']';
+    return '{'+Object.keys(x).sort().map(k=>JSON.stringify(k)+':'+canonical(x[k])).join(',')+'}';
+  }
+  function hash(x){
+    const str=canonical(x);
+    let a=2166136261,b=5381;
+    for(let i=0;i<str.length;i++){
+      const c=str.charCodeAt(i);
+      a=Math.imul(a^c,16777619);b=Math.imul(b,33)^c;
+    }
+    return str.length.toString(36)+':'+(a>>>0).toString(36)+':'+(b>>>0).toString(36);
+  }
+  const has=(obj,key)=>!!obj&&Object.prototype.hasOwnProperty.call(obj,key);
+  function fingerprint(card){
+    const fields={};
+    for(const [k,v] of Object.entries(card||{}))if(k!=='id')fields[k]=hash(v);
+    return fields;
+  }
+  function baseline(cards){
+    const map={};
+    for(const card of cards||[]){
+      const id=String(card.id);
+      if(has(map,id))throw Error('Duplicate card ID '+id+'; sync blocked.');
+      map[id]=fingerprint(card);
+    }
+    return map;
+  }
+  function uniqueMap(cards){
+    const map=new Map();
+    for(const c of cards||[]){
+      if(!c||c.id===undefined||c.id===null)throw Error('Missing card ID; sync blocked.');
+      const id=String(c.id);
+      if(map.has(id))throw Error('Duplicate card ID '+id+'; sync blocked.');
+      map.set(id,c);
+    }
+    return map;
+  }
+  function merge(base,locals,remotes,resolution={}){
+    const l=uniqueMap(locals),r=uniqueMap(remotes), b=base||{};
+    const ids=new Set([...Object.keys(b),...r.keys(),...l.keys()]);
+    const conflicts=[],merged=[];
+    function decide(id,field,left,right,baselineHash){
+      const key=JSON.stringify([id,field]);
+      const sel=resolution[key];
+      if(sel==='local')return {value:left};
+      if(sel==='cloud')return {value:right};
+      conflicts.push({key,cardId:id,field,local:clone(left),cloud:clone(right),baseHash:baselineHash,localHash:hash(left),cloudHash:hash(right)});
+      return {value:left};
+    }
+    for(const id of ids){
+      const old=has(b,id)?b[id]:null;
+      const left=l.get(id),right=r.get(id);
+      if(!left&&!right)continue;
+      if(!left||!right){
+        const exists=left||right;
+        if(!old){merged.push(clone(exists));continue;}
+        const unchanged=Object.keys({...old,...fingerprint(exists)}).every(k=>
+          (old[k]||hash(undefined))===hash(exists[k]));
+        if(unchanged)continue; // one device deleted an otherwise unchanged card
+        const choice=decide(id,'__card__',left,right,hash(old));
+        if(choice.value)merged.push(clone(choice.value));
+        continue;
+      }
+      const next={id:left.id};
+      const fields=new Set([...Object.keys(old||{}),...Object.keys(left),...Object.keys(right)]);
+      fields.delete('id');
+      for(const field of fields){
+        const lv=has(left,field)?left[field]:undefined,rv=has(right,field)?right[field]:undefined;
+        const lh=hash(lv),rh=hash(rv);
+        if(lh===rh){if(lv!==undefined)next[field]=clone(lv);continue;}
+        if(!old){
+          const result=decide(id,field,lv,rv,MISSING);
+          if(result.value!==undefined)next[field]=clone(result.value);
+          continue;
+        }
+        const bh=old[field]||hash(undefined);
+        if(lh===bh){if(rv!==undefined)next[field]=clone(rv);continue;}
+        if(rh===bh){if(lv!==undefined)next[field]=clone(lv);continue;}
+        const result=decide(id,field,lv,rv,bh);
+        if(result.value!==undefined)next[field]=clone(result.value);
+      }
+      merged.push(next);
+    }
+    // Keep iCloud order for existing cards, then append locally added cards.
+    const order=new Map((remotes||[]).map((c,i)=>[String(c.id),i]));
+    merged.sort((a,b)=>(order.get(String(a.id))??Infinity)-(order.get(String(b.id))??Infinity));
+    return {cards:merged,conflicts};
+  }
+  function sameCards(a,b){
+    const aa=uniqueMap(a),bb=uniqueMap(b);
+    if(aa.size!==bb.size)return false;
+    for(const [id,c] of aa)if(!bb.has(id)||hash(c)!==hash(bb.get(id)))return false;
+    return true;
+  }
+  return {hash,baseline,merge,sameCards,clone,canonical};
+});
+
+</script>
+<script id="ankisync-sync-controller">
+/* AnkiSync v1: opt-in verified iCloud .apkg synchronization.
+ * Keeps the original UI and Anki archive, merges changes at field level,
+ * and never resolves simultaneous edits without asking the user.
+ */
+(function(){
+'use strict';
+const core=window.AnkiSyncMergeCore;
+if(!core)return;
+const jobs=new Map(),pending=new Map(),dirtyTimers=new Map(),timeBetweenChecks=60000;
+let suppress=false,isCommitting=false, timer=null;
+const status=new Map();
+const clone=core.clone;
+const STAR='anki_starred_cards_collection_v1';
+function isEnabled(id){return !!appState?.decks?.[id]?.ankiAutoSync?.enabled;}
+function linked(id){
+  if(window.AnkiNative?.available){
+    const e=window.AnkiNative.links.get(String(id));
+    return e&&!e.paused&&e.path&&e.sha256?{type:'native',entry:e,path:e.path}:null;
+  }
+  const e=id===STAR?ankiStarExportLink:ankiLinkedHandles.get(id);
+  return e&&!e.paused&&e.verified&&e.handle?{type:'browser',entry:e,path:e.handle.name}:null;
+}
+function isEditing(){
+  return ['studyEditMode','quickAddModal'].some(id=>{
+    const el=document.getElementById(id);
+    return el&&!el.classList.contains('hidden')&&getComputedStyle(el).display!=='none';
+  });
+}
+function setStatus(id,message){
+  status.set(String(id),message);
+  const el=document.getElementById('ankiSyncState-'+id);
+  if(el)el.textContent=message;
+}
+function label(id){
+  const state=appState?.decks?.[id]?.ankiAutoSync;
+  if(!state?.enabled)return 'Automatic sync: OFF';
+  return status.get(String(id)) || (state.lastSyncedAt?
+    'Sync ON · last verified '+new Date(state.lastSyncedAt).toLocaleTimeString():'Sync ON · awaiting first check');
+}
+async function readRemote(id,link){
+  let file;
+  if(link.type==='native')file=await window.AnkiNative.readFile(link.path);
+  else file=await link.entry.handle.getFile();
+  const zip=await ankiValidateZipBlob(file);
+  let snapshot;
+  const entry=zip.file('ankisync-linked-state.json');
+  if(!entry)throw Error('The linked .apkg does not contain an AnkiSync synchronized-card snapshot. '+
+    'Do not overwrite it. First open/export a current AnkiSync .apkg with its review timestamps, then reconnect.');
+  try{snapshot=JSON.parse(await entry.async('string'));}
+  catch(err){throw Error('iCloud has an unreadable saved-state manifest; sync stopped: '+err.message);}
+  if(snapshot?.format!=='AnkiSyncLinkedDeckState'||snapshot.version!==1||
+     !Array.isArray(snapshot.cards)||snapshot.cards.some(c=>c?.id==null||typeof c.front!=='string'||typeof c.back!=='string'))
+    throw Error('The linked file has an invalid or incompatible card/review snapshot. Sync stopped.');
+  if(id!==STAR && snapshot.sourceFileName && appState.decks[id]?.sourceFileName &&
+     snapshot.sourceFileName!==appState.decks[id].sourceFileName)
+    throw Error('The linked .apkg snapshot belongs to a different original file: '+snapshot.sourceFileName);
+  if(id===STAR){
+    const marker=zip.file('ankisync-starred-links.json');
+    if(!marker)throw Error('The linked Starred Cards file has no independent collection marker.');
+    const m=JSON.parse(await marker.async('string'));
+    if(m?.format!=='AnkiSyncStarredIndependentCollection'||m.version!==2)
+      throw Error('An older Starred Cards format cannot be automatically synchronized.');
+  }
+  const contentHash=core.hash(snapshot.cards);
+  return {file,snapshot,contentHash};
+}
+async function persist(id){
+  suppress=true;
+  try{
+    const stored=await saveLocalState();
+    if(stored!==true)throw Error('Browser storage could not verify a durable local backup. Automatic synchronization stopped; original file not overwritten.');
+  }
+  finally{suppress=false;}
+}
+function refreshVisibleCards(id){
+  renderDecks();
+  if(appState.activeStudyDeckId!==id)return;
+  const byId=new Map((appState.decks[id]?.cards||[]).map(c=>[String(c.id),c]));
+  const previous=appState.studyQueue?.[appState.studyIndex];
+  const selectedId=previous?.id==null?null:String(previous.id);
+  appState.studyQueue=(appState.studyQueue||[]).map(c=>byId.get(String(c.id))).filter(Boolean);
+  if(!appState.studyQueue.length){if(typeof ankiShowDueWaiting==='function')ankiShowDueWaiting();return;}
+  let idx=appState.studyQueue.findIndex(c=>String(c.id)===selectedId);
+  appState.studyIndex=idx>=0?idx:Math.min(appState.studyIndex,appState.studyQueue.length-1);
+  if(!isEditing()){
+    if(typeof renderSidebarList==='function')renderSidebarList();
+    if(typeof showStudyCard==='function')showStudyCard();
+  }
+}
+async function verifiedCloudRecovery(id,file){
+  if(!ankiSourceFolderHandle ||
+     await ankiSourceFolderHandle.queryPermission({mode:'readwrite'})!=='granted')
+    throw Error('A newer iCloud file was detected but IndexedDB is unavailable. To safely upload merged changes, connect the iCloud Anki FOLDER using the PC source-folder control and grant write access. This allows a verified pre-merge backup. No original was overwritten.');
+  const dir=await ankiSourceFolderHandle.getDirectoryHandle('AnkiSync-Recovery',{create:true});
+  const now=new Date().toISOString().replace(/[:.]/g,'-');
+  const safe=(file.name||'deck.apkg').replace(/[^a-z0-9.() _-]/gi,'_');
+  const filename='PRE-MERGE '+now+' '+String(id).replace(/[^a-z0-9_-]/gi,'').slice(0,16)+' '+safe;
+  const handle=await dir.getFileHandle(filename,{create:true});
+  const writer=await handle.createWritable({keepExistingData:false});
+  try{await writer.write(file);await writer.close();}
+  catch(e){try{await writer.abort();}catch(_){ }throw e;}
+  const back=await handle.getFile();
+  if(back.size!==file.size)throw Error('Cloud recovery backup size verification failed.');
+  if(!window.crypto?.subtle)throw Error('Recovery needs SHA-256 verification; no original was overwritten.');
+  const [a,b]=await Promise.all([crypto.subtle.digest('SHA-256',await file.arrayBuffer()),
+    crypto.subtle.digest('SHA-256',await back.arrayBuffer())]);
+  if(core.hash([...new Uint8Array(a)])!==core.hash([...new Uint8Array(b)]))
+    throw Error('Cloud recovery backup checksum mismatch; no original was overwritten.');
+  return filename;
+}
+async function verifiedCommit(id,link,remote,expectedCards){
+  // Never overwrite the shared original if this device has not durably saved
+  // its own candidate copy and review history first.
+  await persist(id);
+  const before=remote.file;
+  isCommitting=true;
+  try{
+    if(link.type==='native'){
+      // Existing iOS native linkFile already makes a SHA-256-verified copy of
+      // the current original. We re-authorize that SAME path and re-read its
+      // exact saved state; this needs no new Swift bridge action or IPA build.
+      const updated=await window.AnkiNative.advanceLink(id,link.path);
+      link.entry.sha256=updated.sha256;
+      const fresh=await readRemote(id,link);
+      if(fresh.contentHash!==remote.contentHash)
+        throw Error('iCloud changed while securing its recovery backup. Merge again before writing.');
+      link.entry.dirty=true;
+      // Call the original native save; the sync guard sees isCommitting=true.
+      await window.AnkiNative.saveDeck(id,true);
+      if(link.entry.paused)throw Error('Native original-file save paused. See its warning.');
+    }else{
+      // Explicitly retain a verified version of the remotely updated archive.
+      if(!idbDB){
+        // The linked original already has its initial verified backup. An
+        // external version additionally gets its own checked recovery file.
+        await verifiedCloudRecovery(id,before);
+      }else if(id!==STAR){
+        await ankiBackupOriginalOnce(id,before);
+      }else{
+        await ankiStarRetainRecovery(before,link.entry);
+      }
+      link.entry.lastDiskStamp=ankiFileStamp(before);
+      link.entry.dirty=true;
+      if(id===STAR)await ankiStarExportNow(true);
+      else await ankiAutosaveNow(id,true);
+      if(link.entry.paused)throw Error('Browser original-file autosave paused.');
+    }
+    // Readback checks the WHOLE saved card state, including exact dueAt stamps.
+    const check=await readRemote(id,link);
+    if(!core.sameCards(check.snapshot.cards,expectedCards))
+      throw Error('Post-save review/card verification did not match. Sync paused to protect progress.');
+    return check;
+  }finally{isCommitting=false;}
+}
+function collectCurrent(id){return appState.decks[id]?.cards||[];}
+function unresolvedModal(id,conflicts){
+  document.getElementById('ankiSyncConflictModal')?.remove();
+  const bg=document.createElement('div');bg.id='ankiSyncConflictModal';
+  bg.className='fixed inset-0 z-[200] bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4';
+  const panel=document.createElement('div');
+  panel.className='bg-slate-800 border border-rose-500/50 rounded-2xl max-w-xl w-full p-5 shadow-2xl space-y-3';
+  panel.innerHTML='<h2 class="text-base font-bold text-rose-300">Sync conflict — no files overwritten</h2>'+
+    '<p class="text-xs text-slate-300">'+conflicts.length+' field conflict(s) in '+
+    ankiEscapeHtml(appState.decks[id]?.name||'deck')+'. Both versions have been kept. Choose which changes to keep for the conflicting fields. Unrelated edits are merged automatically.</p>'+
+    '<div class="text-xs text-slate-300 max-h-48 overflow-y-auto" id="ankiSyncConflictList"></div>'+
+    '<div class="flex flex-wrap gap-2"><button type="button" data-choice="local" class="px-3 py-2 rounded-lg bg-indigo-600 text-white text-xs font-semibold">Keep this device for conflicts</button>'+
+    '<button type="button" data-choice="cloud" class="px-3 py-2 rounded-lg bg-amber-600 text-white text-xs font-semibold">Keep iCloud for conflicts</button>'+
+    '<button type="button" data-choice="export" class="px-3 py-2 rounded-lg bg-slate-600 text-white text-xs">Export conflict record</button>'+
+    '<button type="button" data-choice="cancel" class="px-3 py-2 rounded-lg bg-slate-700 text-white text-xs">Decide later</button></div>';
+  panel.querySelector('#ankiSyncConflictList').textContent=conflicts.slice(0,25).map(c=>
+    'Card '+c.cardId+' · '+(c.field==='reviewData'?'review schedule':c.field)).join('\n')+
+    (conflicts.length>25?'\n…and '+(conflicts.length-25)+' more':'' );
+  panel.querySelector('#ankiSyncConflictList').style.whiteSpace='pre-wrap';
+  panel.addEventListener('click',async ev=>{
+    const b=ev.target.closest('button[data-choice]');if(!b)return;
+    const choice=b.dataset.choice;
+    if(choice==='export'){
+      const data={version:1,at:new Date().toISOString(),deck:appState.decks[id]?.name,conflicts};
+      const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));
+      const a=document.createElement('a');a.href=url;a.download='AnkiSync-CONFLICT-'+Date.now()+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),3000);return;
+    }
+    if(choice==='cancel'){bg.remove();return;}
+    if(!confirm('Apply '+(choice==='local'?'THIS DEVICE':'ICLOUD')+' version for '+conflicts.length+
+        ' conflicting field(s)?\n\nOnly after choosing will AnkiSync attempt a verified save. You can export the conflict record first.'))return;
+    bg.remove();
+    try{await resolve(id,choice);}catch(err){alert('Conflict resolution not applied: '+err.message);}
+  });
+  bg.appendChild(panel);document.body.appendChild(bg);
+}
+async function resolve(id,choice){
+  const item=pending.get(id);if(!item)throw Error('Conflict comparison is no longer available. Run Sync Now again.');
+  pending.delete(id);
+  const deck=appState.decks[id];
+  if(!deck)throw Error('Deck was deleted.');
+  const link=linked(id);if(!link)throw Error('Original file is no longer linked.');
+  // Re-read before user selection is committed: even a new cloud change while
+  // the conflict dialog is open must NOT be overwritten.
+  const remote=await readRemote(id,link);
+  if(remote.contentHash!==item.remoteHash){
+    setStatus(id,'Cloud changed while resolving · retry');
+    return syncNow(id,true);
+  }
+  const selections=Object.fromEntries(item.conflicts.map(c=>[c.key,choice]));
+  const merged=core.merge(item.base,deck.cards,remote.snapshot.cards,selections);
+  if(merged.conflicts.length)throw Error('New conflicts appeared. Recheck the deck.');
+  deck.ankiAutoSync.conflictHistory=(deck.ankiAutoSync.conflictHistory||[]).concat([{at:Date.now(),choice,conflicts:item.conflicts}]);
+  deck.cards=merged.cards;
+  await persist(id);
+  refreshVisibleCards(id);
+  const check=core.sameCards(merged.cards,remote.snapshot.cards)?remote:
+    await verifiedCommit(id,link,remote,merged.cards);
+  deck.ankiAutoSync.base=core.baseline(check.snapshot.cards);
+  deck.ankiAutoSync.enabled=true;
+  deck.ankiAutoSync.lastSyncedAt=Date.now();
+  await persist(id);
+  setStatus(id,'Synced · conflicts resolved '+new Date().toLocaleTimeString());
+  pending.delete(id);renderDecks();
+}
+async function syncNow(id,manual=false){
+  id=String(id);
+  if(jobs.has(id))return jobs.get(id);
+  if(pending.has(id)&&!manual)return; // Wait for explicit conflict decision.
+  const deck=appState.decks[id];if(!deck)return;
+  const link=linked(id);
+  if(!link){setStatus(id,'Sync unavailable · link original and enable safe autosave');return;}
+  if(isEditing()){
+    setStatus(id,'Sync waiting for card editor to close');return;
+  }
+  const task=(async()=>{
+    let state=deck.ankiAutoSync;
+    if(!state?.enabled){if(manual)alert('Enable Sync on this deck before attempting synchronization.');return;}
+    setStatus(id,'Checking iCloud and comparing card edits…');
+    const remote=await readRemote(id,link);
+    // Fail closed on mismatched imported card identities. Otherwise a deck
+    // reimported with different IDs could double every card instead of merging.
+    const current=collectCurrent(id);
+    if(current.length>=5 && remote.snapshot.cards.length>=5){
+      const keys=new Set(current.map(c=>String(c.id)));
+      const shared=remote.snapshot.cards.filter(c=>keys.has(String(c.id))).length;
+      const smaller=Math.min(keys.size,remote.snapshot.cards.length);
+      if(shared/smaller<0.5)throw Error('The PC and iPad deck IDs do not match ('+shared+
+        ' of '+smaller+' shared). Automatic sync is blocked to prevent duplicate cards. '+
+        'Re-import the same up-to-date .apkg on both devices before enabling sync.');
+    }
+    if(id===STAR){
+      const localSource=new Map();
+      for(const c of current){
+        const key=c.starredSourceDeckId!=null && c.starredSourceCardId!=null?
+          String(c.starredSourceDeckId)+'\u0000'+String(c.starredSourceCardId):null;
+        if(key)localSource.set(key,String(c.id));
+      }
+      for(const c of remote.snapshot.cards){
+        const key=c.starredSourceDeckId!=null && c.starredSourceCardId!=null?
+          String(c.starredSourceDeckId)+'\u0000'+String(c.starredSourceCardId):null;
+        if(key && localSource.has(key) && localSource.get(key)!==String(c.id))
+          throw Error('Two devices created different Starred copies of the SAME source card. '+
+            'Sync paused to avoid duplicates. Keep one copy in the Starred deck, then run Sync Now again.');
+      }
+    }
+    const base=state?.base||{};
+    const comparison=core.merge(base,collectCurrent(id),remote.snapshot.cards);
+    if(comparison.conflicts.length){
+      pending.set(id,{base,remoteHash:remote.contentHash,conflicts:comparison.conflicts});
+      setStatus(id,comparison.conflicts.length+' conflict(s) · original not overwritten');
+      unresolvedModal(id,comparison.conflicts);
+      return;
+    }
+    if(!state){state=deck.ankiAutoSync={version:1,enabled:true};}
+    const needPush=!core.sameCards(comparison.cards,remote.snapshot.cards);
+    const needPull=!core.sameCards(comparison.cards,deck.cards);
+    if(needPull){
+      deck.cards=comparison.cards;
+      await persist(id);
+      refreshVisibleCards(id);
+    }
+    const final=needPush?await verifiedCommit(id,link,remote,comparison.cards):remote;
+    state.base=core.baseline(final.snapshot.cards);
+    state.enabled=true;
+    state.lastSyncedAt=Date.now();
+    delete state.dirtySince;
+    await persist(id);
+    setStatus(id,(needPush?'Uploaded and verified':needPull?'Downloaded and merged':'Up to date')+
+      ' · '+new Date().toLocaleTimeString());
+    if(manual)showToast('AnkiSync · '+status.get(id));
+    renderDecks();
+  })().catch(err=>{
+    console.error('AnkiSync automatic merge stopped',id,err);
+    setStatus(id,'Sync held safely: '+(err.message||err));
+    if(manual)alert('AnkiSync did not overwrite the original:\n'+(err.message||err));
+  }).finally(()=>jobs.delete(id));
+  jobs.set(id,task);return task;
+}
+async function toggle(id){
+  const deck=appState.decks?.[id];if(!deck)return;
+  if(deck.ankiAutoSync?.enabled){
+    deck.ankiAutoSync.enabled=false;pending.delete(id);
+    if(dirtyTimers.has(id)){clearTimeout(dirtyTimers.get(id));dirtyTimers.delete(id);}
+    await persist(id);setStatus(id,'Automatic sync: OFF (original autosave unchanged)');
+    renderDecks();return;
+  }
+  const link=linked(id);
+  if(!link){alert('First use Link Original for Autosave on this tile and make sure its connection dot is green. Sync cannot write an unlinked original.');return;}
+  if(!confirm('Enable automatic two-way synchronization for '+deck.name+'?\n\n'+
+     'Both devices must run the updated AnkiSync versions. The first comparison will NEVER overwrite a disagreement without asking. Sync runs while AnkiSync is open; keep your .apkg backups.'))return;
+  if(link.type==='native')window.AnkiNative.cancelTimer(id);
+  else if(id===STAR)ankiStarCancelExportTimer();
+  else ankiCancelAutosaveTimer(id);
+  deck.ankiAutoSync=deck.ankiAutoSync||{version:1,base:{}};
+  deck.ankiAutoSync.enabled=true;
+  try{await persist(id);}catch(err){
+    deck.ankiAutoSync.enabled=false;
+    alert('Cannot enable synchronization safely: '+err.message);return;
+  }
+  renderDecks();
+  await syncNow(id,true);
+}
+function dirty(id){
+  if(suppress||isCommitting)return;
+  const state=appState.decks?.[id]?.ankiAutoSync;
+  if(!state?.enabled)return;
+  setStatus(id,'Local changes pending · sync scheduled');
+  if(!state.dirtySince)state.dirtySince=Date.now();
+  // Debounce, independent of the legacy single-device .apkg save timer.
+  if(dirtyTimers.has(id))clearTimeout(dirtyTimers.get(id));
+  dirtyTimers.set(id,setTimeout(()=>{dirtyTimers.delete(id);void syncNow(id,false);},4500));
+}
+function onReady(){
+  if(timer)clearInterval(timer);
+  timer=setInterval(()=>{
+    if(document.visibilityState==='hidden')return;
+    for(const id of Object.keys(appState.decks||{}))if(isEnabled(id))void syncNow(id,false);
+  },timeBetweenChecks);
+  window.addEventListener('focus',()=>{
+    for(const id of Object.keys(appState.decks||{}))if(isEnabled(id))void syncNow(id,false);
+  });
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='visible')
+      for(const id of Object.keys(appState.decks||{}))if(isEnabled(id))void syncNow(id,false);
+  });
+  // On launch resume syncing only decks whose original file access was restored.
+  setTimeout(()=>{
+    for(const id of Object.keys(appState.decks||{}))if(isEnabled(id))void syncNow(id,false);
+  },3500);
+}
+window.AnkiSyncAuto={enabledFor:isEnabled,syncNow,toggle,dirty,label,onReady,
+  get isCommitting(){return isCommitting;}, get suppress(){return suppress;},
+  // Read-only diagnostics for testing and error investigation.
+  getConflicts:id=>pending.get(id)?.conflicts||[]};
+})();
+
+</script>
 </body>
 </html>
